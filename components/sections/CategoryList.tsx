@@ -46,7 +46,7 @@ export default function CategoryList({ items, categoryName, viewAllLink, activeT
             <Link
               key={item.id}
               href={`/business/${item.id}`}
-              className="group rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-[#2563EB] p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4"
+              className="group rounded-2xl bg-surface-container-lowest border border-surface-container p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4"
             >
               <div className="w-full sm:w-40 shrink-0 h-40 sm:h-40 rounded-xl overflow-hidden bg-surface-container">
                 <img
