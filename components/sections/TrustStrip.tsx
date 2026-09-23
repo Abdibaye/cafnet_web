@@ -15,7 +15,7 @@ export default function TrustStrip() {
   };
 
   return (
-    <section className="border-y border-surface-container bg-surface-container-lowest py-4">
+    <section className="bg-surface-container-lowest py-4">
       <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-wrap items-center justify-center gap-2 text-center text-body-md text-sm text-on-surface-variant">
         <span className="text-on-surface-variant/90">
           It looks like you&apos;re around <strong className="font-semibold text-on-surface">Bole</strong>. If not
