@@ -31,16 +31,36 @@ const restaurants = [
     reviews: 620,
     tags: ["Credit card accepted", "Non-smoking", "Cocktail lounge", "Reservations recommended"],
   },
-  {
-    id: 4,
-    name: "Tana Fresh Fish & Dullet House",
-    image: "/images/placeholder4.jpeg",
-    location: "Old Airport, 310m",
-    description: "Lake Tana Tilapia, Seafood, Asa Dullet",
-    rating: 9.3,
-    reviews: 512,
-    tags: ["Daily fresh catch", "Fasting vegan options", "Family friendly", "Parking available"],
-  },
+   {
+     id: 4,
+     name: "Tana Fresh Fish & Dullet House",
+     image: "/images/placeholder4.jpeg",
+     location: "Old Airport, 310m",
+     description: "Lake Tana Tilapia, Seafood, Asa Dullet",
+     rating: 9.3,
+     reviews: 512,
+     tags: ["Daily fresh catch", "Fasting vegan options", "Family friendly", "Parking available"],
+   },
+   {
+     id: 5,
+     name: "Burger Haven",
+     image: "/images/burgre.jpg",
+     location: "Bole, 500m",
+     description: "Gourmet Burgers, Fries, Shakes",
+     rating: 9.2,
+     reviews: 480,
+     tags: ["Credit card accepted", "Wi-Fi available", "Family friendly", "Outdoor seating"],
+   },
+   {
+     id: 6,
+     name: "Pizza Paradise",
+     image: "/images/pizza.jpg",
+     location: "Kazanchis, 200m",
+     description: "Woodfired Pizza, Pasta, Salads",
+     rating: 9.1,
+     reviews: 450,
+     tags: ["Credit card accepted", "Non-smoking", "Delivery available", "Vegan options"],
+   },
 ];
 
 export default function FeaturedRestaurants() {
@@ -64,29 +84,30 @@ export default function FeaturedRestaurants() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {restaurants.map((restaurant) => (
-            <article
-              key={restaurant.id}
-              className="group rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-[#2563EB] p-5 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-5"
-            >
-               <div className="w-full sm:w-48 shrink-0 h-48 sm:h-48 rounded-xl overflow-hidden bg-surface-container">
-                 <img
-                   alt={`${restaurant.name} dining`}
-                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                   src={restaurant.image}
-                 />
-               </div>
-              <div className="flex-1 min-w-0 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2.5">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-headline-sm text-base font-bold text-on-surface group-hover:text-[#2563EB] transition-colors truncate">
-                        <Link href={`/restaurants/${restaurant.id}`}>{restaurant.name}</Link>
-                      </h3>
-                      <p className="text-xs text-on-surface-variant truncate mt-0.5">
-                        {restaurant.location} / {restaurant.description}
-                      </p>
-                    </div>
-                  </div>
+               <Link
+               key={restaurant.id}
+               href={`/business/${restaurant.id}`}
+               className="group rounded-2xl bg-surface-container-lowest border border-surface-container hover:border-[#2563EB] p-5 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-5"
+             >
+                <div className="w-full sm:w-48 shrink-0 h-48 sm:h-48 rounded-xl overflow-hidden bg-surface-container">
+                  <img
+                    alt={`${restaurant.name} dining`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    src={restaurant.image}
+                  />
+                </div>
+               <div className="flex-1 min-w-0 flex flex-col justify-between">
+                 <div className="space-y-2">
+                   <div className="flex items-start gap-2.5">
+                     <div className="min-w-0 flex-1">
+                       <h3 className="font-headline-sm text-base font-bold text-on-surface group-hover:text-[#2563EB] transition-colors truncate">
+                         {restaurant.name}
+                       </h3>
+                       <p className="text-xs text-on-surface-variant truncate mt-0.5">
+                         {restaurant.location} / {restaurant.description}
+                       </p>
+                     </div>
+                   </div>
                   <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
                     <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#E05A47]/15 text-[#E05A47] font-bold text-xs">
                       <span
@@ -101,18 +122,18 @@ export default function FeaturedRestaurants() {
                     <span className="text-on-surface-variant text-xs">({restaurant.reviews} reviews)</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-surface-container/60">
-                  {restaurant.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-0.5 rounded border border-surface-container-high text-[11px] text-on-surface-variant font-medium bg-surface-container-lowest"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </article>
+                 <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-surface-container/60">
+                   {restaurant.tags.map((tag, index) => (
+                     <span
+                       key={index}
+                       className="px-2 py-0.5 rounded border border-surface-container-high text-[11px] text-on-surface-variant font-medium bg-surface-container-lowest"
+                     >
+                       {tag}
+                     </span>
+                   ))}
+                 </div>
+               </div>
+             </Link>
           ))}
         </div>
       </div>

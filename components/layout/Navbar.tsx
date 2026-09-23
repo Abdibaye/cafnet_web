@@ -5,14 +5,19 @@ import { useState } from "react";
 
 export default function Navbar() {
   const [language, setLanguage] = useState("English");
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const toggleLanguage = () => {
     setLanguage(language === "English" ? "Oromo" : "English");
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest border-b border-surface-container shadow-[0_1px_8px_rgba(30,35,42,0.06)]">
-      <div className="w-full border-b border-surface-container/60 bg-surface-container-lowest">
+     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-surface-container shadow-[0_1px_8px_rgba(30,35,42,0.06)]">
+       <div className="w-full border-b border-surface-container/60 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-12 py-1.5 flex items-center justify-between text-body-sm text-[12px] text-on-surface-variant">
           <div className="text-on-surface-variant/80 font-body-sm">
             Ethiopia&apos;s No. 1* Restaurant Listing and Reservation Site.
@@ -45,55 +50,59 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-end justify-center gap-6 lg:gap-8 self-stretch shrink-0">
-          <Link
-            className="group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all text-[#2563EB] border-b-2 border-[#2563EB]"
-            href="/restaurants"
-          >
-            <span className="material-symbols-outlined text-[26px] mb-1 text-[#2563EB] transition-transform group-hover:scale-110">
-              restaurant
-            </span>
-            <span className="font-label-md text-[13px] font-semibold tracking-tight whitespace-nowrap">
-              Restaurants
-            </span>
-          </Link>
-          
-          <Link
-            className="group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"
-            href="/cafes"
-          >
-            <span className="material-symbols-outlined text-[26px] mb-1 text-outline group-hover:text-[#2563EB] transition-transform group-hover:scale-110">
-              local_cafe
-            </span>
-            <span className="font-label-md text-[13px] font-medium tracking-tight whitespace-nowrap">
-              Cafés
-            </span>
-          </Link>
-          
-          <Link
-            className="group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"
-            href="/quick-bites"
-          >
-            <span className="material-symbols-outlined text-[26px] mb-1 text-outline group-hover:text-[#2563EB] transition-transform group-hover:scale-110">
-              lunch_dining
-            </span>
-            <span className="font-label-md text-[13px] font-medium tracking-tight whitespace-nowrap">
-              Quick Bites
-            </span>
-          </Link>
-          
-          <Link
-            className="group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"
-            href="/drinks"
-          >
-            <span className="material-symbols-outlined text-[26px] mb-1 text-outline group-hover:text-[#2563EB] transition-transform group-hover:scale-110">
-              local_bar
-            </span>
-            <span className="font-label-md text-[13px] font-medium tracking-tight whitespace-nowrap">
-              Drinks & More
-            </span>
-          </Link>
-        </nav>
+         <nav className="hidden md:flex items-end justify-center gap-6 lg:gap-8 self-stretch shrink-0">
+           <Link
+             className={`group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all ${activeTab === "restaurants" ? "text-[#2563EB] border-b-2 border-[#2563EB]" : "text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"}`}
+             href="/restaurants"
+             onClick={() => handleTabChange("restaurants")}
+           >
+             <span className={`material-symbols-outlined text-[26px] mb-1 ${activeTab === "restaurants" ? "text-[#2563EB]" : "text-outline group-hover:text-[#2563EB]"} transition-transform group-hover:scale-110`}>
+               restaurant
+             </span>
+             <span className={`font-label-md text-[13px] ${activeTab === "restaurants" ? "font-semibold" : "font-medium"} tracking-tight whitespace-nowrap`}>
+               Restaurants
+             </span>
+           </Link>
+           
+           <Link
+             className={`group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all ${activeTab === "cafes" ? "text-[#2563EB] border-b-2 border-[#2563EB]" : "text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"}`}
+             href="/cafes"
+             onClick={() => handleTabChange("cafes")}
+           >
+             <span className={`material-symbols-outlined text-[26px] mb-1 ${activeTab === "cafes" ? "text-[#2563EB]" : "text-outline group-hover:text-[#2563EB]"} transition-transform group-hover:scale-110`}>
+               local_cafe
+             </span>
+             <span className={`font-label-md text-[13px] ${activeTab === "cafes" ? "font-semibold" : "font-medium"} tracking-tight whitespace-nowrap`}>
+               Cafés
+             </span>
+           </Link>
+           
+           <Link
+             className={`group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all ${activeTab === "quick-bites" ? "text-[#2563EB] border-b-2 border-[#2563EB]" : "text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"}`}
+             href="/quick-bites"
+             onClick={() => handleTabChange("quick-bites")}
+           >
+             <span className={`material-symbols-outlined text-[26px] mb-1 ${activeTab === "quick-bites" ? "text-[#2563EB]" : "text-outline group-hover:text-[#2563EB]"} transition-transform group-hover:scale-110`}>
+               lunch_dining
+             </span>
+             <span className={`font-label-md text-[13px] ${activeTab === "quick-bites" ? "font-semibold" : "font-medium"} tracking-tight whitespace-nowrap`}>
+               Quick Bites
+             </span>
+           </Link>
+           
+           <Link
+             className={`group relative flex flex-col items-center justify-center pb-3 pt-2 px-2 transition-all ${activeTab === "drinks" ? "text-[#2563EB] border-b-2 border-[#2563EB]" : "text-on-surface-variant hover:text-[#2563EB] border-b-2 border-transparent hover:border-surface-container-highest"}`}
+             href="/drinks"
+             onClick={() => handleTabChange("drinks")}
+           >
+             <span className={`material-symbols-outlined text-[26px] mb-1 ${activeTab === "drinks" ? "text-[#2563EB]" : "text-outline group-hover:text-[#2563EB]"} transition-transform group-hover:scale-110`}>
+               local_bar
+             </span>
+             <span className={`font-label-md text-[13px] ${activeTab === "drinks" ? "font-semibold" : "font-medium"} tracking-tight whitespace-nowrap`}>
+               Drinks & More
+             </span>
+           </Link>
+         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-4 shrink-0">
           <Link
