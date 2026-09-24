@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BusinessImageGallery from "@/components/BusinessImageGallery";
 
 const business = {
   id: 1,
@@ -83,90 +84,42 @@ const business = {
 
 export default function BusinessProfile() {
   return (
-    <div className="w-full bg-background">
-      {/* Header with back button and business name */}
-      <section className="py-4 bg-surface-container-lowest border-b border-surface-container">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/restaurants"
-              className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
-            >
-              <span className="material-symbols-outlined text-[20px] text-on-surface">arrow_back</span>
-            </Link>
-            <div className="flex-1">
-              <h1 className="font-headline-lg text-xl font-bold text-on-surface truncate">{business.name}</h1>
-              <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+    <div className="w-full">
+      {/* Main content area */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
+          {/* Business name and rating section */}
+          <div className="mb-6">
+            <h1 className="font-headline-lg text-xl font-bold text-on-surface truncate">{business.name}</h1>
+            <div className="flex items-center gap-4 text-sm text-on-surface-variant mt-2 flex-wrap">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-secondary-fixed/20 text-secondary font-bold text-lg">
+                <span
+                  className="material-symbols-outlined text-[20px] text-secondary"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  star
+                </span>
+                <span>{business.rating}</span>
+                <span className="text-sm font-normal text-on-surface-variant">/ 10</span>
+              </div>
+              <span className="text-on-surface-variant">({business.reviews} reviews)</span>
+              <span className="text-on-surface-variant">Price range: 300 ETB - 900 ETB</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-on-surface-variant mt-1 flex-wrap">
+              <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[16px]">location_on</span>
+                <span>{business.address}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px]">near_me</span>
                 <span>{business.nearestPlace}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button className="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/90 transition-colors">
-                Reserve
-              </button>
-              <button className="px-4 py-2 rounded-xl border border-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">
-                Call
-              </button>
-            </div>
           </div>
-        </div>
-      </section>
-
-      {/* Main content area */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left column - Images */}
-          <div className="lg:col-span-2">
-            {/* Main image gallery */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              <div className="md:col-span-2 rounded-2xl overflow-hidden bg-surface-container">
-                <img
-                  alt={`${business.name} main`}
-                  className="w-full h-96 object-cover"
-                  src={business.images[0]}
-                />
-              </div>
-              <div className="rounded-2xl overflow-hidden bg-surface-container">
-                <img
-                  alt={`${business.name} gallery 1`}
-                  className="w-full h-48 object-cover"
-                  src={business.images[1]}
-                />
-              </div>
-              <div className="rounded-2xl overflow-hidden bg-surface-container">
-                <img
-                  alt={`${business.name} gallery 2`}
-                  className="w-full h-48 object-cover"
-                  src={business.images[2]}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <div className="flex gap-4">
-                  {business.images.slice(3, 5).map((img, index) => (
-                    <div key={index} className="flex-1 rounded-2xl overflow-hidden bg-surface-container">
-                      <img
-                        alt={`${business.name} gallery ${index + 3}`}
-                        className="w-full h-32 object-cover"
-                        src={img}
-                      />
-                    </div>
-                  ))}
-                  {business.images.length > 5 && (
-                    <div className="flex-1 rounded-2xl overflow-hidden bg-surface-container relative">
-                      <img
-                        alt={`${business.name} more`}
-                        className="w-full h-32 object-cover"
-                        src={business.images[5]}
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">+{business.images.length - 5} more</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+           {/* Left column - Images */}
+           <div className="lg:col-span-2">
+             {/* Main image gallery */}
+             <BusinessImageGallery images={business.images} businessName={business.name} />
 
             {/* Business info section */}
             <section className="mb-8">
