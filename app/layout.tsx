@@ -17,12 +17,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cafnet - Ethiopia's No. 1 Restaurant Listing and Reservation Site",
   description: "Find and reserve tables at the best restaurants in Ethiopia",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", type: "image/x-icon" },
-      { url: "/images/logo.png", type: "image/png" },
-    ],
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,7 +34,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" href="/images/logo.png" type="image/png" />
       </head>
       <body className="min-h-full flex flex-col bg-background font-body-md text-body-md text-on-surface">
         <Navbar />

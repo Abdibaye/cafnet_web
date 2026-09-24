@@ -19,11 +19,11 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <Image
-                src="/cafnet-logo.png"
+                src="/images/logo.png"
                 alt="Cafnet Logo - Royal Blue & Coral"
-                width={40}
-                height={40}
-                className="h-10 w-10"
+                width={56}
+                height={56}
+                className="h-14 w-auto"
               />
               <span className="text-xl font-bold text-gray-800 hidden sm:block">
                 Ethiopia&apos;s No. 1 Restaurant Listing and Reservation Site.

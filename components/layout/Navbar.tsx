@@ -44,7 +44,7 @@ export default function Navbar() {
           <Link className="flex items-center shrink-0 py-2" href="/">
             <img
               alt="Cafnet Logo - Royal Blue & Coral"
-              className="h-9 w-auto object-contain"
+              className="h-14 w-auto object-contain"
               src="/images/logo.png"
             />
           </Link>
