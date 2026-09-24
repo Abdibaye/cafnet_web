@@ -124,100 +124,54 @@ export default function BusinessProfile() {
             {/* Business info section */}
             <section className="mb-8">
               <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                  <h2 className="font-headline-md text-lg font-bold text-on-surface mb-4">About {business.name}</h2>
-                  <p className="text-on-surface-variant text-sm leading-relaxed mb-4">{business.description}</p>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-on-surface-variant">schedule</span>
-                      <span className="text-on-surface-variant">{business.hours}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-on-surface-variant">call</span>
-                      <span className="text-on-surface-variant">{business.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 col-span-2">
-                      <span className="material-symbols-outlined text-[18px] text-on-surface-variant">location_on</span>
-                      <span className="text-on-surface-variant">{business.address}</span>
+                 <div className="flex-1">
+                   <h2 className="font-headline-md text-lg font-bold text-on-surface mb-4">About {business.name}</h2>
+                   <p className="text-on-surface-variant text-sm leading-relaxed mb-4">{business.description}</p>
+
+                   <div className="mt-6">
+                     <h3 className="font-headline-sm text-base font-bold text-on-surface mb-3">Tags</h3>
+                     <div className="flex flex-wrap gap-2">
+                       {business.tags.map((tag, index) => (
+                         <span
+                           key={index}
+                           className="px-3 py-1 rounded-full border border-surface-container-high text-[12px] text-on-surface-variant font-medium bg-surface-container-lowest"
+                         >
+                           {tag}
+                         </span>
+                       ))}
+                     </div>
                     </div>
                   </div>
+               </div>
+             </section>
 
-                  <div className="mt-6">
-                    <h3 className="font-headline-sm text-base font-bold text-on-surface mb-3">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {business.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 rounded-full border border-surface-container-high text-[12px] text-on-surface-variant font-medium bg-surface-container-lowest"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md:w-64">
-                  <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container">
-                    <div className="text-center mb-4">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-secondary-fixed/20 text-secondary font-bold text-lg">
-                        <span
-                          className="material-symbols-outlined text-[20px] text-secondary"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          star
-                        </span>
-                        <span>{business.rating}</span>
-                        <span className="text-sm font-normal text-on-surface-variant">/ 10</span>
-                      </div>
-                      <p className="text-xs text-on-surface-variant mt-1">{business.reviews} reviews</p>
-                    </div>
-
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">attach_money</span>
-                        <span className="text-on-surface-variant">Average Price: {business.averagePrice}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">location_on</span>
-                        <span className="text-on-surface-variant">Nearest: {business.nearestPlace.split(',')[0]}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-surface-container/60">
-                      <button className="w-full py-2 px-4 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:bg-primary/90 transition-colors">
-                        <span className="material-symbols-outlined text-[18px] mr-2">calendar_month</span>
-                        Make Reservation
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Menu section */}
+             {/* Menu section */}
             <section className="mb-8">
-              <h2 className="font-headline-md text-lg font-bold text-on-surface mb-6">Menu</h2>
-              <div className="space-y-6">
-                {business.menu.map((category, index) => (
-                  <div key={index} className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container">
-                    <h3 className="font-headline-sm text-base font-bold text-on-surface mb-4">{category.category}</h3>
-                    <div className="space-y-4">
-                      {category.items.map((item, itemIndex) => (
-                        <div key={itemIndex} className="flex items-start gap-4 p-3 rounded-xl hover:bg-surface-container transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-on-surface text-sm truncate">{item.name}</h4>
-                            <p className="text-xs text-on-surface-variant mt-0.5">{item.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-primary text-sm">{item.price}</p>
-                          </div>
-                        </div>
-                      ))}
+              <h2 className="font-headline-md text-lg font-bold text-on-surface mb-6">Set menu</h2>
+              <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container">
+                <div className="grid grid-cols-2 gap-4">
+                  {business.menu[0].items.slice(0, 6).map((item, itemIndex) => (
+                    <div key={itemIndex} className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface-container-lowest transition-colors">
+                      <div className="w-24 h-24 rounded-xl bg-surface-container overflow-hidden shrink-0">
+                        <img
+                          src="/images/placeholder-food.jpeg"
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-on-surface text-sm truncate">{item.name}</h4>
+                        <p className="text-xs text-on-surface-variant mt-0.5">{item.description}</p>
+                        <p className="font-bold text-primary text-xs mt-1">{item.price}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <div className="mt-4 text-center">
+                  <button className="px-4 py-2 rounded-xl border border-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">
+                    View more
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -260,44 +214,40 @@ export default function BusinessProfile() {
             </section>
           </div>
 
-          {/* Right column - Quick info and map placeholder */}
-          <div className="lg:col-span-1">
-            <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container sticky top-32">
-              <h3 className="font-headline-sm text-base font-bold text-on-surface mb-4">Quick Info</h3>
-              
-              <div className="space-y-4 text-sm">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[20px] text-primary">schedule</span>
-                  <div>
-                    <p className="text-on-surface-variant text-xs">Hours</p>
-                    <p className="font-semibold text-on-surface">{business.hours}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[20px] text-primary">call</span>
-                  <div>
-                    <p className="text-on-surface-variant text-xs">Phone</p>
-                    <p className="font-semibold text-on-surface">{business.phone}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[20px] text-primary">location_on</span>
-                  <div>
-                    <p className="text-on-surface-variant text-xs">Address</p>
-                    <p className="font-semibold text-on-surface truncate">{business.address}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[20px] text-primary">attach_money</span>
-                  <div>
-                    <p className="text-on-surface-variant text-xs">Price Range</p>
-                    <p className="font-semibold text-on-surface">{business.averagePrice}</p>
-                  </div>
-                </div>
-              </div>
+           {/* Right column - Restaurant information */}
+           <div className="lg:col-span-1">
+             <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container sticky top-32">
+               <h3 className="font-headline-sm text-base font-bold text-on-surface mb-4">Restaurant information</h3>
+               
+               <div className="space-y-4 text-sm">
+                 <div className="flex items-center gap-3">
+                   <div>
+                     <p className="text-on-surface-variant text-xs">Categories</p>
+                     <p className="font-semibold text-on-surface">Traditional, Cultural</p>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-3">
+                   <div>
+                     <p className="text-on-surface-variant text-xs">Phone number</p>
+                     <p className="font-semibold text-on-surface">{business.phone}</p>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-3">
+                   <div>
+                     <p className="text-on-surface-variant text-xs">Payment methods</p>
+                     <p className="font-semibold text-on-surface">Cash, Credit Card</p>
+                   </div>
+                 </div>
+                 
+                 <div className="flex items-center gap-3">
+                   <div>
+                     <p className="text-on-surface-variant text-xs">Transportation</p>
+                     <p className="font-semibold text-on-surface">20 minutes from Bole</p>
+                   </div>
+                 </div>
+               </div>
 
               <div className="mt-6 pt-4 border-t border-surface-container/60">
                 <h4 className="font-headline-sm text-sm font-bold text-on-surface mb-3">Location Map</h4>
