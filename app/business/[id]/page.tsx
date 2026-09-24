@@ -17,35 +17,37 @@ const business = {
     "/images/placeholder1.jpeg",
     "/images/placeholder2.jpeg",
   ],
-  menu: [
-    {
-      category: "Traditional Dishes",
-      items: [
-        { name: "Doro Wat", price: "250 ETB", description: "Spicy chicken stew with berbere" },
-        { name: "Tibs Firfir", price: "320 ETB", description: "Minced beef with injera" },
-        { name: "Kitfo", price: "280 ETB", description: "Spiced minced beef" },
-        { name: "Tere Siga", price: "350 ETB", description: "Raw beef special" },
-      ],
-    },
-    {
-      category: "Vegetarian",
-      items: [
-        { name: "Shiro Wat", price: "120 ETB", description: "Chickpea stew" },
-        { name: "Atakilt Wat", price: "140 ETB", description: "Cabbage, carrot and potato stew" },
-        { name: "Gomen", price: "130 ETB", description: "Collard greens" },
-        { name: "Kik Alicha", price: "150 ETB", description: "Mild split pea stew" },
-      ],
-    },
-    {
-      category: "Drinks",
-      items: [
-        { name: "Tej", price: "80 ETB", description: "Honey wine" },
-        { name: "Tella", price: "60 ETB", description: "Traditional beer" },
-        { name: "Coffee", price: "40 ETB", description: "Ethiopian coffee ceremony" },
-        { name: "Soft Drinks", price: "30 ETB", description: "Various soft drinks" },
-      ],
-    },
-  ],
+   menu: [
+     {
+       category: "Traditional Dishes",
+       items: [
+         { name: "Doro Wat", price: "250 ETB", description: "A signature Ethiopian dish featuring tender chicken pieces cooked in a rich, spicy berbere sauce, served with injera. Slow-cooked to perfection with onions, garlic, and a blend of traditional spices." },
+         { name: "Tibs Firfir", price: "320 ETB", description: "A flavorful combination of minced beef (tibs) mixed with shredded injera, simmered in a spicy sauce. Perfect for those who love a mix of textures and bold flavors." },
+         { name: "Kitfo", price: "280 ETB", description: "A traditional Ethiopian delicacy made from finely minced beef, seasoned with mitmita (a spicy chili powder blend) and niter kibbeh (spiced clarified butter). Served raw or lightly cooked to your preference." },
+         { name: "Tere Siga", price: "350 ETB", description: "A premium dish of raw beef, carefully prepared and seasoned with traditional Ethiopian spices. A must-try for adventurous food lovers seeking an authentic experience." },
+         { name: "Gored Gored", price: "380 ETB", description: "Cubed raw beef marinated in spiced clarified butter and served with injera. A traditional dish often enjoyed during special occasions and celebrations." },
+         { name: "Tibs", price: "400 ETB", description: "Sizzling beef cubes cooked with onions, peppers, and rosemary, served on a hot plate. A popular choice for meat lovers, offering a smoky and savory flavor." },
+       ],
+     },
+     {
+       category: "Vegetarian",
+       items: [
+         { name: "Shiro Wat", price: "120 ETB", description: "A hearty and creamy chickpea stew, slow-cooked with garlic, onions, and berbere spice. A staple in Ethiopian vegetarian cuisine, rich in flavor and protein." },
+         { name: "Atakilt Wat", price: "140 ETB", description: "A vibrant and nutritious dish made with cabbage, carrots, and potatoes, simmered in a light turmeric-infused sauce. A perfect balance of textures and flavors." },
+         { name: "Gomen", price: "130 ETB", description: "Tender collard greens cooked with garlic, onions, and a touch of lemon. A simple yet delicious side dish that complements any Ethiopian meal." },
+         { name: "Kik Alicha", price: "150 ETB", description: "A mild and comforting split pea stew, cooked with turmeric, garlic, and onions. A great source of protein and a favorite among vegetarians." },
+       ],
+     },
+     {
+       category: "Drinks",
+       items: [
+         { name: "Tej", price: "80 ETB", description: "A traditional Ethiopian honey wine, fermented to perfection with a sweet and slightly tangy flavor. Often served in a unique glass flask called a berele." },
+         { name: "Tella", price: "60 ETB", description: "A homemade traditional beer brewed from barley or maize, offering a light and refreshing taste. A popular choice for casual gatherings." },
+         { name: "Coffee", price: "40 ETB", description: "Experience the famous Ethiopian coffee ceremony, featuring freshly roasted and brewed coffee served with incense and traditional snacks. A cultural must-try." },
+         { name: "Soft Drinks", price: "30 ETB", description: "A variety of refreshing soft drinks, including local and international brands, to complement your meal." },
+       ],
+     },
+   ],
    reviewList: [
     {
       id: 1,
@@ -154,7 +156,7 @@ export default function BusinessProfile() {
                     <div key={itemIndex} className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface-container-lowest transition-colors">
                       <div className="w-24 h-24 rounded-xl bg-surface-container overflow-hidden shrink-0">
                         <img
-                          src="/images/placeholder-food.jpeg"
+                          src={business.images[itemIndex % business.images.length]}
                           alt={item.name}
                           className="w-full h-full object-cover"
                         />
@@ -178,39 +180,37 @@ export default function BusinessProfile() {
             {/* Reviews section */}
             <section>
               <h2 className="font-headline-md text-lg font-bold text-on-surface mb-6">Reviews ({business.reviews})</h2>
-              <div className="space-y-4">
-                {business.reviewList.map((review) => (
-                  <div key={review.id} className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[24px] text-on-surface-variant">person</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <h4 className="font-semibold text-on-surface text-sm">{review.user}</h4>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <div className="inline-flex items-center gap-0.5">
-                                {[...Array(5)].map((_, i) => (
-                                  <span
-                                    key={i}
-                                    className={`material-symbols-outlined text-[14px] ${i < review.rating ? 'text-secondary' : 'text-outline/30'}`}
-                                    style={{ fontVariationSettings: "'FILL' 1" }}
-                                  >
-                                    star
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-xs text-on-surface-variant whitespace-nowrap">{review.date}</span>
-                        </div>
-                        <p className="text-sm text-on-surface-variant">{review.comment}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+               <div className="space-y-4">
+                 {business.reviewList.map((review) => (
+                   <div key={review.id} className="flex items-start gap-4 p-3">
+                     <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+                       <span className="material-symbols-outlined text-[24px] text-on-surface-variant">person</span>
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <div className="flex items-center justify-between mb-2">
+                         <div>
+                           <h4 className="font-semibold text-on-surface text-sm">{review.user}</h4>
+                           <div className="flex items-center gap-1 mt-0.5">
+                             <div className="inline-flex items-center gap-0.5">
+                               {[...Array(5)].map((_, i) => (
+                                 <span
+                                   key={i}
+                                   className={`material-symbols-outlined text-[14px] ${i < review.rating ? 'text-secondary' : 'text-outline/30'}`}
+                                   style={{ fontVariationSettings: "'FILL' 1" }}
+                                 >
+                                   star
+                                 </span>
+                               ))}
+                             </div>
+                           </div>
+                         </div>
+                         <span className="text-xs text-on-surface-variant whitespace-nowrap">{review.date}</span>
+                       </div>
+                       <p className="text-sm text-on-surface-variant">{review.comment}</p>
+                     </div>
+                   </div>
+                 ))}
+               </div>
             </section>
           </div>
 
@@ -249,27 +249,7 @@ export default function BusinessProfile() {
                  </div>
                </div>
 
-              <div className="mt-6 pt-4 border-t border-surface-container/60">
-                <h4 className="font-headline-sm text-sm font-bold text-on-surface mb-3">Location Map</h4>
-                <div className="bg-surface-container rounded-xl h-48 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[48px] text-outline/40">map</span>
-                </div>
-              </div>
 
-              <div className="mt-6 pt-4 border-t border-surface-container/60 space-y-3">
-                <button className="w-full py-2 px-4 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:bg-primary/90 transition-colors">
-                  <span className="material-symbols-outlined text-[18px] mr-2">navigation</span>
-                  Get Directions
-                </button>
-                <button className="w-full py-2 px-4 rounded-xl border border-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">
-                  <span className="material-symbols-outlined text-[18px] mr-2">share</span>
-                  Share
-                </button>
-                <button className="w-full py-2 px-4 rounded-xl border border-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">
-                  <span className="material-symbols-outlined text-[18px] mr-2">favorite</span>
-                  Save
-                </button>
-              </div>
             </div>
           </div>
         </div>
