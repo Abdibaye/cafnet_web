@@ -46,12 +46,6 @@ export default function Navbar() {
               Cafés
             </Link>
             <Link
-              href="/quick-bites"
-              className="text-gray-600 hover:text-purple-600 transition-colors"
-            >
-              Quick Bites
-            </Link>
-            <Link
               href="/drinks"
               className="text-gray-600 hover:text-purple-600 transition-colors"
             >
