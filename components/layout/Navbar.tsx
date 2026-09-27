@@ -52,10 +52,10 @@ export default function Navbar() {
         <div className="flex shrink-0 items-center gap-5">
           {authReady && (isAuthenticated ? <Link href="/account" className="inline-flex items-center gap-2 text-sm font-semibold text-primary" aria-label="Open your Cafnet account"><span className="flex size-8 items-center justify-center rounded-full bg-primary-container text-primary">{currentUser?.avatar}</span><span className="hidden lg:inline">{currentUser?.name}</span></Link> : <button type="button" className="text-sm font-semibold text-primary hover:text-primary/75" onClick={startSignIn}>Sign in</button>)}
           <Link
-            className="hidden text-sm font-medium text-primary transition-colors hover:text-primary/75 lg:inline-flex"
-            href="/for-restaurants"
+            className="text-sm font-medium text-primary transition-colors hover:text-primary/75"
+            href="/business"
           >
-            List Your Business
+            For businesses
           </Link>
 
           <div className="relative">

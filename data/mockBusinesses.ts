@@ -1,5 +1,6 @@
 import { getReviewSummary } from "@/data/mockReviews";
 export type BusinessCategory = "restaurant" | "cafe" | "drinks";
+export type BusinessClaimStatus = "unclaimed" | "pending" | "claimed";
 
 type MenuItem = {
   name: string;
@@ -39,6 +40,7 @@ export type MockBusiness = {
   openingHours: string;
   phone: string;
   verified: boolean;
+  claimStatus?: BusinessClaimStatus;
   featured: boolean;
   isOpen: boolean;
   menu: MenuCategory[];
@@ -157,6 +159,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "11:30 AM - 10:00 PM",
     phone: "+251 93 345 6677",
     verified: false,
+    claimStatus: "claimed",
     featured: false,
     isOpen: true,
     menu: [{ category: "Fresh from the lake", items: [{ name: "Grilled Tilapia", price: "520 ETB", description: "Whole tilapia with lemon, herbs, and seasonal sides." }, { name: "Asa Dulet", price: "360 ETB", description: "A bright, spicy fish dish with onion and local herbs." }] }],
