@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col bg-background text-on-surface">
         <Navbar />
-        <main className="flex-1 w-full pt-28 bg-background">{children}</main>
+        <main className="flex-1 w-full pt-20 bg-background">{children}</main>
         <Footer />
       </body>
     </html>

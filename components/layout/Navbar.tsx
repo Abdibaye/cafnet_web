@@ -16,12 +16,6 @@ export default function Navbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-white">
-      <div className="mx-auto flex h-9 max-w-7xl items-center justify-between px-6 text-[11px] text-on-surface-variant lg:px-12">
-        <span className="hidden tracking-wide md:block">
-          Ethiopia&apos;s No. 1* Restaurant Listing and Reservation Site.
-        </span>
-      </div>
-
       <div className="mx-auto flex h-20 max-w-7xl items-center gap-8 px-6 lg:px-12">
         <Link className="flex shrink-0 items-center py-2" href="/" aria-label="Cafnet home">
           <img
@@ -31,9 +25,9 @@ export default function Navbar() {
           />
         </Link>
 
-        <nav className="flex h-full flex-1 items-center justify-center gap-7" aria-label="Primary navigation">
+        <nav className="hidden h-full flex-1 items-center justify-center gap-7 md:flex" aria-label="Primary navigation">
           <Link
-            className={`relative inline-flex h-full items-center gap-1.5 text-sm font-medium transition-colors ${pathname === "/" ? "text-on-surface" : "text-on-surface hover:text-primary"}`}
+            className="relative inline-flex h-full items-center gap-1.5 text-sm font-medium text-on-surface transition-colors hover:text-primary"
             href="/"
           >
             Explore

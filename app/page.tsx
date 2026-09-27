@@ -50,7 +50,13 @@ export default function Home() {
     <div className="w-full bg-background">
       <SearchBar />
       <TrustStrip />
-      <CategoryList items={cuisines} categoryName="Cuisines" viewAllLink="/cuisines" activeTab="Cuisines" />
+      <CategoryList
+        items={cuisines}
+        categoryName="Cuisines"
+        viewAllLink="/cuisines"
+        heading="Popular near you"
+        viewAllLabel="View all"
+      />
     </div>
   );
 }

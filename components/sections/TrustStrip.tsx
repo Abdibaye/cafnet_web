@@ -15,21 +15,21 @@ export default function TrustStrip() {
   };
 
   return (
-    <section className="bg-primary-container py-4">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-wrap items-center justify-center gap-2 text-center text-body-md text-sm text-on-surface-variant">
-        <span className="text-on-surface-variant/90">
-          It looks like you&apos;re around <strong className="font-semibold text-on-surface">Bole</strong>. If not
+    <section className="bg-background pb-2">
+      <div className="mx-auto flex max-w-7xl items-center px-6 text-[13px] text-on-surface-variant lg:px-12">
+        <span className="material-symbols-outlined mr-2 text-[17px] text-on-surface-variant" aria-hidden="true">
+          location_on
         </span>
-        <span className="hidden sm:inline text-outline/40"><br /></span>
+        <span>
+          Showing places around <strong className="font-semibold text-on-surface">Bole</strong>
+        </span>
         <button
-          className="inline-flex items-center gap-1.5 font-semibold text-secondary hover:text-[#d95547] transition-colors cursor-pointer"
+          className="ml-2 inline-flex cursor-pointer items-center gap-1 font-semibold text-secondary transition-colors hover:text-[#d95547]"
           type="button"
           onClick={handleGetLocation}
         >
-          <span className="material-symbols-outlined text-[18px] text-secondary" data-filled="true">
-            near_me
-          </span>
-          <span>Get current location</span>
+          <span>Use my current location</span>
+          <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
         </button>
       </div>
     </section>
