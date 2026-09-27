@@ -1,22 +1,14 @@
 import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
-import BusinessUpdateCard, { type BusinessUpdate } from "@/components/BusinessUpdateCard";
+import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
-import { mockBusinesses, toBusinessCardItem } from "@/data/mockBusinesses";
+import { mockBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
+import { getActiveUpdates, type BusinessUpdate } from "@/data/businessUpdateStorage";
 
 const popularPlaces = mockBusinesses.filter((business) => business.featured).map(toBusinessCardItem);
 const newPlaces = mockBusinesses.filter((business) => !business.featured).slice(0, 3).map(toBusinessCardItem);
-const updates: BusinessUpdate[] = mockBusinesses.flatMap((business) => business.updates.map((update) => ({
-  businessId: business.id,
-  businessName: business.name,
-  businessImage: business.images[0],
-  updateType: update.type,
-  title: update.title,
-  description: update.description,
-  createdAt: update.createdAt,
-  location: business.neighborhood,
-})));
+const updates: BusinessUpdate[] = getActiveUpdates().slice(0, 6);
 
 function BusinessSection({ heading, supportingText, items }: { heading: string; supportingText: string; items: BusinessCardItem[] }) {
   return (
@@ -45,7 +37,20 @@ export default function ExplorePage() {
       <section className="brand-section bg-background pt-10">
         <div className="mx-auto max-w-7xl px-6 lg:px-12">
           <div className="mb-8 max-w-2xl"><p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-secondary">Fresh from local places</p><h2 className="text-2xl font-bold text-on-surface md:text-[30px]">What&apos;s happening</h2><p className="mt-2 text-sm leading-6 text-on-surface-variant">New menus, offers, and events worth making a plan for.</p></div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">{updates.map((update, index) => <BusinessUpdateCard key={update.title} update={update} featured={index === 0} />)}</div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {updates.map((update, index) => {
+              const business = getBusinessById(update.businessId);
+              return business ? (
+                <BusinessUpdateCard
+                  key={update.id}
+                  update={update}
+                  business={business}
+                  showBusinessName
+                  showTimestamp
+                />
+              ) : null;
+            })}
+          </div>
         </div>
       </section>
       <BusinessSection heading="Popular near you" supportingText="Places people are discovering around Bole." items={popularPlaces} />

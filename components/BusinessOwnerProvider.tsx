@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { loadBusinessOwnerState, saveBusinessOwnerState, type BusinessClaim, type BusinessSubmission } from "@/data/businessOwnerStorage";
 import { loadOwnerManagedBusinesses, saveOwnerManagedBusinesses, createManagedBusiness as createManagedBusinessInStorage, updateManagedBusiness as updateManagedBusinessInStorage, getManagedBusiness as getManagedBusinessFromStorage, getEditableData as getEditableDataFromStorage, deleteManagedBusiness, hasUnsavedChanges as hasUnsavedChangesInStorage, type OwnerManagedBusiness, type EditableBusinessData, type OpeningHours, availableTags, priceRangeOptions, categoryOptions } from "@/data/ownerManagedBusinessStorage";
+import { getUpdatesByBusiness as getUpdatesByBusinessFromStorage, createUpdate as createUpdateInStorage, updateUpdate as updateUpdateInStorage, deleteUpdate as deleteUpdateInStorage, getUpdateById as getUpdateByIdFromStorage, getActiveUpdates, getAllUpdates, getUpdateTypeLabel as getUpdateTypeLabelFromStorage, getUpdateTypeIcon as getUpdateTypeIconFromStorage, updateTypeOptions, type BusinessUpdate, type UpdateType } from "@/data/businessUpdateStorage";
 
 type BusinessOwnerContextValue = {
   ready: boolean;
@@ -20,6 +21,14 @@ type BusinessOwnerContextValue = {
   availableTags: string[];
   priceRangeOptions: string[];
   categoryOptions: { value: string; label: string }[];
+  updateTypeOptions: { value: UpdateType; label: string; icon: string }[];
+  getUpdatesByBusiness: (businessId: number) => BusinessUpdate[];
+  getUpdateById: (updateId: string) => BusinessUpdate | undefined;
+  createUpdate: (update: Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">) => BusinessUpdate;
+  updateExistingUpdate: (updateId: string, updates: Partial<BusinessUpdate>) => BusinessUpdate | undefined;
+  deleteExistingUpdate: (updateId: string) => boolean;
+  getUpdateTypeLabel: (type: UpdateType) => string;
+  getUpdateTypeIcon: (type: UpdateType) => string;
 };
 
 const BusinessOwnerContext = createContext<BusinessOwnerContextValue | null>(null);
@@ -39,6 +48,34 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       setManagedBusinesses(managedState.managedBusinesses);
       setReady(true);
     });
+  }, []);
+
+  const getUpdatesByBusiness = useCallback((businessId: number): BusinessUpdate[] => {
+    return getUpdatesByBusinessFromStorage(businessId);
+  }, []);
+
+  const getUpdateById = useCallback((updateId: string): BusinessUpdate | undefined => {
+    return getUpdateByIdFromStorage(updateId);
+  }, []);
+
+  const createUpdate = useCallback((update: Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">): BusinessUpdate => {
+    return createUpdateInStorage(update);
+  }, []);
+
+  const updateExistingUpdate = useCallback((updateId: string, updates: Partial<BusinessUpdate>): BusinessUpdate | undefined => {
+    return updateUpdateInStorage(updateId, updates);
+  }, []);
+
+  const deleteExistingUpdate = useCallback((updateId: string): boolean => {
+    return deleteUpdateInStorage(updateId);
+  }, []);
+
+  const getUpdateTypeLabel = useCallback((type: UpdateType): string => {
+    return getUpdateTypeLabelFromStorage(type);
+  }, []);
+
+  const getUpdateTypeIcon = useCallback((type: UpdateType): string => {
+    return getUpdateTypeIconFromStorage(type);
   }, []);
 
   const persistOwnerState = useCallback((nextClaims: BusinessClaim[], nextSubmissions: BusinessSubmission[]) => {
@@ -114,6 +151,14 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       availableTags,
       priceRangeOptions,
       categoryOptions,
+      updateTypeOptions,
+      getUpdatesByBusiness,
+      getUpdateById,
+      createUpdate,
+      updateExistingUpdate,
+      deleteExistingUpdate,
+      getUpdateTypeLabel,
+      getUpdateTypeIcon,
     }}>
       {children}
     </BusinessOwnerContext.Provider>

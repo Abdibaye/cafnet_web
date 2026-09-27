@@ -2,8 +2,10 @@ import Link from "next/link";
 import BusinessImageGallery from "@/components/BusinessImageGallery";
 import BusinessProfileActions from "@/components/BusinessProfileActions";
 import BusinessReviewSection, { BusinessRatingSummary } from "@/components/BusinessReviewSection";
+import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getBusinessProfileData } from "@/data/businessProfileData";
+import { getUpdatesByBusiness, getActiveUpdates, formatUpdateDate } from "@/data/businessUpdateStorage";
 function SectionHeading({ eyebrow, title }: { eyebrow?: string; title: string }) {
   return <div className="mb-5">{eyebrow && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">{eyebrow}</p>}<h2 className="text-[22px] font-bold text-on-surface md:text-2xl">{title}</h2></div>;
 }
@@ -34,7 +36,42 @@ export default async function BusinessProfile({ params }: { params: Promise<{ id
     <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-16"><main className="min-w-0">
       <section id="overview" className="scroll-mt-36 border-b border-outline-variant pb-10"><SectionHeading eyebrow="The place" title="About" /><p className="max-w-3xl text-[15px] leading-7 text-on-surface-variant">{profileData.description}</p><div className="mt-8"><h3 className="mb-3 text-base font-bold text-on-surface">Highlights</h3><div className="grid gap-3 sm:grid-cols-2">{highlights.map((tag) => <div key={tag} className="flex items-center gap-2 text-sm text-on-surface-variant"><span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">check_circle</span>{tag}</div>)}</div></div></section>
       <section id="menu" className="scroll-mt-36 border-b border-outline-variant py-10"><SectionHeading eyebrow="What you can eat" title="Popular dishes" />{profileData.menu.length > 0 ? <div className="space-y-8">{profileData.menu.map((category, categoryIndex) => <div key={category.category}><h3 className="mb-3 text-base font-bold text-on-surface">{category.category}</h3><div className="grid gap-3 md:grid-cols-2">{category.items.map((item, itemIndex) => <article key={item.name} className="flex gap-3 rounded-[14px] border border-outline-variant/80 bg-white p-3"><img src={profileData.images[(categoryIndex * 2 + itemIndex) % profileData.images.length]} alt="" className="size-20 shrink-0 rounded-xl object-cover" /><div className="min-w-0 py-0.5"><div className="flex items-start justify-between gap-2"><h4 className="text-sm font-semibold text-on-surface">{item.name}</h4><span className="shrink-0 text-sm font-semibold text-primary">{item.price}</span></div><p className="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">{item.description}</p></div></article>)}</div></div>)}</div> : <div className="border border-dashed border-outline-variant bg-surface-container-low px-5 py-6 text-sm text-on-surface-variant">Menu details are not available yet.</div>}</section>
-      <section id="updates" className="border-b border-outline-variant py-10"><SectionHeading eyebrow="From the business" title="What's new" />{profileData.updates.length > 0 ? <div className="space-y-3">{profileData.updates.map((update) => <article key={update.title} className="border border-outline-variant bg-white p-5"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-secondary">{update.type}</span><time className="text-xs text-on-surface-variant">{update.createdAt}</time></div><h3 className="mt-3 font-semibold text-on-surface">{update.title}</h3><p className="mt-1 text-sm leading-6 text-on-surface-variant">{update.description}</p></article>)}</div> : <div className="border border-dashed border-outline-variant bg-surface-container-low px-5 py-6 text-sm text-on-surface-variant">No business updates yet.</div>}</section>
+      <section id="updates" className="border-b border-outline-variant py-10">
+        <SectionHeading eyebrow="From the business" title="What's new" />
+        {(() => {
+          const businessUpdates = getUpdatesByBusiness(Number(id));
+          const activeUpdates = businessUpdates.filter((u) => u.status === "published");
+          
+          if (activeUpdates.length === 0) {
+            return <div className="border border-dashed border-outline-variant bg-surface-container-low px-5 py-6 text-sm text-on-surface-variant">No business updates yet.</div>;
+          }
+          
+          return (
+            <div className="space-y-3">
+              {activeUpdates.slice(0, 3).map((update) => (
+                <BusinessUpdateCard
+                  key={update.id}
+                  update={update}
+                  business={profileData}
+                  showTimestamp
+                  compact
+                />
+              ))}
+              {activeUpdates.length > 3 && (
+                <div className="pt-3">
+                   <Link
+                     href="#updates"
+                     className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-[#0f46b8]"
+                   >
+                    View all updates
+                    <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </section>
       <section id="reviews" className="scroll-mt-36 pt-10"><SectionHeading eyebrow="What people think" title="Reviews" /><BusinessReviewSection business={profileData} /></section>
     </main><aside className="h-fit lg:sticky lg:top-36"><section className="rounded-[14px] border border-outline-variant bg-white p-5" aria-labelledby="good-to-know-heading"><h2 id="good-to-know-heading" className="text-lg font-bold text-on-surface">Good to know</h2><div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-1"><Info icon="location_on" label="Location" value={address} /><Info icon="schedule" label="Hours" value={profileData.openingHours as string} /><Info icon="call" label="Phone" value={profileData.phone} />{amenities.map((tag) => <Info key={tag} icon={tag.includes("Wi-Fi") ? "wifi" : tag.includes("Parking") ? "local_parking" : tag.includes("Credit") ? "credit_card" : "family_restroom"} label={tag.replace(" available", "")} value={tag.includes("available") ? "Available" : "Yes"} />)}</div></section></aside></div>
   </div></div>;
