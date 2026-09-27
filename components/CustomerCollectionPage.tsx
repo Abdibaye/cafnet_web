@@ -1,0 +1,21 @@
+"use client";
+
+import Link from "next/link";
+import BusinessCard from "@/components/BusinessCard";
+import { useCustomer } from "@/components/CustomerProvider";
+import { mockBusinesses, toBusinessCardItem } from "@/data/mockBusinesses";
+
+type CustomerCollectionPageProps = { kind: "saved" | "following" };
+
+export default function CustomerCollectionPage({ kind }: CustomerCollectionPageProps) {
+  const { authReady, isAuthenticated, currentUser, startSignIn } = useCustomer();
+  const ids = kind === "saved" ? currentUser?.savedBusinessIds || [] : currentUser?.followedBusinessIds || [];
+  const businesses = mockBusinesses.filter((business) => ids.includes(business.id));
+  const title = kind === "saved" ? "Saved places" : "Following";
+  const emptyText = kind === "saved" ? "Save places you want to remember and they\'ll appear here." : "Follow a business to keep up with its updates.";
+
+  if (!authReady) return <div className="mx-auto max-w-7xl px-5 py-20 text-sm text-on-surface-variant">Loading...</div>;
+  if (!isAuthenticated) return <div className="mx-auto max-w-2xl px-5 py-20 text-center"><h1 className="text-2xl font-bold text-on-surface">Sign in to see {title.toLowerCase()}</h1><p className="mt-3 text-sm text-on-surface-variant">{kind === "saved" ? "Save places you love and find them again." : "Follow businesses you care about."}</p><button type="button" className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]" onClick={startSignIn}>Continue with phone</button></div>;
+
+  return <div className="mx-auto max-w-7xl px-5 py-10 lg:px-12 lg:py-16"><div className="mb-8 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Your Cafnet</p><h1 className="mt-2 text-3xl font-bold text-on-surface">{title}</h1></div><p className="text-sm text-on-surface-variant">{businesses.length} {businesses.length === 1 ? "place" : "places"}</p></div>{businesses.length > 0 ? <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">{businesses.map((business) => <BusinessCard key={business.id} item={toBusinessCardItem(business)} />)}</div> : <div className="border border-dashed border-outline-variant bg-white px-6 py-12 text-center"><h2 className="text-lg font-bold text-on-surface">{kind === "saved" ? "Nothing saved yet" : "You\'re not following any businesses yet."}</h2><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-on-surface-variant">{emptyText}</p><Link href="/explore" className="mt-6 inline-flex text-sm font-semibold text-primary hover:text-[#0f46b8]">Explore places <span className="ml-1" aria-hidden="true">→</span></Link></div>}</div>;
+}

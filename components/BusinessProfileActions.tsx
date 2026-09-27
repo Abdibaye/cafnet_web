@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import RequireAccountPrompt from "@/components/RequireAccountPrompt";
+import { useCustomer } from "@/components/CustomerProvider";
 
 type BusinessProfileActionsProps = {
   businessId: number;
@@ -12,8 +12,10 @@ type BusinessProfileActionsProps = {
 };
 
 export default function BusinessProfileActions({ businessId, businessName, address, phone, hasUpdates }: BusinessProfileActionsProps) {
-  const [accountAction, setAccountAction] = useState<"save" | "follow" | null>(null);
   const [toast, setToast] = useState("");
+  const { isSaved, isFollowing, requestAction } = useCustomer();
+  const saved = isSaved(businessId);
+  const following = isFollowing(businessId);
 
   const share = async () => {
     const url = window.location.href;
@@ -36,12 +38,11 @@ export default function BusinessProfileActions({ businessId, businessName, addre
     <div className="flex flex-wrap gap-2">
       {actionButton("Get directions", "directions", () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank", "noopener,noreferrer"), true)}
       {phone && actionButton("Call", "call", () => window.open(`tel:${phone.replaceAll(" ", "")}`, "_self"))}
-      {actionButton("Save", "bookmark_border", () => setAccountAction("save"))}
+      {actionButton(saved ? "Saved" : "Save", saved ? "bookmark" : "bookmark_border", () => requestAction("save", businessId))}
       {actionButton("Share", "share", () => { void share(); })}
     </div>
-    {hasUpdates && <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[#0f46b8]" onClick={() => setAccountAction("follow")}><span className="material-symbols-outlined text-[18px]" aria-hidden="true">notifications_none</span>Follow updates</button>}
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(20,33,61,0.08)] backdrop-blur lg:hidden"><div className="mx-auto flex h-16 max-w-lg items-center justify-around gap-2 px-3"><button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-primary" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank", "noopener,noreferrer")}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">directions</span>Directions</button>{phone && <a href={`tel:${phone.replaceAll(" ", "")}`} className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant"><span className="material-symbols-outlined text-[21px]" aria-hidden="true">call</span>Call</a>}<button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant" onClick={() => setAccountAction("save")}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">bookmark_border</span>Save</button><button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant" onClick={() => { void share(); }}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">share</span>Share</button></div></div>
-    {accountAction && <RequireAccountPrompt action={accountAction} onClose={() => setAccountAction(null)} />}
+    {hasUpdates && <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[#0f46b8]" onClick={() => requestAction("follow", businessId)}><span className="material-symbols-outlined text-[18px]" aria-hidden="true">notifications_none</span>{following ? "Following" : "Follow updates"}</button>}
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(20,33,61,0.08)] backdrop-blur lg:hidden"><div className="mx-auto flex h-16 max-w-lg items-center justify-around gap-2 px-3"><button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-primary" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank", "noopener,noreferrer")}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">directions</span>Directions</button>{phone && <a href={`tel:${phone.replaceAll(" ", "")}`} className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant"><span className="material-symbols-outlined text-[21px]" aria-hidden="true">call</span>Call</a>}<button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant" onClick={() => requestAction("save", businessId)}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">{saved ? "bookmark" : "bookmark_border"}</span>{saved ? "Saved" : "Save"}</button><button type="button" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-on-surface-variant" onClick={() => { void share(); }}><span className="material-symbols-outlined text-[21px]" aria-hidden="true">share</span>Share</button></div></div>
     {toast && <div className="fixed bottom-20 left-1/2 z-[65] -translate-x-1/2 rounded-lg bg-on-surface px-4 py-2.5 text-sm font-semibold text-white shadow-lg lg:bottom-6" role="status">{toast}</div>}
     <span className="sr-only">Profile actions for business {businessId}</span>
   </>;

@@ -1,0 +1,5 @@
+import Link from "next/link";
+
+export default function AccountSettingsPage() {
+  return <div className="mx-auto max-w-3xl px-5 py-10 lg:px-0 lg:py-16"><Link href="/account" className="text-sm font-semibold text-primary">← Back to profile</Link><p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Cafnet account</p><h1 className="mt-2 text-3xl font-bold text-on-surface">Settings</h1><div className="mt-8 divide-y divide-outline-variant border border-outline-variant bg-white"><div className="p-5"><h2 className="font-semibold text-on-surface">Language</h2><p className="mt-1 text-sm text-on-surface-variant">English</p></div><div className="p-5"><h2 className="font-semibold text-on-surface">Notifications</h2><p className="mt-1 text-sm text-on-surface-variant">Notification preferences will be available in a future update.</p></div><div className="p-5"><h2 className="font-semibold text-on-surface">Account</h2><p className="mt-1 text-sm text-on-surface-variant">Your Cafnet account is currently using mock authentication.</p></div></div></div>;
+}

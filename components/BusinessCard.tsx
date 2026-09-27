@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCustomer } from "@/components/CustomerProvider";
 
 export interface BusinessCardItem {
   id: number;
@@ -31,7 +31,8 @@ function getDiscoverySignal(tags: string[]) {
 }
 
 export default function BusinessCard({ item }: BusinessCardProps) {
-  const [isSaved, setIsSaved] = useState(false);
+  const { isSaved, requestAction } = useCustomer();
+  const saved = isSaved(item.id);
   const [place, distance] = item.location.split(/,\s*(?=\d)/, 2);
   const discoverySignal = getDiscoverySignal(item.tags);
 
@@ -47,15 +48,15 @@ export default function BusinessCard({ item }: BusinessCardProps) {
         </Link>
         <button
           type="button"
-          onClick={() => setIsSaved((saved) => !saved)}
+          onClick={() => requestAction("save", item.id)}
           className={`absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-white/95 shadow-sm transition-colors duration-200 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-            isSaved ? "text-secondary" : "text-on-surface"
+            saved ? "text-secondary" : "text-on-surface"
           }`}
-          aria-label={isSaved ? `Remove ${item.name} from saved places` : `Save ${item.name}`}
-          aria-pressed={isSaved}
+          aria-label={saved ? `Remove ${item.name} from saved places` : `Save ${item.name}`}
+          aria-pressed={saved}
         >
-          <span className="material-symbols-outlined text-[21px]" data-filled={isSaved ? "true" : undefined}>
-            {isSaved ? "bookmark" : "bookmark_border"}
+          <span className="material-symbols-outlined text-[21px]" data-filled={saved ? "true" : undefined}>
+            {saved ? "bookmark" : "bookmark_border"}
           </span>
         </button>
       </div>
