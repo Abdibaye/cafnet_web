@@ -40,6 +40,7 @@ export type MockBusiness = {
   openingHours: string;
   phone: string;
   verified: boolean;
+  reservationAvailable: boolean;
   claimStatus?: BusinessClaimStatus;
   featured: boolean;
   isOpen: boolean;
@@ -80,6 +81,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "10:00 AM - 11:00 PM",
     phone: "+251 11 555 1234",
     verified: true,
+    reservationAvailable: true,
     featured: true,
     isOpen: true,
     menu: [
@@ -109,6 +111,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "7:00 AM - 9:00 PM",
     phone: "+251 91 222 4477",
     verified: true,
+    reservationAvailable: true,
     featured: true,
     isOpen: true,
     menu: [{ category: "Coffee", items: [{ name: "Guji Pour-over", price: "180 ETB", description: "Bright, floral single-origin coffee brewed to order." }, { name: "Spiced Honey Latte", price: "160 ETB", description: "Espresso, steamed milk, local honey, and warm spice." }] }],
@@ -134,6 +137,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "11:00 AM - 10:30 PM",
     phone: "+251 92 101 7788",
     verified: true,
+    reservationAvailable: true,
     featured: false,
     isOpen: true,
     menu: [{ category: "From the oven", items: [{ name: "Margherita", price: "420 ETB", description: "Tomato, mozzarella, basil, and olive oil." }, { name: "Mushroom Tagliatelle", price: "480 ETB", description: "Hand-cut pasta with wild mushrooms and parmesan." }] }],
@@ -159,6 +163,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "11:30 AM - 10:00 PM",
     phone: "+251 93 345 6677",
     verified: false,
+    reservationAvailable: false,
     claimStatus: "claimed",
     featured: false,
     isOpen: true,
@@ -185,6 +190,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "10:00 AM - 11:00 PM",
     phone: "+251 91 876 5432",
     verified: true,
+    reservationAvailable: true,
     featured: false,
     isOpen: true,
     menu: [{ category: "Haven favorites", items: [{ name: "Addis Smash Burger", price: "390 ETB", description: "Two smashed beef patties, cheddar, pickles, and house sauce." }, { name: "Mango Shake", price: "170 ETB", description: "A creamy mango shake made with fresh fruit." }] }],
@@ -210,6 +216,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "8:00 AM - 10:00 PM",
     phone: "+251 94 221 3090",
     verified: false,
+    reservationAvailable: false,
     featured: false,
     isOpen: true,
     menu: [{ category: "Drinks", items: [{ name: "Passion Fruit Cooler", price: "140 ETB", description: "Passion fruit, lime, mint, and sparkling water." }, { name: "Green Press", price: "180 ETB", description: "Apple, cucumber, ginger, and fresh lime." }] }],
@@ -235,6 +242,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "6:30 AM - 8:30 PM",
     phone: "+251 98 110 2244",
     verified: false,
+    reservationAvailable: false,
     featured: false,
     isOpen: true,
     menu: [{ category: "Coffee house", items: [{ name: "Buna Ceremony", price: "120 ETB", description: "Freshly roasted coffee prepared in the traditional way." }, { name: "Chechebsa", price: "160 ETB", description: "Torn flatbread with spiced butter and honey." }] }],
@@ -260,6 +268,7 @@ export const mockBusinesses: MockBusiness[] = [
     openingHours: "4:00 PM - 1:00 AM",
     phone: "+251 90 555 1840",
     verified: true,
+    reservationAvailable: false,
     featured: false,
     isOpen: true,
     menu: [{ category: "Drinks", items: [{ name: "Tamarind Sour", price: "320 ETB", description: "Tamarind, citrus, and a bright botanical spirit." }, { name: "Ginger Mule", price: "300 ETB", description: "Fresh ginger, lime, and sparkling soda." }] }],

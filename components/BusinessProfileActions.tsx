@@ -9,9 +9,10 @@ type BusinessProfileActionsProps = {
   address: string;
   phone?: string;
   hasUpdates: boolean;
+  reservationAvailable: boolean;
 };
 
-export default function BusinessProfileActions({ businessId, businessName, address, phone, hasUpdates }: BusinessProfileActionsProps) {
+export default function BusinessProfileActions({ businessId, businessName, address, phone, hasUpdates, reservationAvailable }: BusinessProfileActionsProps) {
   const [toast, setToast] = useState("");
   const { isSaved, isFollowing, requestAction } = useCustomer();
   const saved = isSaved(businessId);
@@ -36,6 +37,7 @@ export default function BusinessProfileActions({ businessId, businessName, addre
 
   return <>
     <div className="flex flex-wrap gap-2">
+      {reservationAvailable && <a href={`/reserve/${businessId}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span className="material-symbols-outlined text-[19px]" aria-hidden="true">event_available</span>Reserve a table</a>}
       {actionButton("Get directions", "directions", () => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, "_blank", "noopener,noreferrer"), true)}
       {phone && actionButton("Call", "call", () => window.open(`tel:${phone.replaceAll(" ", "")}`, "_self"))}
       {actionButton(saved ? "Saved" : "Save", saved ? "bookmark" : "bookmark_border", () => requestAction("save", businessId))}

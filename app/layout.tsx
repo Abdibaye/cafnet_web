@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import { CustomerProvider } from "@/components/CustomerProvider";
 import { BusinessOwnerProvider } from "@/components/BusinessOwnerProvider";
+import { ReservationProvider } from "@/components/ReservationProvider";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><BusinessOwnerProvider><Navbar /><main className="flex-1 w-full bg-background pb-20 pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></BusinessOwnerProvider></CustomerProvider></body>
+      <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><ReservationProvider><BusinessOwnerProvider><Navbar /><main className="flex-1 w-full bg-background pb-20 pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></BusinessOwnerProvider></ReservationProvider></CustomerProvider></body>
     </html>
   );
 }
