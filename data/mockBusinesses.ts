@@ -1,3 +1,4 @@
+import { getReviewSummary } from "@/data/mockReviews";
 export type BusinessCategory = "restaurant" | "cafe" | "drinks";
 
 type MenuItem = {
@@ -273,14 +274,15 @@ export function getBusinessesByCategory(category?: BusinessCategory) {
 }
 
 export function toBusinessCardItem(business: MockBusiness) {
+  const reviewSummary = getReviewSummary(business.id);
   return {
     id: business.id,
     name: business.name,
     image: business.images[0],
     location: `${business.location}, ${business.distance}`,
     description: business.shortDescription,
-    rating: business.rating,
-    reviews: business.reviewCount,
+    rating: reviewSummary.average,
+    reviews: reviewSummary.count,
     tags: business.tags,
   };
 }

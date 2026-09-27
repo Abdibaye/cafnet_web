@@ -80,10 +80,10 @@ export default function BusinessCard({ item }: BusinessCardProps) {
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-5 text-[12px] leading-4">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 font-semibold text-secondary">
+            {item.reviews > 0 ? <><span className="shrink-0 font-semibold text-secondary">
               {item.rating.toFixed(1)} <span aria-hidden="true">★</span>
             </span>
-            <span className="truncate text-on-surface-variant">· {item.reviews.toLocaleString()} reviews</span>
+            <span className="truncate text-on-surface-variant">· {item.reviews.toLocaleString()} reviews</span></> : <span className="font-semibold text-primary">New on Cafnet</span>}
           </div>
           <span className="max-w-[42%] shrink-0 text-right font-semibold text-primary">{discoverySignal}</span>
         </div>
