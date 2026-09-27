@@ -16,11 +16,11 @@ export default function Navbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 bg-white">
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-8 px-6 lg:px-12">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 border-b border-transparent px-5 md:h-20 md:px-6 lg:px-12">
         <Link className="flex shrink-0 items-center py-2" href="/" aria-label="Cafnet home">
           <img
             alt="Cafnet Logo - Royal Blue & Coral"
-            className="h-14 w-auto object-contain"
+            className="h-9 w-auto object-contain md:h-14"
             src="/images/logo.png"
           />
         </Link>

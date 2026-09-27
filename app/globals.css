@@ -80,7 +80,13 @@ button, a, input {
 }
 
 .brand-section {
-  padding-block: 64px;
+  padding-block: 32px;
+}
+
+@media (min-width: 768px) {
+  .brand-section {
+    padding-block: 64px;
+  }
 }
 
 .brand-section + .brand-section {

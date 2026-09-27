@@ -18,7 +18,7 @@ const cuisines = [
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-surface-container-low pt-14 pb-10">
+    <footer className="w-full bg-surface-container-low pb-28 pt-14 md:pb-10">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2">

@@ -25,8 +25,8 @@ export default function TrustStrip({ variant = "default" }: TrustStripProps) {
   };
 
   return (
-    <section className="bg-background pb-0 pt-4">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-1.5 gap-y-1 px-6 text-[13px] text-on-surface-variant lg:px-12">
+    <section className="bg-background pb-0 pt-4 md:pt-5">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-1.5 gap-y-1 px-5 text-[13px] text-on-surface-variant lg:px-12">
         <span className="material-symbols-outlined mr-0.5 text-[17px] text-on-surface-variant" aria-hidden="true">
           location_on
         </span>
@@ -39,7 +39,7 @@ export default function TrustStrip({ variant = "default" }: TrustStripProps) {
           type="button"
           onClick={handleGetLocation}
         >
-          <span>{isHomepage ? "Change location" : "Use my current location"}</span>
+          <span>{isHomepage ? "Use my current location" : "Use my current location"}</span>
           <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
         </button>
       </div>

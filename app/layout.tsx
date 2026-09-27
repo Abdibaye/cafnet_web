@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -32,8 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col bg-background text-on-surface">
         <Navbar />
-        <main className="flex-1 w-full pt-20 bg-background">{children}</main>
+        <main className="flex-1 w-full bg-background pb-20 pt-16 md:pb-0 md:pt-20">{children}</main>
         <Footer />
+        <MobileBottomNav />
       </body>
     </html>
   );
