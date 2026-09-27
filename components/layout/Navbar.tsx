@@ -27,8 +27,8 @@ export default function Navbar() {
 
         <nav className="hidden h-full flex-1 items-center justify-center gap-7 md:flex" aria-label="Primary navigation">
           <Link
-            className="relative inline-flex h-full items-center gap-1.5 text-sm font-medium text-on-surface transition-colors hover:text-primary"
-            href="/"
+            className={`relative inline-flex h-full items-center gap-1.5 text-sm font-medium transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:transition-opacity ${pathname === "/explore" || pathname.startsWith("/explore/") ? "text-primary after:opacity-100" : "text-on-surface hover:text-primary after:opacity-0"}`}
+            href="/explore"
           >
             Explore
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">expand_more</span>
