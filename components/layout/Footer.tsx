@@ -18,7 +18,7 @@ const cuisines = [
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-surface-container-lowest border-t border-surface-container pt-14 pb-10">
+    <footer className="w-full bg-surface-container-low pt-14 pb-10">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2">
@@ -34,19 +34,19 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-3 mt-4">
               <Link
-                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-[#2563EB] transition-colors"
+                className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
                 href="#"
               >
                 <span className="material-symbols-outlined text-[18px]">public</span>
               </Link>
               <Link
-                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-[#2563EB] transition-colors"
+                className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
                 href="#"
               >
                 <span className="material-symbols-outlined text-[18px]">share</span>
               </Link>
               <Link
-                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-[#2563EB] transition-colors"
+                className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
                 href="#"
               >
                 <span className="material-symbols-outlined text-[18px]">mail</span>
@@ -62,7 +62,7 @@ export default function Footer() {
               {cities.map((city) => (
                 <li key={city.name}>
                   <Link
-                    className="hover:text-[#2563EB] transition-colors"
+                    className="hover:text-primary transition-colors"
                     href={city.href}
                   >
                     {city.name}
@@ -80,7 +80,7 @@ export default function Footer() {
               {cuisines.map((cuisine) => (
                 <li key={cuisine.name}>
                   <Link
-                    className="hover:text-[#2563EB] transition-colors"
+                    className="hover:text-primary transition-colors"
                     href={cuisine.href}
                   >
                     {cuisine.name}
@@ -96,11 +96,11 @@ export default function Footer() {
             </h4>
             <p className="text-xs text-on-surface-variant mb-3">Order, reserve & follow kitchens anywhere.</p>
             <div className="space-y-2">
-              <div className="px-3 py-2 rounded-xl bg-surface-container text-xs font-semibold flex items-center gap-2 text-on-surface cursor-pointer hover:bg-surface-container-high transition-colors">
+              <div className="px-3 py-2 bg-white text-xs font-semibold flex items-center gap-2 text-on-surface cursor-pointer hover:text-primary transition-colors">
                 <span className="material-symbols-outlined text-[18px]">phone_iphone</span>
                 App Store (iOS)
               </div>
-              <div className="px-3 py-2 rounded-xl bg-surface-container text-xs font-semibold flex items-center gap-2 text-on-surface cursor-pointer hover:bg-surface-container-high transition-colors">
+              <div className="px-3 py-2 bg-white text-xs font-semibold flex items-center gap-2 text-on-surface cursor-pointer hover:text-primary transition-colors">
                 <span className="material-symbols-outlined text-[18px]">android</span>
                 Google Play
               </div>
@@ -108,7 +108,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-surface-container flex flex-col md:flex-row items-center justify-between gap-4 text-on-surface-variant font-body-sm text-xs">
+          <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-on-surface-variant text-xs">
           <div className="flex items-center gap-4 flex-wrap">
             <span>© 2025 Cafnet Hospitality Inc. All rights reserved.</span>
             <Link className="hover:text-on-surface transition-colors" href="/privacy">
@@ -123,11 +123,11 @@ export default function Footer() {
           </div>
           <div className="flex items-center gap-6 font-label-md text-xs text-on-surface">
             <span className="inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px] text-[#2563EB]">verified</span>
+              <span className="material-symbols-outlined text-[16px] text-primary">verified</span>
               Verified Discovery
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px] text-[#E05A47]">award_star</span>
+              <span className="material-symbols-outlined text-[16px] text-secondary">award_star</span>
               Curated Dining
             </span>
           </div>

@@ -68,7 +68,7 @@ export default function KitchensFeed() {
   };
 
   return (
-    <section className="py-16 border-t border-surface-container bg-surface-container-lowest">
+    <section className="brand-section bg-surface-container-low">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
@@ -77,7 +77,7 @@ export default function KitchensFeed() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
             <div className="hidden md:flex items-center gap-1">
               <button
-                className="w-9 h-9 rounded-full bg-surface-container-lowest border border-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors shadow-sm cursor-pointer"
+                className="w-9 h-9 bg-white flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
                 title="Scroll Left"
                 type="button"
                 onClick={scrollLeft}
@@ -85,7 +85,7 @@ export default function KitchensFeed() {
                 <span className="material-symbols-outlined text-[20px]">chevron_left</span>
               </button>
               <button
-                className="w-9 h-9 rounded-full bg-surface-container-lowest border border-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors shadow-sm cursor-pointer"
+                className="w-9 h-9 bg-white flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
                 title="Scroll Right"
                 type="button"
                 onClick={scrollRight}
@@ -103,7 +103,7 @@ export default function KitchensFeed() {
           {feedItems.map((item) => (
             <article
               key={item.id}
-              className="min-w-[320px] max-w-[340px] flex-shrink-0 bg-surface-container-lowest rounded-2xl border border-surface-container hover:border-[#2563EB]/40 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+              className="min-w-[320px] max-w-[340px] flex-shrink-0 bg-white rounded-xl transition-transform hover:-translate-y-1 flex flex-col justify-between overflow-hidden group"
             >
               <div className="relative w-full h-48 bg-surface-container overflow-hidden">
                 <img
@@ -122,7 +122,7 @@ export default function KitchensFeed() {
                   </div>
                   <p className="text-xs text-on-surface leading-relaxed">{item.description}</p>
                 </div>
-                <div className="mt-5 pt-3.5 border-t border-surface-container flex items-center justify-between text-xs">
+                <div className="mt-5 pt-3.5 flex items-center justify-between text-xs">
                   {item.reactions && (
                     <span className="text-on-surface-variant text-[11px]">{item.reactions} reactions</span>
                   )}
