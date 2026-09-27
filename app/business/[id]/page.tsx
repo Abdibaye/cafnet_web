@@ -1,259 +1,74 @@
-import Link from "next/link";
 import BusinessImageGallery from "@/components/BusinessImageGallery";
 
 const business = {
-  id: 1,
   name: "Yod Abyssinia Cultural Restaurant",
   rating: 9.6,
   reviews: 1240,
-  nearestPlace: "Bole Medhanialem, 280m from Addis Ababa Stadium",
   averagePrice: "$$$",
-  description: "Authentic Habesha cultural dining experience with live traditional music and dance performances. Specializing in traditional Ethiopian cuisine with a modern twist, offering a wide variety of dishes from different regions of Ethiopia.",
-  images: [
-    "/images/placeholder1.jpeg",
-    "/images/placeholder2.jpeg",
-    "/images/placeholder3.jpeg",
-    "/images/placeholder4.jpeg",
-    "/images/placeholder1.jpeg",
-    "/images/placeholder2.jpeg",
-  ],
-   menu: [
-     {
-       category: "Traditional Dishes",
-       items: [
-         { name: "Doro Wat", price: "250 ETB", description: "A signature Ethiopian dish featuring tender chicken pieces cooked in a rich, spicy berbere sauce, served with injera. Slow-cooked to perfection with onions, garlic, and a blend of traditional spices." },
-         { name: "Tibs Firfir", price: "320 ETB", description: "A flavorful combination of minced beef (tibs) mixed with shredded injera, simmered in a spicy sauce. Perfect for those who love a mix of textures and bold flavors." },
-         { name: "Kitfo", price: "280 ETB", description: "A traditional Ethiopian delicacy made from finely minced beef, seasoned with mitmita (a spicy chili powder blend) and niter kibbeh (spiced clarified butter). Served raw or lightly cooked to your preference." },
-         { name: "Tere Siga", price: "350 ETB", description: "A premium dish of raw beef, carefully prepared and seasoned with traditional Ethiopian spices. A must-try for adventurous food lovers seeking an authentic experience." },
-         { name: "Gored Gored", price: "380 ETB", description: "Cubed raw beef marinated in spiced clarified butter and served with injera. A traditional dish often enjoyed during special occasions and celebrations." },
-         { name: "Tibs", price: "400 ETB", description: "Sizzling beef cubes cooked with onions, peppers, and rosemary, served on a hot plate. A popular choice for meat lovers, offering a smoky and savory flavor." },
-       ],
-     },
-     {
-       category: "Vegetarian",
-       items: [
-         { name: "Shiro Wat", price: "120 ETB", description: "A hearty and creamy chickpea stew, slow-cooked with garlic, onions, and berbere spice. A staple in Ethiopian vegetarian cuisine, rich in flavor and protein." },
-         { name: "Atakilt Wat", price: "140 ETB", description: "A vibrant and nutritious dish made with cabbage, carrots, and potatoes, simmered in a light turmeric-infused sauce. A perfect balance of textures and flavors." },
-         { name: "Gomen", price: "130 ETB", description: "Tender collard greens cooked with garlic, onions, and a touch of lemon. A simple yet delicious side dish that complements any Ethiopian meal." },
-         { name: "Kik Alicha", price: "150 ETB", description: "A mild and comforting split pea stew, cooked with turmeric, garlic, and onions. A great source of protein and a favorite among vegetarians." },
-       ],
-     },
-     {
-       category: "Drinks",
-       items: [
-         { name: "Tej", price: "80 ETB", description: "A traditional Ethiopian honey wine, fermented to perfection with a sweet and slightly tangy flavor. Often served in a unique glass flask called a berele." },
-         { name: "Tella", price: "60 ETB", description: "A homemade traditional beer brewed from barley or maize, offering a light and refreshing taste. A popular choice for casual gatherings." },
-         { name: "Coffee", price: "40 ETB", description: "Experience the famous Ethiopian coffee ceremony, featuring freshly roasted and brewed coffee served with incense and traditional snacks. A cultural must-try." },
-         { name: "Soft Drinks", price: "30 ETB", description: "A variety of refreshing soft drinks, including local and international brands, to complement your meal." },
-       ],
-     },
-   ],
-   reviewList: [
-    {
-      id: 1,
-      user: "Abebe K.",
-      rating: 5,
-      date: "2 weeks ago",
-      comment: "Amazing cultural experience! The food was delicious and the live music was fantastic. Highly recommend for anyone visiting Addis Ababa.",
-    },
-    {
-      id: 2,
-      user: "Mearg T.",
-      rating: 4,
-      date: "1 month ago",
-      comment: "Great food and atmosphere. The service was a bit slow but the cultural show made up for it. Will definitely come back.",
-    },
-    {
-      id: 3,
-      user: "Sara W.",
-      rating: 5,
-      date: "3 weeks ago",
-      comment: "Best traditional Ethiopian food I've had in Addis. The injera was perfect and the portions were generous. Loved the live music!",
-    },
-    {
-      id: 4,
-      user: "Dawit A.",
-      rating: 4,
-      date: "2 months ago",
-      comment: "Excellent place for group dining. The variety of dishes is impressive. The only downside is that it can get quite crowded.",
-    },
-  ],
-  tags: ["Credit card accepted", "Wi-Fi available", "Live cultural show", "Fasting menu", "Parking available", "Family friendly"],
   address: "Bole Medhanialem, Addis Ababa, Ethiopia",
+  nearestPlace: "Bole Medhanialem, 280m from Addis Ababa Stadium",
   phone: "+251 11 555 1234",
   hours: "10:00 AM - 11:00 PM",
+  description: "Authentic Habesha cultural dining experience with live traditional music and dance performances. Specializing in traditional Ethiopian cuisine with a modern twist.",
+  images: ["/images/placeholder1.jpeg", "/images/placeholder2.jpeg", "/images/placeholder3.jpeg", "/images/placeholder4.jpeg", "/images/placeholder1.jpeg", "/images/placeholder2.jpeg"],
+  tags: ["Credit card accepted", "Wi-Fi available", "Live cultural show", "Fasting menu", "Parking available", "Family friendly"],
+  menu: [
+    { category: "Traditional Dishes", items: [
+      { name: "Doro Wat", price: "250 ETB", description: "Tender chicken in a rich berbere sauce, served with injera." },
+      { name: "Tibs Firfir", price: "320 ETB", description: "Minced beef and shredded injera simmered in a spicy sauce." },
+      { name: "Kitfo", price: "280 ETB", description: "Finely minced beef seasoned with mitmita and niter kibbeh." },
+      { name: "Tere Siga", price: "350 ETB", description: "Premium raw beef seasoned with traditional Ethiopian spices." },
+      { name: "Gored Gored", price: "380 ETB", description: "Cubed raw beef marinated in spiced clarified butter." },
+      { name: "Tibs", price: "400 ETB", description: "Sizzling beef cubes with onions, peppers, and rosemary." },
+    ] },
+    { category: "Vegetarian", items: [
+      { name: "Shiro Wat", price: "120 ETB", description: "Creamy chickpea stew with garlic, onions, and berbere." },
+      { name: "Atakilt Wat", price: "140 ETB", description: "Cabbage, carrots, and potatoes in turmeric-infused sauce." },
+      { name: "Gomen", price: "130 ETB", description: "Tender collard greens with garlic, onions, and lemon." },
+      { name: "Kik Alicha", price: "150 ETB", description: "Mild split pea stew cooked with turmeric, garlic, and onions." },
+    ] },
+    { category: "Drinks", items: [
+      { name: "Tej", price: "80 ETB", description: "Traditional Ethiopian honey wine with a sweet, tangy flavor." },
+      { name: "Tella", price: "60 ETB", description: "Homemade traditional beer brewed from barley or maize." },
+      { name: "Coffee", price: "40 ETB", description: "Freshly roasted and brewed Ethiopian coffee ceremony." },
+      { name: "Soft Drinks", price: "30 ETB", description: "A selection of local and international soft drinks." },
+    ] },
+  ],
+  reviewList: [
+    { id: 1, user: "Abebe K.", rating: 5, date: "2 weeks ago", comment: "Amazing cultural experience! The food was delicious and the live music was fantastic." },
+    { id: 2, user: "Mearg T.", rating: 4, date: "1 month ago", comment: "Great food and atmosphere. The cultural show made up for the slow service." },
+    { id: 3, user: "Sara W.", rating: 5, date: "3 weeks ago", comment: "Best traditional Ethiopian food I've had in Addis. Loved the live music!" },
+    { id: 4, user: "Dawit A.", rating: 4, date: "2 months ago", comment: "Excellent place for group dining with an impressive variety of dishes." },
+  ],
 };
 
+function Rating({ showReviews = false }: { showReviews?: boolean }) {
+  return <span className="inline-flex items-center gap-1.5 font-semibold text-secondary"><span aria-hidden="true">★</span>{business.rating.toFixed(1)}{showReviews && <span className="font-normal text-on-surface-variant">· {business.reviews.toLocaleString()} reviews</span>}</span>;
+}
+
+function SectionHeading({ eyebrow, title }: { eyebrow?: string; title: string }) {
+  return <div className="mb-5">{eyebrow && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">{eyebrow}</p>}<h2 className="text-[22px] font-bold text-on-surface md:text-2xl">{title}</h2></div>;
+}
+
 export default function BusinessProfile() {
-  return (
-    <div className="w-full">
-      {/* Main content area */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
-          {/* Business name and rating section */}
-          <div className="mb-6">
-            <h1 className="font-headline-lg text-xl font-bold text-on-surface truncate">{business.name}</h1>
-            <div className="flex items-center gap-4 text-sm text-on-surface-variant mt-2 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-secondary-fixed/20 text-secondary font-bold text-lg">
-                <span
-                  className="material-symbols-outlined text-[20px] text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  star
-                </span>
-                <span>{business.rating}</span>
-                <span className="text-sm font-normal text-on-surface-variant">/ 10</span>
-              </div>
-              <span className="text-on-surface-variant">({business.reviews} reviews)</span>
-              <span className="text-on-surface-variant">Price range: 300 ETB - 900 ETB</span>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-on-surface-variant mt-1 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">location_on</span>
-                <span>{business.address}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">near_me</span>
-                <span>{business.nearestPlace}</span>
-              </div>
-            </div>
-          </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           {/* Left column - Images */}
-           <div className="lg:col-span-2">
-             {/* Main image gallery */}
-             <BusinessImageGallery images={business.images} businessName={business.name} />
+  const amenities = business.tags.filter((tag) => ["Credit card accepted", "Wi-Fi available", "Parking available", "Family friendly"].includes(tag));
+  const highlightTags = business.tags.filter((tag) => ["Live cultural show", "Fasting menu", "Family friendly"].includes(tag));
 
-            {/* Business info section */}
-            <section className="mb-8">
-              <div className="flex flex-col md:flex-row gap-6">
-                 <div className="flex-1">
-                   <h2 className="font-headline-md text-lg font-bold text-on-surface mb-4">About {business.name}</h2>
-                   <p className="text-on-surface-variant text-sm leading-relaxed mb-4">{business.description}</p>
+  return <div className="w-full bg-background"><div className="mx-auto max-w-7xl px-5 pb-16 pt-8 sm:px-6 lg:px-12 lg:pt-12">
+    <header className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="max-w-3xl text-[28px] font-bold leading-tight text-on-surface md:text-[32px]">{business.name}</h1><div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"><Rating showReviews /><span className="text-on-surface-variant">{business.averagePrice}</span><span className="text-on-surface-variant">Traditional · Cultural</span></div><div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant"><span className="inline-flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">location_on</span><strong className="text-on-surface">{business.nearestPlace.split(",")[0]}</strong></span><span>{business.nearestPlace.split(",").slice(1).join(",").trim()}</span></div></div><div className="flex flex-wrap gap-2"><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.address)}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-[#0f46b8]"><span className="material-symbols-outlined text-[19px]" aria-hidden="true">directions</span>Get directions</a><a href={`tel:${business.phone.replaceAll(" ", "")}`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"><span className="material-symbols-outlined text-[19px]" aria-hidden="true">call</span>Call</a></div></header>
 
-                   <div className="mt-6">
-                     <h3 className="font-headline-sm text-base font-bold text-on-surface mb-3">Tags</h3>
-                     <div className="flex flex-wrap gap-2">
-                       {business.tags.map((tag, index) => (
-                         <span
-                           key={index}
-                           className="px-3 py-1 rounded-full border border-surface-container-high text-[12px] text-on-surface-variant font-medium bg-surface-container-lowest"
-                         >
-                           {tag}
-                         </span>
-                       ))}
-                     </div>
-                    </div>
-                  </div>
-               </div>
-             </section>
+    <BusinessImageGallery images={business.images} businessName={business.name} />
+    <nav className="sticky top-20 z-10 -mx-5 mb-10 overflow-x-auto border-b border-outline-variant bg-background/95 px-5 sm:-mx-6 sm:px-6 lg:-mx-12 lg:px-12" aria-label="Business profile sections"><div className="flex min-w-max gap-7">{[["overview", "Overview"], ["menu", "Menu"], ["photos", "Photos"], ["reviews", "Reviews"]].map(([id, label], index) => <a key={id} href={`#${id}`} className={`border-b-2 py-4 text-sm font-semibold ${index === 0 ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-primary"}`}>{label}</a>)}</div></nav>
 
-             {/* Menu section */}
-            <section className="mb-8">
-              <h2 className="font-headline-md text-lg font-bold text-on-surface mb-6">Set menu</h2>
-              <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container">
-                <div className="grid grid-cols-2 gap-4">
-                  {business.menu[0].items.slice(0, 6).map((item, itemIndex) => (
-                    <div key={itemIndex} className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface-container-lowest transition-colors">
-                      <div className="w-24 h-24 rounded-xl bg-surface-container overflow-hidden shrink-0">
-                        <img
-                          src={business.images[itemIndex % business.images.length]}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-on-surface text-sm truncate">{item.name}</h4>
-                        <p className="text-xs text-on-surface-variant mt-0.5">{item.description}</p>
-                        <p className="font-bold text-primary text-xs mt-1">{item.price}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 text-center">
-                  <button className="px-4 py-2 rounded-xl border border-surface-container text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">
-                    View more
-                  </button>
-                </div>
-              </div>
-            </section>
+    <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-16"><main className="min-w-0">
+      <section id="overview" className="scroll-mt-36 border-b border-outline-variant pb-10"><SectionHeading eyebrow="The place" title="About" /><p className="max-w-3xl text-[15px] leading-7 text-on-surface-variant">{business.description}</p><div className="mt-8"><h3 className="mb-3 text-base font-bold text-on-surface">Highlights</h3><div className="grid gap-3 sm:grid-cols-2">{highlightTags.map((tag) => <div key={tag} className="flex items-center gap-2 text-sm text-on-surface-variant"><span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">check_circle</span>{tag}</div>)}</div></div></section>
+      <section id="menu" className="scroll-mt-36 border-b border-outline-variant py-10"><SectionHeading eyebrow="What you can eat" title="Popular dishes" /><div className="space-y-8">{business.menu.map((category, categoryIndex) => <div key={category.category}><h3 className="mb-3 text-base font-bold text-on-surface">{category.category}</h3><div className="grid gap-3 md:grid-cols-2">{category.items.map((item, itemIndex) => <article key={item.name} className="flex gap-3 rounded-[14px] border border-outline-variant/80 bg-white p-3"><img src={business.images[(categoryIndex * 2 + itemIndex) % business.images.length]} alt="" className="size-20 shrink-0 rounded-xl object-cover" /><div className="min-w-0 py-0.5"><div className="flex items-start justify-between gap-2"><h4 className="text-sm font-semibold text-on-surface">{item.name}</h4><span className="shrink-0 text-sm font-semibold text-primary">{item.price}</span></div><p className="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">{item.description}</p></div></article>)}</div></div>)}</div></section>
+      <section id="updates" className="border-b border-outline-variant py-10"><SectionHeading eyebrow="From the business" title="What's new" /><div className="border border-dashed border-outline-variant bg-surface-container-low px-5 py-6 text-sm text-on-surface-variant">No business updates yet.</div></section>
+      <section id="reviews" className="scroll-mt-36 pt-10"><SectionHeading eyebrow="What people think" title="Reviews" /><div className="mb-8 flex items-center gap-4 border-b border-outline-variant pb-7"><div className="text-4xl font-bold text-on-surface">{business.rating.toFixed(1)}<span className="text-xl text-on-surface-variant"> / 10</span></div><div><Rating /><p className="mt-1 text-sm text-on-surface-variant">{business.reviews.toLocaleString()} reviews</p></div></div><div className="divide-y divide-outline-variant">{business.reviewList.map((review) => <article key={review.id} className="py-6 first:pt-0"><div className="flex items-start justify-between gap-4"><div><h3 className="text-sm font-semibold text-on-surface">{review.user}</h3><span className="mt-1 inline-block text-sm tracking-[0.12em] text-secondary" aria-label={`${review.rating} out of 5 stars`}>★ {review.rating}/5</span></div><time className="shrink-0 text-xs text-on-surface-variant">{review.date}</time></div><p className="mt-3 text-sm leading-6 text-on-surface-variant">{review.comment}</p></article>)}</div></section>
+    </main><aside className="h-fit lg:sticky lg:top-36"><section className="rounded-[14px] border border-outline-variant bg-white p-5" aria-labelledby="good-to-know-heading"><h2 id="good-to-know-heading" className="text-lg font-bold text-on-surface">Good to know</h2><div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-1"><Info icon="location_on" label="Location" value={business.address} /><Info icon="schedule" label="Hours" value={business.hours} /><Info icon="call" label="Phone" value={business.phone} />{amenities.map((tag) => <Info key={tag} icon={tag.includes("Wi-Fi") ? "wifi" : tag.includes("Parking") ? "local_parking" : tag.includes("Credit") ? "credit_card" : "family_restroom"} label={tag.replace(" available", "")} value={tag.includes("available") ? "Available" : "Yes"} />)}</div></section></aside></div>
+  </div></div>;
+}
 
-            {/* Reviews section */}
-            <section>
-              <h2 className="font-headline-md text-lg font-bold text-on-surface mb-6">Reviews ({business.reviews})</h2>
-               <div className="space-y-4">
-                 {business.reviewList.map((review) => (
-                   <div key={review.id} className="flex items-start gap-4 p-3">
-                     <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
-                       <span className="material-symbols-outlined text-[24px] text-on-surface-variant">person</span>
-                     </div>
-                     <div className="flex-1 min-w-0">
-                       <div className="flex items-center justify-between mb-2">
-                         <div>
-                           <h4 className="font-semibold text-on-surface text-sm">{review.user}</h4>
-                           <div className="flex items-center gap-1 mt-0.5">
-                             <div className="inline-flex items-center gap-0.5">
-                               {[...Array(5)].map((_, i) => (
-                                 <span
-                                   key={i}
-                                   className={`material-symbols-outlined text-[14px] ${i < review.rating ? 'text-secondary' : 'text-outline/30'}`}
-                                   style={{ fontVariationSettings: "'FILL' 1" }}
-                                 >
-                                   star
-                                 </span>
-                               ))}
-                             </div>
-                           </div>
-                         </div>
-                         <span className="text-xs text-on-surface-variant whitespace-nowrap">{review.date}</span>
-                       </div>
-                       <p className="text-sm text-on-surface-variant">{review.comment}</p>
-                     </div>
-                   </div>
-                 ))}
-               </div>
-            </section>
-          </div>
-
-           {/* Right column - Restaurant information */}
-           <div className="lg:col-span-1">
-             <div className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container sticky top-32">
-               <h3 className="font-headline-sm text-base font-bold text-on-surface mb-4">Restaurant information</h3>
-               
-               <div className="space-y-4 text-sm">
-                 <div className="flex items-center gap-3">
-                   <div>
-                     <p className="text-on-surface-variant text-xs">Categories</p>
-                     <p className="font-semibold text-on-surface">Traditional, Cultural</p>
-                   </div>
-                 </div>
-                 
-                 <div className="flex items-center gap-3">
-                   <div>
-                     <p className="text-on-surface-variant text-xs">Phone number</p>
-                     <p className="font-semibold text-on-surface">{business.phone}</p>
-                   </div>
-                 </div>
-                 
-                 <div className="flex items-center gap-3">
-                   <div>
-                     <p className="text-on-surface-variant text-xs">Payment methods</p>
-                     <p className="font-semibold text-on-surface">Cash, Credit Card</p>
-                   </div>
-                 </div>
-                 
-                 <div className="flex items-center gap-3">
-                   <div>
-                     <p className="text-on-surface-variant text-xs">Transportation</p>
-                     <p className="font-semibold text-on-surface">20 minutes from Bole</p>
-                   </div>
-                 </div>
-               </div>
-
-
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function Info({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return <div className="flex gap-3"><span className="material-symbols-outlined text-[19px] text-secondary" aria-hidden="true">{icon}</span><div className="min-w-0"><p className="text-xs text-on-surface-variant">{label}</p><p className="mt-1 text-sm font-semibold leading-5 text-on-surface">{value}</p></div></div>;
 }

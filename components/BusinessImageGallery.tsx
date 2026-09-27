@@ -31,38 +31,20 @@ export default function BusinessImageGallery({ images, businessName }: BusinessI
   }
 
   return (
-    <div className="mb-8">
-      <div className="relative rounded-2xl overflow-hidden bg-surface-container group">
+    <div id="photos" className="mb-8 scroll-mt-36">
+      <div className="grid h-[min(27rem,62vw)] grid-cols-1 gap-2 overflow-hidden rounded-2xl bg-surface-container md:grid-cols-[minmax(0,2fr)_minmax(13rem,1fr)]">
         <img
           alt={`${businessName} — photo ${activeIndex + 1} of ${count}`}
-          className="w-full h-[min(28rem,55vw)] object-cover"
+          className="h-full w-full object-cover"
           src={images[activeIndex]}
         />
-
-        {count > 1 && (
-          <>
-             <button
-               type="button"
-               onClick={goPrev}
-               className="absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-               aria-label="Previous photo"
-             >
-               <span className="material-symbols-outlined text-[60px] font-light">chevron_left</span>
-             </button>
-             <button
-               type="button"
-               onClick={goNext}
-               className="absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-               aria-label="Next photo"
-             >
-               <span className="material-symbols-outlined text-[60px] font-light">chevron_right</span>
-             </button>
-          </>
-        )}
+        {count > 1 && <div className="absolute inset-x-0 bottom-0 flex justify-between p-3 md:inset-y-0 md:bottom-auto md:items-center"><button type="button" onClick={goPrev} className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55" aria-label="Previous photo"><span className="material-symbols-outlined text-[20px]">chevron_left</span></button><button type="button" onClick={goNext} className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55" aria-label="Next photo"><span className="material-symbols-outlined text-[20px]">chevron_right</span></button></div>}
+        {count > 1 && <div className="hidden grid-cols-2 grid-rows-2 gap-2 md:grid">{images.slice(1, 5).map((src, index) => <button key={`${src}-side-${index}`} type="button" onClick={() => setActiveIndex(index + 1)} className="overflow-hidden bg-surface-container" aria-label={`Show photo ${index + 2}`}><img alt="" className="h-full w-full object-cover transition-transform hover:scale-[1.03]" src={src} /></button>)}</div>}
       </div>
 
       {count > 1 && (
-        <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
           {images.map((src, index) => (
             <button
               key={`${src}-${index}`}
@@ -70,7 +52,7 @@ export default function BusinessImageGallery({ images, businessName }: BusinessI
               onMouseEnter={() => setActiveIndex(index)}
               onFocus={() => setActiveIndex(index)}
               onClick={() => setActiveIndex(index)}
-              className={`relative shrink-0 flex-1 min-w-0 aspect-square overflow-hidden bg-surface-container transition-shadow ${
+              className={`relative size-14 shrink-0 overflow-hidden rounded-lg bg-surface-container transition-shadow ${
                 index === activeIndex
                   ? "ring-2 ring-secondary ring-offset-1 ring-offset-background"
                   : "opacity-90 hover:opacity-100"
@@ -85,6 +67,8 @@ export default function BusinessImageGallery({ images, businessName }: BusinessI
               />
             </button>
           ))}
+          </div>
+          <span className="hidden shrink-0 text-sm font-semibold text-primary sm:inline">View all photos <span aria-hidden="true">→</span></span>
         </div>
       )}
     </div>
