@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { BusinessClaim, BusinessSubmission } from "@/data/businessOwnerStorage";
+import { getManagedBusiness as getManagedBusinessFromStorage } from "@/data/ownerManagedBusinessStorage";
 
 type BusinessManagementCardProps = {
   business?: MockBusiness;
@@ -22,5 +23,30 @@ export default function BusinessManagementCard({ business, claim, submission }: 
   const detailHref = isManaged && business ? `/business/dashboard/business/${business.id}` : claim ? `/business/dashboard/claim/${claim.id}` : `/business/dashboard/submission/${submission?.id}`;
   const profileHref = business ? `/business/${business.id}` : "/business";
 
-  return <article className="flex flex-col gap-5 border border-outline-variant bg-white p-5 sm:flex-row sm:items-center"><div className="flex min-w-0 flex-1 items-center gap-4">{business ? <img src={business.images[0]} alt="" className="size-20 shrink-0 rounded-xl object-cover" /> : <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-surface-container-low"><span className="material-symbols-outlined text-3xl text-outline" aria-hidden="true">storefront</span></div>}<div className="min-w-0"><h2 className="truncate text-base font-bold text-on-surface">{title}</h2><p className="mt-1 text-sm text-on-surface-variant">{category} · {area}</p><p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface"><span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">{isManaged ? "check_circle" : "schedule"}</span>{status}</p><p className="mt-1 text-xs leading-5 text-on-surface-variant">{explanation}</p></div></div><div className="flex shrink-0 flex-wrap gap-3 sm:flex-col sm:items-stretch"><Link href={profileHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">View business</Link>{detailHref && <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold text-primary hover:bg-primary-container">{isManaged ? "Manage business" : claim ? "View request" : "View submission"}</Link>}</div></article>;
+  const managedBusiness = business ? getManagedBusinessFromStorage(business.id) : undefined;
+  const lastUpdated = managedBusiness?.editableData.updatedAt ? new Date(managedBusiness.editableData.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : undefined;
+
+  return <article className="flex flex-col gap-5 border border-outline-variant bg-white p-5 sm:flex-row sm:items-center">
+    <div className="flex min-w-0 flex-1 items-center gap-4">
+      {business ? <img src={business.images[0]} alt="" className="size-20 shrink-0 rounded-xl object-cover" /> : <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-surface-container-low"><span className="material-symbols-outlined text-3xl text-outline" aria-hidden="true">storefront</span></div>}
+      <div className="min-w-0">
+        <h2 className="truncate text-base font-bold text-on-surface">{title}</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">{category} · {area}</p>
+        <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface">
+          <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">{isManaged ? "check_circle" : "schedule"}</span>
+          {status}
+        </p>
+        {isManaged && lastUpdated && <p className="mt-1 text-xs leading-5 text-on-surface-variant">Last updated {lastUpdated}</p>}
+        <p className="mt-1 text-xs leading-5 text-on-surface-variant">{explanation}</p>
+      </div>
+    </div>
+    <div className="flex shrink-0 flex-wrap gap-3 sm:flex-col sm:items-stretch">
+      <Link href={profileHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
+        View business
+      </Link>
+      {detailHref && <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold text-primary hover:bg-primary-container">
+        {isManaged ? "Manage business" : claim ? "View request" : "View submission"}
+      </Link>}
+    </div>
+  </article>;
 }

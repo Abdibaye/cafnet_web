@@ -5,14 +5,15 @@ import { useCustomerReviews, getCombinedBusinessReviews } from "@/components/Cus
 import { getReviewSummary } from "@/data/mockReviews";
 import ReviewSubmission from "@/components/ReviewSubmission";
 import type { MockBusiness } from "@/data/mockBusinesses";
+import type { MergedBusinessProfile } from "@/data/businessProfileData";
 
-export default function BusinessReviewSection({ business }: { business: MockBusiness }) {
+export default function BusinessReviewSection({ business }: { business: MockBusiness | MergedBusinessProfile }) {
   const { ready, reviews: customerReviews } = useCustomerReviews();
   if (!ready) return <p className="text-sm text-on-surface-variant">Loading reviews...</p>;
   const reviews = getCombinedBusinessReviews(business.id, customerReviews);
   const distribution = [5, 4, 3, 2, 1].map((rating) => reviews.filter((review) => review.rating === rating).length);
   const average = reviews.length ? Math.round((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10) / 10 : 0;
-  return <><ReviewSubmission business={business} /><div className="mt-8"><BusinessReviews reviews={reviews} average={average} distribution={distribution} /></div></>;
+  return <><ReviewSubmission business={business as MockBusiness} /><div className="mt-8"><BusinessReviews reviews={reviews} average={average} distribution={distribution} /></div></>;
 }
 
 export function BusinessRatingSummary({ businessId }: { businessId: number }) {

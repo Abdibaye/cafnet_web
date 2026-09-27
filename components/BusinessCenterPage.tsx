@@ -8,8 +8,11 @@ import { mockBusinesses } from "@/data/mockBusinesses";
 
 export default function BusinessCenterPage() {
   const { authReady, isAuthenticated, startSignIn } = useCustomer();
-  const { ready, claims, submissions } = useBusinessOwner();
-  const managedBusinesses = mockBusinesses.filter((business) => business.claimStatus === "claimed");
+  const { ready, claims, submissions, managedBusinesses: ownerManagedBusinesses } = useBusinessOwner();
+  const managedBusinesses = mockBusinesses.filter((business) => 
+    business.claimStatus === "claimed" || 
+    ownerManagedBusinesses.some((mb) => mb.businessId === business.id)
+  );
 
   if (!authReady || !ready) return <div className="mx-auto max-w-4xl px-5 py-20 text-sm text-on-surface-variant">Loading Business Center...</div>;
   if (!isAuthenticated) return <div className="mx-auto max-w-2xl px-5 py-20 text-center"><h1 className="text-2xl font-bold text-on-surface">Sign in to manage your businesses</h1><p className="mt-3 text-sm text-on-surface-variant">Use your Cafnet account to view claims and business submissions.</p><button type="button" className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]" onClick={startSignIn}>Sign in</button></div>;
