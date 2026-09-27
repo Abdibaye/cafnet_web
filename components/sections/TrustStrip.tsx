@@ -17,7 +17,6 @@ export default function TrustStrip({ variant = "default" }: TrustStripProps) {
           {isHomepage ? "Around " : "Showing places around "}
           <strong className="font-semibold text-on-surface">Bole</strong>
         </span>
-        <span className="text-xs text-on-surface-variant">Mock area</span>
       </div>
     </section>
   );
