@@ -4,7 +4,7 @@ const business = {
   name: "Yod Abyssinia Cultural Restaurant",
   rating: 9.6,
   reviews: 1240,
-  averagePrice: "$$$",
+  averagePrice: "ETB",
   address: "Bole Medhanialem, Addis Ababa, Ethiopia",
   nearestPlace: "Bole Medhanialem, 280m from Addis Ababa Stadium",
   phone: "+251 11 555 1234",
