@@ -3,24 +3,20 @@ import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import BusinessUpdateCard, { type BusinessUpdate } from "@/components/BusinessUpdateCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
+import { mockBusinesses, toBusinessCardItem } from "@/data/mockBusinesses";
 
-const updates: BusinessUpdate[] = [
-  { businessId: 1, businessName: "Yod Abyssinia Cultural Restaurant", businessImage: "/images/placeholder1.jpeg", updateType: "Event", title: "Live cultural show tonight", description: "Traditional music, dance, and a dinner menu from 7pm.", createdAt: "2h ago", location: "Bole · Today" },
-  { businessId: 2, businessName: "Kaffa Coffee Roastery & Bistro", businessImage: "/images/placeholder2.jpeg", updateType: "New menu", title: "New seasonal coffee menu", description: "Try the new Guji pour-over and spiced honey latte.", createdAt: "2h ago", location: "Kazanchis" },
-  { businessId: 5, businessName: "Burger Haven", businessImage: "/images/burgre.jpg", updateType: "Offer", title: "20% off lunch combos this week", description: "A quick lunch with a burger, fries, and a soft drink.", createdAt: "Yesterday", location: "Bole · This week" },
-];
-
-const popularPlaces: BusinessCardItem[] = [
-  { id: 1, name: "Yod Abyssinia Cultural Restaurant", image: "/images/placeholder1.jpeg", location: "Bole Medhanialem, 280m", description: "Authentic Habesha, Cultural Dining, Live Music", rating: 9.6, reviews: 1240, tags: ["Credit card accepted", "Live cultural show", "Fasting menu"] },
-  { id: 2, name: "Kaffa Coffee Roastery & Bistro", image: "/images/placeholder2.jpeg", location: "Kazanchis, 150m", description: "Specialty Buna, Artisan Cafe, Bakery & Brunch", rating: 9.5, reviews: 890, tags: ["Single-origin beans", "Work-friendly", "Outdoor patio"] },
-  { id: 5, name: "Burger Haven", image: "/images/burgre.jpg", location: "Bole, 500m", description: "Gourmet Burgers, Fries, Shakes", rating: 9.2, reviews: 480, tags: ["Family friendly", "Outdoor seating", "Lunch favorite"] },
-];
-
-const newPlaces: BusinessCardItem[] = [
-  { id: 6, name: "Pizza Paradise", image: "/images/pizza.jpg", location: "Kazanchis, 200m", description: "Woodfired Pizza, Pasta, Salads", rating: 9.1, reviews: 450, tags: ["Delivery available", "Vegan options", "Woodfired"] },
-  { id: 3, name: "The Wood Oven Trattoria", image: "/images/placeholder3.jpeg", location: "Bole Atlas, 420m", description: "Woodfired Pizza, Handcrafted Pasta, Wine Bar", rating: 9.4, reviews: 620, tags: ["Cocktail lounge", "Reservations recommended", "Italian"] },
-  { id: 4, name: "Tana Fresh Fish & Dullet House", image: "/images/placeholder4.jpeg", location: "Old Airport, 310m", description: "Lake Tana Tilapia, Seafood, Asa Dullet", rating: 9.3, reviews: 512, tags: ["Daily fresh catch", "Family friendly", "Fasting options"] },
-];
+const popularPlaces = mockBusinesses.filter((business) => business.featured).map(toBusinessCardItem);
+const newPlaces = mockBusinesses.filter((business) => !business.featured).slice(0, 3).map(toBusinessCardItem);
+const updates: BusinessUpdate[] = mockBusinesses.flatMap((business) => business.updates.map((update) => ({
+  businessId: business.id,
+  businessName: business.name,
+  businessImage: business.images[0],
+  updateType: update.type,
+  title: update.title,
+  description: update.description,
+  createdAt: update.createdAt,
+  location: business.neighborhood,
+})));
 
 function BusinessSection({ heading, supportingText, items }: { heading: string; supportingText: string; items: BusinessCardItem[] }) {
   return (

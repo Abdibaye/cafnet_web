@@ -12,6 +12,19 @@ interface CategoryListProps {
   viewAllLabel?: string;
 }
 
+function EmptyState() {
+  return (
+    <div className="border border-outline-variant bg-white px-6 py-10 text-center">
+      <h2 className="text-lg font-bold text-on-surface">No places found</h2>
+      <p className="mt-2 text-sm text-on-surface-variant">We couldn&apos;t find places in this category yet.</p>
+      <Link className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-[#0f46b8]" href="/explore">
+        Explore all places
+        <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
+      </Link>
+    </div>
+  );
+}
+
 export default function CategoryList({ items, categoryName, viewAllLink, activeTab, heading, viewAllLabel }: CategoryListProps) {
   const displayName = activeTab || categoryName;
 
@@ -33,11 +46,11 @@ export default function CategoryList({ items, categoryName, viewAllLink, activeT
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2">
-          {items.map((item) => (
-            <BusinessCard key={item.id} item={item} />
-          ))}
-        </div>
+        {items.length > 0 ? (
+          <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((item) => <BusinessCard key={item.id} item={item} />)}
+          </div>
+        ) : <EmptyState />}
       </div>
     </section>
   );

@@ -1,28 +1,11 @@
 "use client";
 
-import { useState } from "react";
-
 type TrustStripProps = {
   variant?: "default" | "homepage";
 };
 
 export default function TrustStrip({ variant = "default" }: TrustStripProps) {
-  const [locationName, setLocationName] = useState("your area");
   const isHomepage = variant === "homepage";
-
-  const handleGetLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocationName("your current location");
-          console.log("Location:", position.coords);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
-    }
-  };
 
   return (
     <section className="bg-background pb-0 pt-4 md:pt-5">
@@ -32,16 +15,9 @@ export default function TrustStrip({ variant = "default" }: TrustStripProps) {
         </span>
         <span>
           {isHomepage ? "Around " : "Showing places around "}
-          <strong className="font-semibold text-on-surface">{isHomepage && locationName === "your area" ? "your area" : locationName}</strong>
+          <strong className="font-semibold text-on-surface">Bole</strong>
         </span>
-        <button
-          className="inline-flex cursor-pointer items-center gap-1 font-semibold text-secondary transition-colors hover:text-[#d95547]"
-          type="button"
-          onClick={handleGetLocation}
-        >
-          <span>{isHomepage ? "Use my current location" : "Use my current location"}</span>
-          <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
-        </button>
+        <span className="text-xs text-on-surface-variant">Mock area</span>
       </div>
     </section>
   );

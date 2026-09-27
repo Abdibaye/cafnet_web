@@ -2,39 +2,9 @@ import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
+import { getBusinessesByCategory, toBusinessCardItem } from "@/data/mockBusinesses";
 
-const popularPlaces: BusinessCardItem[] = [
-  {
-    id: 1,
-    name: "Yod Abyssinia Cultural Restaurant",
-    image: "/images/placeholder1.jpeg",
-    location: "Bole Medhanialem, 280m",
-    description: "Authentic Habesha, Cultural Dining, Live Music",
-    rating: 9.6,
-    reviews: 1240,
-    tags: ["Credit card accepted", "Live cultural show", "Fasting menu"],
-  },
-  {
-    id: 2,
-    name: "Kaffa Coffee Roastery & Bistro",
-    image: "/images/placeholder2.jpeg",
-    location: "Kazanchis, 150m",
-    description: "Specialty Buna, Artisan Cafe, Bakery & Brunch",
-    rating: 9.5,
-    reviews: 890,
-    tags: ["Single-origin beans", "Work-friendly", "Outdoor patio"],
-  },
-  {
-    id: 5,
-    name: "Burger Haven",
-    image: "/images/burgre.jpg",
-    location: "Bole, 500m",
-    description: "Gourmet Burgers, Fries, Shakes",
-    rating: 9.2,
-    reviews: 480,
-    tags: ["Family friendly", "Outdoor seating", "Lunch favorite"],
-  },
-];
+const popularPlaces: BusinessCardItem[] = getBusinessesByCategory("restaurant").slice(0, 3).map(toBusinessCardItem);
 
 const cuisines = ["Ethiopian", "Italian", "Asian", "Indian", "Bakery", "Coffee"];
 
