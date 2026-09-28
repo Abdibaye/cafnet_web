@@ -3,8 +3,14 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useReservations } from "@/components/ReservationProvider";
-import { loadCustomerReviews, saveCustomerReviews, type CustomerReview } from "@/data/customerReviewStorage";
+import {
+  loadCustomerReviews,
+  saveCustomerReviews,
+  deleteCustomerReview,
+  type CustomerReview,
+} from "@/data/customerReviewStorage";
 import { getBusinessReviews } from "@/data/mockReviews";
+import { isReviewRemoved } from "@/data/reviewReportStorage";
 
 export function isReservationEligible(date: string, status: string) {
   const today = new Date().toISOString().slice(0, 10);
@@ -22,6 +28,7 @@ type CustomerReviewContextValue = {
   eligibleReservations: (businessId: number) => ReturnType<typeof useReservations>["reservations"];
   createReview: (reservationId: string, businessId: number, rating: number, text: string) => CustomerReview | null;
   updateReview: (reviewId: string, rating: number, text: string) => boolean;
+  deleteReview: (reviewId: string) => boolean;
 };
 
 const CustomerReviewContext = createContext<CustomerReviewContextValue | null>(null);
@@ -33,7 +40,8 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
   const [reviews, setReviews] = useState<CustomerReview[]>([]);
 
   const refreshReviews = useCallback(() => {
-    setReviews(loadCustomerReviews());
+    const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
+    setReviews(loaded);
   }, []);
 
   useEffect(() => {
@@ -44,7 +52,12 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
 
     const handleUpdate = () => refreshReviews();
     window.addEventListener("cafnet:reviews-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:reviews-updated", handleUpdate);
+    window.addEventListener("cafnet:review-moderation-updated", handleUpdate);
+
+    return () => {
+      window.removeEventListener("cafnet:reviews-updated", handleUpdate);
+      window.removeEventListener("cafnet:review-moderation-updated", handleUpdate);
+    };
   }, [refreshReviews]);
 
   const createReview = (reservationId: string, businessId: number, rating: number, text: string): CustomerReview | null => {
@@ -89,6 +102,19 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
     return true;
   };
 
+  const deleteReview = (reviewId: string): boolean => {
+    if (!currentUser) return false;
+    const target = reviews.find((r) => r.id === reviewId);
+    if (!target || target.customerId !== currentUser.id) return false;
+
+    const success = deleteCustomerReview(reviewId, currentUser.id);
+    if (success) {
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      showToast("Review deleted");
+    }
+    return success;
+  };
+
   const customerReservations = currentUser ? reservations : [];
   const userReviews = currentUser ? reviews.filter((r) => r.customerId === currentUser.id) : [];
 
@@ -110,6 +136,7 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
         ),
       createReview,
       updateReview,
+      deleteReview,
     }}>
       {children}
     </CustomerReviewContext.Provider>
@@ -123,5 +150,8 @@ export function useCustomerReviews() {
 }
 
 export function getCombinedBusinessReviews(businessId: number, customerReviews: CustomerReview[]) {
-  return [...customerReviews.filter((review) => review.businessId === businessId), ...getBusinessReviews(businessId)];
+  return [
+    ...customerReviews.filter((review) => review.businessId === businessId && !isReviewRemoved(review.id)),
+    ...getBusinessReviews(businessId),
+  ];
 }

@@ -10,6 +10,7 @@ import {
   loadOwnerManagedBusinesses,
 } from "./ownerManagedBusinessStorage";
 import { mockBusinesses, type MockBusiness } from "./mockBusinesses";
+import { loadReviewReports } from "./reviewReportStorage";
 
 export type AdminState = {
   verifiedOverrides: Record<number, boolean>;
@@ -332,11 +333,15 @@ export type AdminStats = {
   rejectedSubmissionsCount: number;
   totalBusinessesCount: number;
   verifiedBusinessesCount: number;
+  pendingReportsCount: number;
+  dismissedReportsCount: number;
+  actionedReportsCount: number;
 };
 
 export function getAdminStats(allBusinesses: MockBusiness[]): AdminStats {
   const ownerState = loadBusinessOwnerState();
   const adminState = loadAdminState();
+  const reports = loadReviewReports();
 
   const pendingClaimsCount = ownerState.claims.filter((c) => c.status === "pending").length;
   const approvedClaimsCount = ownerState.claims.filter((c) => c.status === "approved").length;
@@ -345,6 +350,10 @@ export function getAdminStats(allBusinesses: MockBusiness[]): AdminStats {
   const pendingSubmissionsCount = ownerState.submissions.filter((s) => s.status === "pending").length;
   const approvedSubmissionsCount = ownerState.submissions.filter((s) => s.status === "approved").length;
   const rejectedSubmissionsCount = ownerState.submissions.filter((s) => s.status === "rejected").length;
+
+  const pendingReportsCount = reports.filter((r) => r.status === "PENDING").length;
+  const dismissedReportsCount = reports.filter((r) => r.status === "DISMISSED").length;
+  const actionedReportsCount = reports.filter((r) => r.status === "ACTIONED").length;
 
   const totalBusinessesCount = allBusinesses.length;
   const verifiedBusinessesCount = allBusinesses.filter((b) => {
@@ -363,5 +372,8 @@ export function getAdminStats(allBusinesses: MockBusiness[]): AdminStats {
     rejectedSubmissionsCount,
     totalBusinessesCount,
     verifiedBusinessesCount,
+    pendingReportsCount,
+    dismissedReportsCount,
+    actionedReportsCount,
   };
 }

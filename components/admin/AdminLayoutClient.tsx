@@ -90,6 +90,7 @@ export default function AdminLayoutClient({ children }: AdminLayoutClientProps) 
     { label: "Businesses", href: "/admin/businesses", icon: "storefront", exact: false },
     { label: "Claims", href: "/admin/claims", icon: "assignment_ind", exact: false },
     { label: "Submissions", href: "/admin/submissions", icon: "post_add", exact: false },
+    { label: "Reviews", href: "/admin/reviews", icon: "rate_review", exact: false },
   ];
 
   const isLinkActive = (href: string, exact: boolean) => {

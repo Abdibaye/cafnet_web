@@ -13,7 +13,7 @@ export default function BusinessReviewSection({ business }: { business: MockBusi
   const reviews = getCombinedBusinessReviews(business.id, customerReviews);
   const distribution = [5, 4, 3, 2, 1].map((rating) => reviews.filter((review) => review.rating === rating).length);
   const average = reviews.length ? Math.round((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10) / 10 : 0;
-  return <><ReviewSubmission business={business as MockBusiness} /><div className="mt-8"><BusinessReviews reviews={reviews} average={average} distribution={distribution} /></div></>;
+  return <><ReviewSubmission business={business as MockBusiness} /><div className="mt-8"><BusinessReviews reviews={reviews} average={average} distribution={distribution} businessName={business.name} /></div></>;
 }
 
 export function BusinessRatingSummary({ businessId }: { businessId: number }) {

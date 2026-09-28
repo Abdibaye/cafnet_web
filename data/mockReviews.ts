@@ -1,3 +1,5 @@
+import { isReviewRemoved } from "./reviewReportStorage";
+
 export type MockReview = {
   id: string;
   businessId: number;
@@ -25,8 +27,12 @@ export const mockReviews: MockReview[] = [
   { id: "review-011", businessId: 7, userId: "customer-011", userName: "Yonas H.", userAvatar: "Y", rating: 4, text: "A lovely, unhurried place for traditional coffee. The buna ceremony is worth seeing, and the chechebsa made a good breakfast.", date: "2 months ago", helpfulCount: 4 },
 ];
 
+export function getMockReviewById(reviewId: string): MockReview | undefined {
+  return mockReviews.find((review) => review.id === reviewId);
+}
+
 export function getBusinessReviews(businessId: number) {
-  return mockReviews.filter((review) => review.businessId === businessId);
+  return mockReviews.filter((review) => review.businessId === businessId && !isReviewRemoved(review.id));
 }
 
 export function getReviewSummary(businessId: number) {

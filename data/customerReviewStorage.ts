@@ -8,9 +8,10 @@ export type CustomerReview = MockReview & {
 };
 
 const storageKey = "cafnet.mock-customer-reviews";
+const memoryFallbackReviews: CustomerReview[] = [];
 
 export function loadCustomerReviews(): CustomerReview[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") return memoryFallbackReviews;
   try {
     const stored = window.localStorage.getItem(storageKey);
     if (!stored) return [];
@@ -32,11 +33,26 @@ export function loadCustomerReviews(): CustomerReview[] {
 }
 
 export function saveCustomerReviews(reviews: CustomerReview[]) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    memoryFallbackReviews.length = 0;
+    memoryFallbackReviews.push(...reviews);
+    return;
+  }
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(reviews));
     window.dispatchEvent(new CustomEvent("cafnet:reviews-updated"));
   } catch {
     // Ignore storage write failures
   }
+}
+
+export function deleteCustomerReview(reviewId: string, customerId: string): boolean {
+  const currentReviews = loadCustomerReviews();
+  const target = currentReviews.find((r) => r.id === reviewId);
+  if (!target) return false;
+  if (target.customerId !== customerId) return false;
+
+  const remaining = currentReviews.filter((r) => r.id !== reviewId);
+  saveCustomerReviews(remaining);
+  return true;
 }
