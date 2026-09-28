@@ -44,6 +44,12 @@ export default function BusinessManagementCard({ business, claim, submission }: 
       <Link href={profileHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
         View business
       </Link>
+      {isManaged && business && (
+        <Link href={`/business/dashboard/business/${business.id}/menu`} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
+          <span className="material-symbols-outlined text-[17px] text-primary" aria-hidden="true">restaurant_menu</span>
+          Menu
+        </Link>
+      )}
       {detailHref && <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold text-primary hover:bg-primary-container">
         {isManaged ? "Manage business" : claim ? "View request" : "View submission"}
       </Link>}

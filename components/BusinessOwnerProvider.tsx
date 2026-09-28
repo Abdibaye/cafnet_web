@@ -68,6 +68,7 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
   const [submissions, setSubmissions] = useState<BusinessSubmission[]>([]);
   const [managedBusinesses, setManagedBusinesses] = useState<OwnerManagedBusiness[]>([]);
   const [updatesVersion, setUpdatesVersion] = useState(0);
+  const [menuVersion, setMenuVersion] = useState(0);
 
   const refreshState = useCallback(() => {
     const ownerState = loadBusinessOwnerState();
@@ -87,14 +88,20 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
     const handleManagedUpdate = () => refreshState();
     const handleUpdatesChange = () => setUpdatesVersion((v) => v + 1);
 
+    const handleMenuChange = () => {
+      setMenuVersion((v) => v + 1);
+    };
+
     window.addEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
     window.addEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
     window.addEventListener("cafnet:updates-updated", handleUpdatesChange);
+    window.addEventListener("cafnet:menu-updated", handleMenuChange);
 
     return () => {
       window.removeEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
       window.removeEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
       window.removeEventListener("cafnet:updates-updated", handleUpdatesChange);
+      window.removeEventListener("cafnet:menu-updated", handleMenuChange);
     };
   }, [refreshState]);
 

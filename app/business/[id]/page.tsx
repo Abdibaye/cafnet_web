@@ -4,6 +4,7 @@ import BusinessImageGallery from "@/components/BusinessImageGallery";
 import BusinessProfileActions from "@/components/BusinessProfileActions";
 import BusinessReviewSection, { BusinessRatingSummary } from "@/components/BusinessReviewSection";
 import BusinessProfileUpdatesSection from "@/components/BusinessProfileUpdatesSection";
+import BusinessProfileMenuSection from "@/components/BusinessProfileMenuSection";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getBusinessProfileData } from "@/data/businessProfileData";
 
@@ -237,48 +238,7 @@ export default async function BusinessProfile({
 
             <section id="menu" className="scroll-mt-36 border-b border-outline-variant py-10">
               <SectionHeading eyebrow="What you can eat" title="Popular dishes" />
-              {profileData.menu.length > 0 ? (
-                <div className="space-y-8">
-                  {profileData.menu.map((category, categoryIndex) => (
-                    <div key={category.category}>
-                      <h3 className="mb-3 text-base font-bold text-on-surface">
-                        {category.category}
-                      </h3>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {category.items.map((item, itemIndex) => (
-                          <article
-                            key={item.name}
-                            className="flex gap-3 rounded-[14px] border border-outline-variant/80 bg-white p-3"
-                          >
-                            <img
-                              src={profileData.images[(categoryIndex * 2 + itemIndex) % profileData.images.length]}
-                              alt=""
-                              className="size-20 shrink-0 rounded-xl object-cover"
-                            />
-                            <div className="min-w-0 py-0.5">
-                              <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-sm font-semibold text-on-surface">
-                                  {item.name}
-                                </h4>
-                                <span className="shrink-0 text-sm font-semibold text-primary">
-                                  {item.price}
-                                </span>
-                              </div>
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">
-                                {item.description}
-                              </p>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-outline-variant bg-surface-container-low px-5 py-6 text-sm text-on-surface-variant">
-                  Menu details are not available yet.
-                </div>
-              )}
+              <BusinessProfileMenuSection businessId={profileData.id} images={profileData.images} />
             </section>
 
             <section id="updates" className="scroll-mt-36 border-b border-outline-variant py-10">

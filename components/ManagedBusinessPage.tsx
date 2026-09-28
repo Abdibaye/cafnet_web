@@ -1,10 +1,12 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getManagedBusiness as getManagedBusinessFromStorage, getEditableData as getEditableDataFromStorage } from "@/data/ownerManagedBusinessStorage";
 import { getUpdatesByBusiness } from "@/data/businessUpdateStorage";
+import { getMenuSummary, type MenuSummary } from "@/data/menuStorage";
 
 export default function ManagedBusinessPage({ businessId }: { businessId: string }) {
   const business = getBusinessById(businessId);
@@ -18,6 +20,19 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   const lastUpdated = managedBusiness?.editableData.updatedAt ? new Date(managedBusiness.editableData.updatedAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : undefined;
   const updates = getUpdatesByBusiness(Number(businessId));
   const activeUpdatesCount = updates.filter((u) => u.status === "published").length;
+
+  const [menuSummary, setMenuSummary] = useState<MenuSummary>(() => getMenuSummary(Number(businessId)));
+
+  useEffect(() => {
+    const handleMenuUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ businessId?: number }>;
+      if (!customEvent.detail?.businessId || customEvent.detail.businessId === Number(businessId)) {
+        setMenuSummary(getMenuSummary(Number(businessId)));
+      }
+    };
+    window.addEventListener("cafnet:menu-updated", handleMenuUpdate);
+    return () => window.removeEventListener("cafnet:menu-updated", handleMenuUpdate);
+  }, [businessId]);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-0 lg:py-16">
@@ -39,6 +54,11 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
         <Link href={`/business/dashboard/business/${business.id}/edit`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
           <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">edit</span>
           Edit listing
+        </Link>
+        <Link href={`/business/dashboard/business/${business.id}/menu`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
+          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">restaurant_menu</span>
+          Manage menu
+          {menuSummary.itemCount > 0 && <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">{menuSummary.itemCount} items</span>}
         </Link>
         <Link href={`/business/dashboard/business/${business.id}/updates`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
           <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">campaign</span>
@@ -110,6 +130,27 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
               </div>
               <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">lock</span>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="text-lg font-bold text-on-surface">Menu</h3>
+          <p className="mt-2 text-sm text-on-surface-variant">Manage the categories, dishes, and prices customers see on your profile.</p>
+          <div className="mt-4">
+            <Link
+              href={`/business/dashboard/business/${business.id}/menu`}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+            >
+              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">restaurant_menu</span>
+              Manage menu
+              {menuSummary.hasMenu ? (
+                <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
+                  {menuSummary.categoryCount} {menuSummary.categoryCount === 1 ? "category" : "categories"} · {menuSummary.itemCount} items
+                </span>
+              ) : (
+                <span className="ml-1 text-xs text-on-surface-variant font-normal">Not setup yet</span>
+              )}
+            </Link>
           </div>
         </div>
 
