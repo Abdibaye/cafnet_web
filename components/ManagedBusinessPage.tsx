@@ -69,8 +69,9 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   const updates = getUpdatesByBusiness(Number(businessId));
   const activeUpdatesCount = updates.filter((u) => u.status === "published").length;
 
-  const pendingReservations = businessReservations.filter((r) => r.status === "pending");
-  const confirmedReservations = businessReservations.filter((r) => r.status === "confirmed");
+  const isReservable = Boolean(business.reservationAvailable);
+  const pendingReservations = isReservable ? businessReservations.filter((r) => r.status === "pending") : [];
+  const confirmedReservations = isReservable ? businessReservations.filter((r) => r.status === "confirmed") : [];
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-0 lg:py-16">
@@ -79,7 +80,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       </Link>
 
       {/* Alert Banner for Pending Reservation Requests */}
-      {pendingReservations.length > 0 && (
+      {isReservable && pendingReservations.length > 0 && (
         <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
@@ -87,11 +88,10 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
             </span>
             <div>
               <h2 className="text-sm font-bold text-amber-950">
-                {pendingReservations.length} pending table reservation{" "}
-                {pendingReservations.length === 1 ? "request" : "requests"}
+                {pendingReservations.length} reservation {pendingReservations.length === 1 ? "request needs" : "requests need"} your attention.
               </h2>
               <p className="text-xs text-amber-800 mt-0.5">
-                Guests are waiting for your confirmation to book tables.
+                Guests are waiting for your response to book tables.
               </p>
             </div>
           </div>
@@ -138,24 +138,26 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
         </Link>
 
         {/* Manage Reservations Button */}
-        <Link
-          href={`/business/dashboard/business/${business.id}/reservations`}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
-        >
-          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-            event_seat
-          </span>
-          Manage reservations
-          {pendingReservations.length > 0 ? (
-            <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
-              {pendingReservations.length} pending
+        {isReservable && (
+          <Link
+            href={`/business/dashboard/business/${business.id}/reservations`}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+              event_seat
             </span>
-          ) : confirmedReservations.length > 0 ? (
-            <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-              {confirmedReservations.length} confirmed
-            </span>
-          ) : null}
-        </Link>
+            Manage reservations
+            {pendingReservations.length > 0 ? (
+              <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
+                {pendingReservations.length} pending
+              </span>
+            ) : confirmedReservations.length > 0 ? (
+              <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
+                {confirmedReservations.length} confirmed
+              </span>
+            ) : null}
+          </Link>
+        )}
 
         <Link
           href={`/business/dashboard/business/${business.id}/menu`}
@@ -259,34 +261,36 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
         </div>
 
         {/* Reservations Summary Card */}
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-on-surface">Table reservations</h3>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Accept or decline guest table reservations.
-          </p>
-          <div className="mt-4">
-            <Link
-              href={`/business/dashboard/business/${business.id}/reservations`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
-            >
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                event_seat
-              </span>
-              Manage reservations
-              {pendingReservations.length > 0 ? (
-                <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
-                  {pendingReservations.length} pending requests
+        {isReservable && (
+          <div className="mt-8">
+            <h3 className="text-lg font-bold text-on-surface">Table reservations</h3>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Accept or decline guest table reservations, and mark visits completed.
+            </p>
+            <div className="mt-4">
+              <Link
+                href={`/business/dashboard/business/${business.id}/reservations`}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+              >
+                <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+                  event_seat
                 </span>
-              ) : confirmedReservations.length > 0 ? (
-                <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-                  {confirmedReservations.length} confirmed bookings
-                </span>
-              ) : (
-                <span className="ml-1 text-xs text-on-surface-variant font-normal">No active requests</span>
-              )}
-            </Link>
+                Manage reservations
+                {pendingReservations.length > 0 ? (
+                  <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
+                    {pendingReservations.length} pending requests
+                  </span>
+                ) : confirmedReservations.length > 0 ? (
+                  <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
+                    {confirmedReservations.length} confirmed bookings
+                  </span>
+                ) : (
+                  <span className="ml-1 text-xs text-on-surface-variant font-normal">No active requests</span>
+                )}
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Customer Information (Read-only) */}
         <div className="mt-8">

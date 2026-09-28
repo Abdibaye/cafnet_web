@@ -13,8 +13,7 @@ import { getBusinessReviews } from "@/data/mockReviews";
 import { isReviewRemoved } from "@/data/reviewReportStorage";
 
 export function isReservationEligible(date: string, status: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  return status === "confirmed" && date <= today;
+  return status === "completed";
 }
 
 type CustomerReviewContextValue = {

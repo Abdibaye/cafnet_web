@@ -38,6 +38,7 @@ export default function ReservationsPage() {
 
   const pending = reservations.filter((r) => r.status === "pending");
   const confirmed = reservations.filter((r) => r.status === "confirmed");
+  const completed = reservations.filter((r) => r.status === "completed");
   const past = reservations.filter((r) => r.status === "cancelled" || r.status === "declined");
 
   const renderStatusBadge = (status: MockReservation["status"]) => {
@@ -46,7 +47,7 @@ export default function ReservationsPage() {
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
             <span className="material-symbols-outlined text-[14px]">schedule</span>
-            Pending confirmation
+            Waiting for confirmation
           </span>
         );
       case "confirmed":
@@ -54,6 +55,13 @@ export default function ReservationsPage() {
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
             <span className="material-symbols-outlined text-[14px]">check_circle</span>
             Confirmed
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary-container px-2.5 py-0.5 text-xs font-bold text-primary border border-primary/20">
+            <span className="material-symbols-outlined text-[14px]">verified</span>
+            Visit completed
           </span>
         );
       case "declined":
@@ -107,6 +115,16 @@ export default function ReservationsPage() {
                       Note: &ldquo;{reservation.specialRequest}&rdquo;
                     </p>
                   )}
+                  {reservation.status === "declined" && reservation.declineReason && (
+                    <p className="mt-1 text-xs font-medium text-red-700">
+                      Reason: {reservation.declineReason}
+                    </p>
+                  )}
+                  {reservation.status === "completed" && (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      Eligible to write a verified review
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0">{renderStatusBadge(reservation.status)}</div>
               </Link>
@@ -141,17 +159,22 @@ export default function ReservationsPage() {
         <>
           {renderSection(
             "Pending requests",
-            "Waiting for the restaurant to confirm availability",
+            "Waiting for restaurant confirmation.",
             pending
           )}
           {renderSection(
             "Confirmed bookings",
-            "Accepted and ready for your visit",
+            "Your table has been confirmed.",
             confirmed
           )}
           {renderSection(
-            "Past & Inactive",
-            "Cancelled or declined bookings",
+            "Completed visits",
+            "Visit completed. You are eligible to write a verified review.",
+            completed
+          )}
+          {renderSection(
+            "Declined & Cancelled",
+            "Past reservation requests that were not completed.",
             past
           )}
         </>

@@ -63,7 +63,8 @@ export default function BusinessManagementCard({ business, claim, submission }: 
 
   const managedBusiness = business ? getManagedBusinessFromStorage(business.id) : undefined;
   const lastUpdated = managedBusiness?.editableData.updatedAt ? new Date(managedBusiness.editableData.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : undefined;
-  const pendingReservations = isManaged && business ? getPendingReservationsCount(business.id) : 0;
+  const isReservable = Boolean(isManaged && business && business.reservationAvailable);
+  const pendingReservations = isReservable ? getPendingReservationsCount(business!.id) : 0;
 
   return <article className="flex flex-col gap-5 border border-outline-variant bg-white p-5 sm:flex-row sm:items-center">
     <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -76,10 +77,16 @@ export default function BusinessManagementCard({ business, claim, submission }: 
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{statusIcon}</span>
             {status}
           </p>
-          {pendingReservations > 0 && (
-            <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-xs font-bold text-amber-800">
-              {pendingReservations} pending booking {pendingReservations === 1 ? "request" : "requests"}
-            </span>
+          {isReservable && (
+            pendingReservations > 0 ? (
+              <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-xs font-bold text-amber-800">
+                Reservations: {pendingReservations} {pendingReservations === 1 ? "request" : "requests"} waiting for your response
+              </span>
+            ) : (
+              <span className="text-xs text-on-surface-variant">
+                Reservations: No pending reservation requests.
+              </span>
+            )
           )}
         </div>
         {isManaged && lastUpdated && <p className="mt-1 text-xs leading-5 text-on-surface-variant">Last updated {lastUpdated}</p>}
@@ -90,10 +97,13 @@ export default function BusinessManagementCard({ business, claim, submission }: 
       <Link href={profileHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary">
         View business
       </Link>
-      {isManaged && business && (
-        <Link href={`/business/dashboard/business/${business.id}/reservations`} className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-semibold transition-colors ${pendingReservations > 0 ? "border-amber-300 bg-amber-50 text-amber-900 font-bold hover:bg-amber-100" : "border-outline-variant text-on-surface hover:border-primary/40 hover:text-primary"}`}>
+      {isReservable && business && (
+        <Link
+          href={`/business/dashboard/business/${business.id}/reservations`}
+          className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-4 text-sm font-semibold transition-colors ${pendingReservations > 0 ? "border-amber-300 bg-amber-50 text-amber-900 font-bold hover:bg-amber-100" : "border-outline-variant text-on-surface hover:border-primary/40 hover:text-primary"}`}
+        >
           <span className="material-symbols-outlined text-[17px] text-primary" aria-hidden="true">event_seat</span>
-          Bookings {pendingReservations > 0 && `(${pendingReservations})`}
+          {pendingReservations > 0 ? `Manage reservations (${pendingReservations})` : "View reservations"}
         </Link>
       )}
       {detailHref && <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold text-primary hover:bg-primary-container">

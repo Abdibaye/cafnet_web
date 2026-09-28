@@ -7,8 +7,12 @@ import {
   saveReservations,
   confirmReservation,
   declineReservation,
+  completeReservation,
+  cancelReservation as storageCancelReservation,
   type MockReservation,
 } from "@/data/reservationStorage";
+
+export type ReservationResult = { success: boolean; error?: string };
 
 type ReservationContextValue = {
   ready: boolean;
@@ -17,9 +21,10 @@ type ReservationContextValue = {
   getReservation: (id: string) => MockReservation | undefined;
   getReservationsForBusiness: (businessId: number) => MockReservation[];
   createReservation: (draft: Omit<MockReservation, "id" | "customerId" | "status" | "createdAt">) => MockReservation | null;
-  cancelReservation: (id: string) => boolean;
-  confirmBooking: (id: string, reviewerName?: string) => boolean;
-  declineBooking: (id: string, reason?: string, reviewerName?: string) => boolean;
+  cancelReservation: (id: string) => ReservationResult;
+  confirmBooking: (id: string, reviewerName?: string) => ReservationResult;
+  declineBooking: (id: string, reason: string, reviewerName?: string) => ReservationResult;
+  completeBooking: (id: string, reviewerName?: string) => ReservationResult;
 };
 
 const ReservationContext = createContext<ReservationContextValue | null>(null);
@@ -62,34 +67,48 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     return reservation;
   };
 
-  const cancelReservation = (id: string): boolean => {
-    const existing = reservations.find((r) => r.id === id);
-    if (!existing) return false;
-    const next = reservations.map((reservation) => 
-      reservation.id === id ? { ...reservation, status: "cancelled" as const } : reservation
-    );
-    setReservations(next);
-    saveReservations(next);
-    showToast("Reservation cancelled");
-    return true;
+  const cancelReservation = (id: string): ReservationResult => {
+    const res = storageCancelReservation(id);
+    if (res.success) {
+      refreshReservations();
+      showToast("Reservation cancelled");
+    } else if (res.error) {
+      showToast(res.error);
+    }
+    return res;
   };
 
-  const confirmBooking = (id: string, reviewerName: string = "Restaurant Manager"): boolean => {
-    const success = confirmReservation(id, reviewerName);
-    if (success) {
+  const confirmBooking = (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+    const res = confirmReservation(id, reviewerName);
+    if (res.success) {
       refreshReservations();
       showToast("Reservation confirmed");
+    } else if (res.error) {
+      showToast(res.error);
     }
-    return success;
+    return res;
   };
 
-  const declineBooking = (id: string, reason?: string, reviewerName: string = "Restaurant Manager"): boolean => {
-    const success = declineReservation(id, reason, reviewerName);
-    if (success) {
+  const declineBooking = (id: string, reason: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+    const res = declineReservation(id, reason, reviewerName);
+    if (res.success) {
       refreshReservations();
       showToast("Reservation declined");
+    } else if (res.error) {
+      showToast(res.error);
     }
-    return success;
+    return res;
+  };
+
+  const completeBooking = (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+    const res = completeReservation(id, reviewerName);
+    if (res.success) {
+      refreshReservations();
+      showToast("Reservation marked as completed");
+    } else if (res.error) {
+      showToast(res.error);
+    }
+    return res;
   };
 
   const customerReservations = currentUser ? reservations.filter((reservation) => reservation.customerId === currentUser.id) : [];
@@ -105,6 +124,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
       cancelReservation,
       confirmBooking,
       declineBooking,
+      completeBooking,
     }}>
       {children}
     </ReservationContext.Provider>

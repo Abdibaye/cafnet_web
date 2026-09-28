@@ -41,6 +41,7 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
 
   const isPending = reservation.status === "pending";
   const isConfirmed = reservation.status === "confirmed";
+  const isCompleted = reservation.status === "completed";
   const isDeclined = reservation.status === "declined";
   const isCancelled = reservation.status === "cancelled";
 
@@ -56,12 +57,12 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
         {business?.name || `Business #${reservation.businessId}`}
       </h1>
 
-      {/* Status Notice Banner */}
+      {/* Status Notice Banners */}
       {isPending && (
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
           <span className="material-symbols-outlined text-[20px] text-amber-700">schedule</span>
           <div>
-            <p className="font-bold">Awaiting restaurant confirmation</p>
+            <p className="font-bold">Waiting for restaurant confirmation.</p>
             <p className="mt-0.5 text-amber-800">
               The restaurant team has received your table request. You will see it confirmed here as soon as they accept.
             </p>
@@ -73,9 +74,21 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900">
           <span className="material-symbols-outlined text-[20px] text-emerald-700">check_circle</span>
           <div>
-            <p className="font-bold">Reservation confirmed</p>
+            <p className="font-bold">Your table has been confirmed.</p>
             <p className="mt-0.5 text-emerald-800">
               Your table is booked and ready for your visit. Please arrive on time.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isCompleted && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-container/30 p-4 text-xs text-primary">
+          <span className="material-symbols-outlined text-[20px] text-primary">verified</span>
+          <div>
+            <p className="font-bold">Visit completed.</p>
+            <p className="mt-0.5 text-on-surface-variant">
+              Your visit has been confirmed by the restaurant. You are now eligible to leave a verified review.
             </p>
           </div>
         </div>
@@ -85,11 +98,23 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-900">
           <span className="material-symbols-outlined text-[20px] text-red-700">cancel</span>
           <div>
-            <p className="font-bold">Reservation request declined</p>
+            <p className="font-bold">The restaurant could not accept this request.</p>
             <p className="mt-0.5 text-red-800">
               {reservation.declineReason
                 ? `Reason: "${reservation.declineReason}"`
                 : "The restaurant was unable to accommodate this booking request."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isCancelled && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-outline-variant bg-surface-container-low p-4 text-xs text-on-surface-variant">
+          <span className="material-symbols-outlined text-[20px] text-outline">block</span>
+          <div>
+            <p className="font-bold text-on-surface">Reservation cancelled.</p>
+            <p className="mt-0.5">
+              This reservation has been cancelled.
             </p>
           </div>
         </div>
@@ -111,11 +136,22 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
                 Confirmed
               </span>
             )}
-            {isDeclined && (
-              <span className="inline-flex items-center gap-1.5 font-bold text-red-700 text-sm">
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                Declined
+            {isCompleted && (
+              <span className="inline-flex items-center gap-1.5 font-bold text-primary text-sm">
+                <span className="material-symbols-outlined text-[18px]">verified</span>
+                Visit completed
               </span>
+            )}
+            {isDeclined && (
+              <div>
+                <span className="inline-flex items-center gap-1.5 font-bold text-red-700 text-sm">
+                  <span className="material-symbols-outlined text-[18px]">cancel</span>
+                  Declined
+                </span>
+                {reservation.declineReason && (
+                  <p className="mt-1 text-xs text-red-600">Reason: {reservation.declineReason}</p>
+                )}
+              </div>
             )}
             {isCancelled && (
               <span className="inline-flex items-center gap-1.5 font-bold text-on-surface-variant text-sm">
@@ -163,6 +199,16 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
         >
           View restaurant
         </Link>
+
+        {isCompleted && business && (
+          <Link
+            href={`/business/${business.id}#reviews`}
+            className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-primary bg-primary-container/20 px-5 text-sm font-bold text-primary hover:bg-primary-container"
+          >
+            <span className="material-symbols-outlined text-[18px]">rate_review</span>
+            Write a verified review
+          </Link>
+        )}
 
         {(isPending || isConfirmed) && (
           <button
