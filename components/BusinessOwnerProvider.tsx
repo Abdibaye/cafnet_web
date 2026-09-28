@@ -92,16 +92,20 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       setMenuVersion((v) => v + 1);
     };
 
+    const handleAdminUpdate = () => refreshState();
+
     window.addEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
     window.addEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
     window.addEventListener("cafnet:updates-updated", handleUpdatesChange);
     window.addEventListener("cafnet:menu-updated", handleMenuChange);
+    window.addEventListener("cafnet:admin-updated", handleAdminUpdate);
 
     return () => {
       window.removeEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
       window.removeEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
       window.removeEventListener("cafnet:updates-updated", handleUpdatesChange);
       window.removeEventListener("cafnet:menu-updated", handleMenuChange);
+      window.removeEventListener("cafnet:admin-updated", handleAdminUpdate);
     };
   }, [refreshState]);
 

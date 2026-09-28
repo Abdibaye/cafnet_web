@@ -18,8 +18,45 @@ export default function BusinessManagementCard({ business, claim, submission }: 
   const title = business?.name || submission?.businessName || "Business submission";
   const category = business ? categoryLabel(business.category) : submission ? categoryLabel(submission.category) : "Business";
   const area = business?.location || submission?.area || "Area pending";
-  const status = isManaged ? "Managed by you" : claim ? "Pending verification" : "Pending review";
-  const explanation = isManaged ? "You have management access to this listing." : claim ? "Your claim request is waiting for verification." : "Your business information is waiting for review.";
+
+  const isRejected = (claim && claim.status === "rejected") || (submission && submission.status === "rejected");
+  const isApprovedClaim = claim && claim.status === "approved";
+  const isApprovedSub = submission && submission.status === "approved";
+
+  const status = isManaged
+    ? "Managed by you"
+    : isApprovedClaim || isApprovedSub
+    ? "Approved"
+    : isRejected
+    ? "Not approved"
+    : claim
+    ? "Pending verification"
+    : "Pending review";
+
+  const statusIcon = isManaged || isApprovedClaim || isApprovedSub
+    ? "check_circle"
+    : isRejected
+    ? "cancel"
+    : "schedule";
+
+  const statusColor = isManaged || isApprovedClaim || isApprovedSub
+    ? "text-primary"
+    : isRejected
+    ? "text-red-600"
+    : "text-secondary";
+
+  const explanation = isManaged
+    ? "You have management access to this listing."
+    : isApprovedClaim
+    ? "Your claim has been approved."
+    : isApprovedSub
+    ? "Your business has been approved and published."
+    : isRejected
+    ? "Your request was not approved. Click to view the reason."
+    : claim
+    ? "Your claim request is waiting for verification."
+    : "Your business information is waiting for review.";
+
   const detailHref = isManaged && business ? `/business/dashboard/business/${business.id}` : claim ? `/business/dashboard/claim/${claim.id}` : `/business/dashboard/submission/${submission?.id}`;
   const profileHref = business ? `/business/${business.id}` : "/business";
 
@@ -32,8 +69,8 @@ export default function BusinessManagementCard({ business, claim, submission }: 
       <div className="min-w-0">
         <h2 className="truncate text-base font-bold text-on-surface">{title}</h2>
         <p className="mt-1 text-sm text-on-surface-variant">{category} · {area}</p>
-        <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface">
-          <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">{isManaged ? "check_circle" : "schedule"}</span>
+        <p className={`mt-3 inline-flex items-center gap-1.5 text-sm font-semibold ${statusColor}`}>
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{statusIcon}</span>
           {status}
         </p>
         {isManaged && lastUpdated && <p className="mt-1 text-xs leading-5 text-on-surface-variant">Last updated {lastUpdated}</p>}

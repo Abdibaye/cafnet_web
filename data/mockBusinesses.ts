@@ -1,5 +1,6 @@
 import { getReviewSummary } from "@/data/mockReviews";
-import { getEditableData } from "@/data/ownerManagedBusinessStorage";
+import { getEditableData, getManagedBusiness } from "@/data/ownerManagedBusinessStorage";
+import { getAdminPublishedBusinesses, getBusinessVerificationOverride } from "@/data/adminStorage";
 export type BusinessCategory = "restaurant" | "cafe" | "drinks";
 export type BusinessClaimStatus = "unclaimed" | "pending" | "claimed";
 
@@ -279,34 +280,62 @@ export const mockBusinesses: MockBusiness[] = [
 ];
 
 export function getMergedBusiness(business: MockBusiness): MockBusiness {
-  if (typeof window === "undefined") return business;
   try {
     const editable = getEditableData(business.id);
-    if (!editable) return business;
+    const managed = getManagedBusiness(business.id);
+    const verificationOverride = getBusinessVerificationOverride(business.id);
+
+    const isManaged = Boolean(managed || business.claimStatus === "claimed");
+    const verified = verificationOverride !== undefined ? verificationOverride : business.verified;
+    const claimStatus: BusinessClaimStatus = isManaged ? "claimed" : (business.claimStatus || "unclaimed");
+
+    if (!editable) {
+      return {
+        ...business,
+        verified,
+        claimStatus,
+      };
+    }
+
     return {
       ...business,
       name: editable.name || business.name,
       description: editable.description || business.description,
-      shortDescription: editable.description ? (editable.description.length > 80 ? editable.description.slice(0, 80) + "..." : editable.description) : business.shortDescription,
+      shortDescription: editable.description
+        ? editable.description.length > 80
+          ? editable.description.slice(0, 80) + "..."
+          : editable.description
+        : business.shortDescription,
       phone: editable.phone || business.phone,
       location: editable.location || business.location,
       category: editable.category || business.category,
       priceRange: editable.priceRange || business.priceRange,
       tags: editable.tags && editable.tags.length > 0 ? editable.tags : business.tags,
+      verified,
+      claimStatus,
     };
   } catch {
     return business;
   }
 }
 
-export function getBusinessById(id: string | number): MockBusiness | undefined {
-  const seed = mockBusinesses.find((business) => business.id === Number(id));
-  if (!seed) return undefined;
-  return getMergedBusiness(seed);
+export function getAllBusinesses(): MockBusiness[] {
+  const publishedFromAdmin = getAdminPublishedBusinesses();
+  const combined = [...mockBusinesses, ...publishedFromAdmin];
+  // Deduplicate by ID
+  const seen = new Set<number>();
+  const unique = combined.filter((b) => {
+    if (seen.has(b.id)) return false;
+    seen.add(b.id);
+    return true;
+  });
+  return unique.map(getMergedBusiness);
 }
 
-export function getAllBusinesses(): MockBusiness[] {
-  return mockBusinesses.map(getMergedBusiness);
+export function getBusinessById(id: string | number): MockBusiness | undefined {
+  const numId = Number(id);
+  const all = getAllBusinesses();
+  return all.find((b) => b.id === numId);
 }
 
 export function getBusinessesByCategory(category?: BusinessCategory) {

@@ -1,8 +1,11 @@
 export type BusinessClaim = {
   id: string;
   businessId: number;
-  status: "pending";
+  status: "pending" | "approved" | "rejected";
   submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
 };
 
 export type BusinessSubmission = {
@@ -10,11 +13,15 @@ export type BusinessSubmission = {
   businessName: string;
   category: "restaurant" | "cafe" | "drinks";
   area: string;
-  status: "pending";
+  status: "pending" | "approved" | "rejected";
   submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  createdBusinessId?: number;
 };
 
-type OwnerStorage = {
+export type OwnerStorage = {
   claims: BusinessClaim[];
   submissions: BusinessSubmission[];
 };
@@ -22,9 +29,10 @@ type OwnerStorage = {
 const storageKey = "cafnet.mock-business-owner";
 
 const emptyStorage: OwnerStorage = { claims: [], submissions: [] };
+const memoryFallbackStorage: OwnerStorage = { claims: [], submissions: [] };
 
 export function loadBusinessOwnerState(): OwnerStorage {
-  if (typeof window === "undefined") return emptyStorage;
+  if (typeof window === "undefined") return memoryFallbackStorage;
   try {
     const stored = window.localStorage.getItem(storageKey);
     if (!stored) return emptyStorage;
@@ -34,12 +42,28 @@ export function loadBusinessOwnerState(): OwnerStorage {
     return {
       claims: Array.isArray(parsed.claims)
         ? parsed.claims.filter((c: unknown): c is BusinessClaim =>
-            Boolean(c && typeof c === "object" && typeof (c as BusinessClaim).id === "string" && typeof (c as BusinessClaim).businessId === "number")
+            Boolean(
+              c &&
+              typeof c === "object" &&
+              typeof (c as BusinessClaim).id === "string" &&
+              typeof (c as BusinessClaim).businessId === "number" &&
+              ((c as BusinessClaim).status === "pending" ||
+                (c as BusinessClaim).status === "approved" ||
+                (c as BusinessClaim).status === "rejected")
+            )
           )
         : [],
       submissions: Array.isArray(parsed.submissions)
         ? parsed.submissions.filter((s: unknown): s is BusinessSubmission =>
-            Boolean(s && typeof s === "object" && typeof (s as BusinessSubmission).id === "string" && typeof (s as BusinessSubmission).businessName === "string")
+            Boolean(
+              s &&
+              typeof s === "object" &&
+              typeof (s as BusinessSubmission).id === "string" &&
+              typeof (s as BusinessSubmission).businessName === "string" &&
+              ((s as BusinessSubmission).status === "pending" ||
+                (s as BusinessSubmission).status === "approved" ||
+                (s as BusinessSubmission).status === "rejected")
+            )
           )
         : [],
     };
@@ -49,7 +73,11 @@ export function loadBusinessOwnerState(): OwnerStorage {
 }
 
 export function saveBusinessOwnerState(state: OwnerStorage) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    memoryFallbackStorage.claims = [...state.claims];
+    memoryFallbackStorage.submissions = [...state.submissions];
+    return;
+  }
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(state));
     window.dispatchEvent(new CustomEvent("cafnet:business-owner-updated"));

@@ -38,6 +38,7 @@ type OwnerManagedStorage = {
 const storageKey = "cafnet.mock-owner-managed-businesses";
 
 const emptyStorage: OwnerManagedStorage = { managedBusinesses: [] };
+const memoryFallbackStorage: OwnerManagedStorage = { managedBusinesses: [] };
 
 const defaultOpeningHours: OpeningHours[] = [
   { day: "Monday", open: "10:00 AM", close: "10:00 PM", isClosed: false },
@@ -50,7 +51,7 @@ const defaultOpeningHours: OpeningHours[] = [
 ];
 
 export function loadOwnerManagedBusinesses(): OwnerManagedStorage {
-  if (typeof window === "undefined") return emptyStorage;
+  if (typeof window === "undefined") return memoryFallbackStorage;
   try {
     const stored = window.localStorage.getItem(storageKey);
     if (!stored) return emptyStorage;
@@ -69,7 +70,10 @@ export function loadOwnerManagedBusinesses(): OwnerManagedStorage {
 }
 
 export function saveOwnerManagedBusinesses(state: OwnerManagedStorage) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    memoryFallbackStorage.managedBusinesses = [...state.managedBusinesses];
+    return;
+  }
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(state));
     window.dispatchEvent(new CustomEvent("cafnet:managed-businesses-updated"));
