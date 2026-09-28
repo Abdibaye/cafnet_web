@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { loadReservations, saveReservations, type MockReservation } from "@/data/reservationStorage";
 
@@ -9,22 +9,30 @@ type ReservationContextValue = {
   reservations: MockReservation[];
   getReservation: (id: string) => MockReservation | undefined;
   createReservation: (draft: Omit<MockReservation, "id" | "customerId" | "status" | "createdAt">) => MockReservation | null;
-  cancelReservation: (id: string) => void;
+  cancelReservation: (id: string) => boolean;
 };
 
 const ReservationContext = createContext<ReservationContextValue | null>(null);
 
 export function ReservationProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useCustomer();
+  const { currentUser, showToast } = useCustomer();
   const [ready, setReady] = useState(false);
   const [reservations, setReservations] = useState<MockReservation[]>([]);
 
+  const refreshReservations = useCallback(() => {
+    setReservations(loadReservations());
+  }, []);
+
   useEffect(() => {
     queueMicrotask(() => {
-      setReservations(loadReservations());
+      refreshReservations();
       setReady(true);
     });
-  }, []);
+
+    const handleUpdate = () => refreshReservations();
+    window.addEventListener("cafnet:reservations-updated", handleUpdate);
+    return () => window.removeEventListener("cafnet:reservations-updated", handleUpdate);
+  }, [refreshReservations]);
 
   const createReservation = (draft: Omit<MockReservation, "id" | "customerId" | "status" | "createdAt">) => {
     if (!currentUser) return null;
@@ -35,20 +43,38 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
       status: "confirmed",
       createdAt: new Date().toISOString(),
     };
-    const next = [...reservations, reservation];
+    const next = [reservation, ...reservations];
     setReservations(next);
     saveReservations(next);
+    showToast("Reservation confirmed");
     return reservation;
   };
 
-  const cancelReservation = (id: string) => {
-    const next = reservations.map((reservation) => reservation.id === id ? { ...reservation, status: "cancelled" as const } : reservation);
+  const cancelReservation = (id: string): boolean => {
+    const existing = reservations.find((r) => r.id === id);
+    if (!existing) return false;
+    const next = reservations.map((reservation) => 
+      reservation.id === id ? { ...reservation, status: "cancelled" as const } : reservation
+    );
     setReservations(next);
     saveReservations(next);
+    showToast("Reservation cancelled");
+    return true;
   };
 
   const customerReservations = currentUser ? reservations.filter((reservation) => reservation.customerId === currentUser.id) : [];
-  return <ReservationContext.Provider value={{ ready, reservations: customerReservations, getReservation: (id) => customerReservations.find((reservation) => reservation.id === id), createReservation, cancelReservation }}>{children}</ReservationContext.Provider>;
+
+  return (
+    <ReservationContext.Provider value={{
+      ready,
+      reservations: customerReservations,
+      getReservation: (id) => customerReservations.find((reservation) => reservation.id === id),
+      createReservation,
+      cancelReservation,
+    }}>
+      {children}
+    </ReservationContext.Provider>
+  );
 }
 
 export function useReservations() {

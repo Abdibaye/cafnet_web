@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
-import { mockBusinesses, type MockBusiness } from "@/data/mockBusinesses";
+import { getAllBusinesses, type MockBusiness } from "@/data/mockBusinesses";
 import { searchBusinesses } from "@/data/searchBusinesses";
 
 function categoryLabel(category: MockBusiness["category"]) {
@@ -16,7 +16,7 @@ export default function BusinessClaimFlow() {
   const [selected, setSelected] = useState<MockBusiness | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const results = query.trim() ? searchBusinesses(query, mockBusinesses) : [];
+  const results = query.trim() ? searchBusinesses(query, getAllBusinesses()) : [];
   const existingClaim = selected ? getClaim(selected.id) : undefined;
 
   if (!ready) return <div className="mx-auto max-w-3xl px-5 py-20 text-sm text-on-surface-variant">Loading business search...</div>;

@@ -1,4 +1,4 @@
-import { mockBusinesses, type MockBusiness } from "@/data/mockBusinesses";
+import { getAllBusinesses, type MockBusiness } from "@/data/mockBusinesses";
 
 function normalize(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -34,11 +34,12 @@ function scoreBusiness(business: MockBusiness, query: string) {
   return score;
 }
 
-export function searchBusinesses(query: string, businesses: MockBusiness[] = mockBusinesses) {
+export function searchBusinesses(query: string, businesses?: MockBusiness[]) {
+  const source = businesses || getAllBusinesses();
   const normalizedQuery = normalize(query);
   if (!normalizedQuery) return [];
 
-  return businesses
+  return source
     .map((business) => ({ business, score: scoreBusiness(business, normalizedQuery) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || b.business.rating - a.business.rating || a.business.id - b.business.id)

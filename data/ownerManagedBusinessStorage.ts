@@ -49,18 +49,33 @@ const defaultOpeningHours: OpeningHours[] = [
   { day: "Sunday", open: "10:00 AM", close: "10:00 PM", isClosed: false },
 ];
 
-export function loadOwnerManagedBusinesses() {
+export function loadOwnerManagedBusinesses(): OwnerManagedStorage {
   if (typeof window === "undefined") return emptyStorage;
   try {
     const stored = window.localStorage.getItem(storageKey);
-    return stored ? { ...emptyStorage, ...JSON.parse(stored) as OwnerManagedStorage } : emptyStorage;
+    if (!stored) return emptyStorage;
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") return emptyStorage;
+    return {
+      managedBusinesses: Array.isArray(parsed.managedBusinesses)
+        ? parsed.managedBusinesses.filter((b: unknown): b is OwnerManagedBusiness =>
+            Boolean(b && typeof b === "object" && typeof (b as OwnerManagedBusiness).businessId === "number" && (b as OwnerManagedBusiness).editableData)
+          )
+        : [],
+    };
   } catch {
     return emptyStorage;
   }
 }
 
 export function saveOwnerManagedBusinesses(state: OwnerManagedStorage) {
-  window.localStorage.setItem(storageKey, JSON.stringify(state));
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent("cafnet:managed-businesses-updated"));
+  } catch {
+    // Ignore storage write failures
+  }
 }
 
 export function getManagedBusiness(businessId: number): OwnerManagedBusiness | undefined {

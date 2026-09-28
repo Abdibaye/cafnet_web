@@ -2,14 +2,43 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { loadBusinessOwnerState, saveBusinessOwnerState, type BusinessClaim, type BusinessSubmission } from "@/data/businessOwnerStorage";
-import { loadOwnerManagedBusinesses, saveOwnerManagedBusinesses, createManagedBusiness as createManagedBusinessInStorage, updateManagedBusiness as updateManagedBusinessInStorage, getManagedBusiness as getManagedBusinessFromStorage, getEditableData as getEditableDataFromStorage, deleteManagedBusiness, hasUnsavedChanges as hasUnsavedChangesInStorage, type OwnerManagedBusiness, type EditableBusinessData, type OpeningHours, availableTags, priceRangeOptions, categoryOptions } from "@/data/ownerManagedBusinessStorage";
-import { getUpdatesByBusiness as getUpdatesByBusinessFromStorage, createUpdate as createUpdateInStorage, updateUpdate as updateUpdateInStorage, deleteUpdate as deleteUpdateInStorage, getUpdateById as getUpdateByIdFromStorage, getActiveUpdates, getAllUpdates, getUpdateTypeLabel as getUpdateTypeLabelFromStorage, getUpdateTypeIcon as getUpdateTypeIconFromStorage, updateTypeOptions, type BusinessUpdate, type UpdateType } from "@/data/businessUpdateStorage";
+import { 
+  loadOwnerManagedBusinesses, 
+  saveOwnerManagedBusinesses, 
+  getManagedBusiness as getManagedBusinessFromStorage, 
+  getEditableData as getEditableDataFromStorage, 
+  createManagedBusiness as createManagedBusinessInStorage, 
+  updateManagedBusiness as updateManagedBusinessInStorage, 
+  deleteManagedBusiness as deleteManagedBusinessInStorage, 
+  hasUnsavedChanges as hasUnsavedChangesInStorage, 
+  availableTags, 
+  priceRangeOptions, 
+  categoryOptions, 
+  type OwnerManagedBusiness, 
+  type EditableBusinessData 
+} from "@/data/ownerManagedBusinessStorage";
+import { 
+  getUpdatesByBusiness as getUpdatesByBusinessFromStorage, 
+  createUpdate as createUpdateInStorage, 
+  updateUpdate as updateUpdateInStorage, 
+  deleteUpdate as deleteUpdateInStorage, 
+  getUpdateById as getUpdateByIdFromStorage, 
+  getActiveUpdates, 
+  getAllUpdates, 
+  getUpdateTypeLabel as getUpdateTypeLabelFromStorage, 
+  getUpdateTypeIcon as getUpdateTypeIconFromStorage, 
+  updateTypeOptions, 
+  type BusinessUpdate, 
+  type UpdateType 
+} from "@/data/businessUpdateStorage";
+import { mockBusinesses } from "@/data/mockBusinesses";
 
 type BusinessOwnerContextValue = {
   ready: boolean;
   claims: BusinessClaim[];
   submissions: BusinessSubmission[];
   managedBusinesses: OwnerManagedBusiness[];
+  isBusinessManaged: (businessId: number) => boolean;
   getClaim: (businessId: number) => BusinessClaim | undefined;
   getManagedBusiness: (businessId: number) => OwnerManagedBusiness | undefined;
   getEditableData: (businessId: number) => EditableBusinessData | undefined;
@@ -38,36 +67,67 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
   const [claims, setClaims] = useState<BusinessClaim[]>([]);
   const [submissions, setSubmissions] = useState<BusinessSubmission[]>([]);
   const [managedBusinesses, setManagedBusinesses] = useState<OwnerManagedBusiness[]>([]);
+  const [updatesVersion, setUpdatesVersion] = useState(0);
+
+  const refreshState = useCallback(() => {
+    const ownerState = loadBusinessOwnerState();
+    const managedState = loadOwnerManagedBusinesses();
+    setClaims(ownerState.claims);
+    setSubmissions(ownerState.submissions);
+    setManagedBusinesses(managedState.managedBusinesses);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
-      const ownerState = loadBusinessOwnerState();
-      const managedState = loadOwnerManagedBusinesses();
-      setClaims(ownerState.claims);
-      setSubmissions(ownerState.submissions);
-      setManagedBusinesses(managedState.managedBusinesses);
+      refreshState();
       setReady(true);
     });
-  }, []);
+
+    const handleOwnerUpdate = () => refreshState();
+    const handleManagedUpdate = () => refreshState();
+    const handleUpdatesChange = () => setUpdatesVersion((v) => v + 1);
+
+    window.addEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
+    window.addEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
+    window.addEventListener("cafnet:updates-updated", handleUpdatesChange);
+
+    return () => {
+      window.removeEventListener("cafnet:business-owner-updated", handleOwnerUpdate);
+      window.removeEventListener("cafnet:managed-businesses-updated", handleManagedUpdate);
+      window.removeEventListener("cafnet:updates-updated", handleUpdatesChange);
+    };
+  }, [refreshState]);
+
+  const isBusinessManaged = useCallback((businessId: number): boolean => {
+    const isMockClaimed = mockBusinesses.some((b) => b.id === businessId && b.claimStatus === "claimed");
+    if (isMockClaimed) return true;
+    return managedBusinesses.some((mb) => mb.businessId === businessId);
+  }, [managedBusinesses]);
 
   const getUpdatesByBusiness = useCallback((businessId: number): BusinessUpdate[] => {
     return getUpdatesByBusinessFromStorage(businessId);
-  }, []);
+  }, [updatesVersion]);
 
   const getUpdateById = useCallback((updateId: string): BusinessUpdate | undefined => {
     return getUpdateByIdFromStorage(updateId);
-  }, []);
+  }, [updatesVersion]);
 
   const createUpdate = useCallback((update: Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">): BusinessUpdate => {
-    return createUpdateInStorage(update);
+    const result = createUpdateInStorage(update);
+    setUpdatesVersion((v) => v + 1);
+    return result;
   }, []);
 
   const updateExistingUpdate = useCallback((updateId: string, updates: Partial<BusinessUpdate>): BusinessUpdate | undefined => {
-    return updateUpdateInStorage(updateId, updates);
+    const result = updateUpdateInStorage(updateId, updates);
+    setUpdatesVersion((v) => v + 1);
+    return result;
   }, []);
 
   const deleteExistingUpdate = useCallback((updateId: string): boolean => {
-    return deleteUpdateInStorage(updateId);
+    const result = deleteUpdateInStorage(updateId);
+    setUpdatesVersion((v) => v + 1);
+    return result;
   }, []);
 
   const getUpdateTypeLabel = useCallback((type: UpdateType): string => {
@@ -93,19 +153,22 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
     const existing = claims.find((claim) => claim.businessId === businessId);
     if (existing) return existing;
     const claim: BusinessClaim = { id: `claim-${Date.now()}`, businessId, status: "pending", submittedAt: new Date().toISOString() };
-    persistOwnerState([...claims, claim], submissions);
+    const nextClaims = [...claims, claim];
+    persistOwnerState(nextClaims, submissions);
     return claim;
   }, [claims, submissions, persistOwnerState]);
 
   const submitBusiness = useCallback((businessName: string, category: BusinessSubmission["category"], area: string) => {
     const submission: BusinessSubmission = { id: `submission-${Date.now()}`, businessName, category, area, status: "pending", submittedAt: new Date().toISOString() };
-    persistOwnerState(claims, [...submissions, submission]);
+    const nextSubmissions = [...submissions, submission];
+    persistOwnerState(claims, nextSubmissions);
     return submission;
   }, [claims, submissions, persistOwnerState]);
 
   const createManagedBusiness = useCallback((businessId: number, seedData: Partial<EditableBusinessData>) => {
     const managedBusiness = createManagedBusinessInStorage(businessId, seedData);
-    persistManagedState([...managedBusinesses, managedBusiness]);
+    const updatedList = [...managedBusinesses.filter((b) => b.businessId !== businessId), managedBusiness];
+    persistManagedState(updatedList);
     return managedBusiness;
   }, [managedBusinesses, persistManagedState]);
 
@@ -117,18 +180,22 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
         const newManagedBusinesses = [...managedBusinesses];
         newManagedBusinesses[index] = updated;
         persistManagedState(newManagedBusinesses);
+      } else {
+        persistManagedState([...managedBusinesses, updated]);
       }
     }
     return updated;
   }, [managedBusinesses, persistManagedState]);
 
   const getManagedBusiness = useCallback((businessId: number): OwnerManagedBusiness | undefined => {
-    return getManagedBusinessFromStorage(businessId) || managedBusinesses.find((b) => b.businessId === businessId);
+    return managedBusinesses.find((b) => b.businessId === businessId) || getManagedBusinessFromStorage(businessId);
   }, [managedBusinesses]);
 
   const getEditableData = useCallback((businessId: number): EditableBusinessData | undefined => {
+    const managed = managedBusinesses.find((b) => b.businessId === businessId);
+    if (managed) return managed.editableData;
     return getEditableDataFromStorage(businessId);
-  }, []);
+  }, [managedBusinesses]);
 
   const hasUnsavedChanges = useCallback((businessId: number, currentData: Partial<EditableBusinessData>): boolean => {
     return hasUnsavedChangesInStorage(businessId, currentData);
@@ -140,6 +207,7 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       claims,
       submissions,
       managedBusinesses,
+      isBusinessManaged,
       getClaim: (businessId) => claims.find((claim) => claim.businessId === businessId),
       getManagedBusiness,
       getEditableData,

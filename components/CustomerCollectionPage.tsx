@@ -1,24 +1,35 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import BusinessCard from "@/components/BusinessCard";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { useCustomer } from "@/components/CustomerProvider";
-import { mockBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
-import { getUpdatesByBusiness, getActiveUpdates } from "@/data/businessUpdateStorage";
+import { getAllBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
+import { getActiveUpdates } from "@/data/businessUpdateStorage";
 
 type CustomerCollectionPageProps = { kind: "saved" | "following" };
 
 export default function CustomerCollectionPage({ kind }: CustomerCollectionPageProps) {
   const { authReady, isAuthenticated, currentUser, startSignIn } = useCustomer();
   const ids = kind === "saved" ? currentUser?.savedBusinessIds || [] : currentUser?.followedBusinessIds || [];
-  const businesses = mockBusinesses.filter((business) => ids.includes(business.id));
+  const businesses = getAllBusinesses().filter((business) => ids.includes(business.id));
   const title = kind === "saved" ? "Saved places" : "Following";
   const emptyText = kind === "saved" ? "Save places you want to remember and they'll appear here." : "Follow a business to keep up with its updates.";
-  
-  const followedUpdates = kind === "following" 
-    ? getActiveUpdates().filter((update) => ids.includes(update.businessId))
-    : [];
+
+  const loadUpdates = useCallback(
+    () => (kind === "following" ? getActiveUpdates().filter((u) => ids.includes(u.businessId)) : []),
+    [kind, ids],
+  );
+
+  const [followedUpdates, setFollowedUpdates] = useState(loadUpdates);
+
+  useEffect(() => {
+    setFollowedUpdates(loadUpdates());
+    const handler = () => setFollowedUpdates(loadUpdates());
+    window.addEventListener("cafnet:updates-updated", handler);
+    return () => window.removeEventListener("cafnet:updates-updated", handler);
+  }, [loadUpdates]);
 
   if (!authReady) return <div className="mx-auto max-w-7xl px-5 py-20 text-sm text-on-surface-variant">Loading...</div>;
   if (!isAuthenticated) return <div className="mx-auto max-w-2xl px-5 py-20 text-center"><h1 className="text-2xl font-bold text-on-surface">Sign in to see {title.toLowerCase()}</h1><p className="mt-3 text-sm text-on-surface-variant">{kind === "saved" ? "Save places you love and find them again." : "Follow businesses you care about."}</p><button type="button" className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]" onClick={startSignIn}>Continue with phone</button></div>;

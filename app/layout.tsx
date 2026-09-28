@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><ReservationProvider><CustomerReviewProvider><BusinessOwnerProvider><Navbar /><main className="flex-1 w-full bg-background pb-20 pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></BusinessOwnerProvider></CustomerReviewProvider></ReservationProvider></CustomerProvider></body>
+      <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><ReservationProvider><CustomerReviewProvider><BusinessOwnerProvider><Navbar /><main className="flex-1 w-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></BusinessOwnerProvider></CustomerReviewProvider></ReservationProvider></CustomerProvider></body>
     </html>
   );
 }

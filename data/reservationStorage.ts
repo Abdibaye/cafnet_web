@@ -14,16 +14,34 @@ export type MockReservation = {
 
 const storageKey = "cafnet.mock-reservations";
 
-export function loadReservations() {
+export function loadReservations(): MockReservation[] {
   if (typeof window === "undefined") return [];
   try {
     const stored = window.localStorage.getItem(storageKey);
-    return stored ? JSON.parse(stored) as MockReservation[] : [];
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((r): r is MockReservation =>
+      Boolean(
+        r &&
+        typeof r === "object" &&
+        typeof r.id === "string" &&
+        typeof r.businessId === "number" &&
+        (r.status === "confirmed" || r.status === "cancelled")
+      )
+    );
   } catch {
     return [];
   }
 }
 
 export function saveReservations(reservations: MockReservation[]) {
-  window.localStorage.setItem(storageKey, JSON.stringify(reservations));
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(reservations));
+    window.dispatchEvent(new CustomEvent("cafnet:reservations-updated"));
+  } catch {
+    // Ignore storage write failures
+  }
 }

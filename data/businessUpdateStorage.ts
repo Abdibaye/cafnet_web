@@ -23,20 +23,79 @@ type UpdateStorage = {
 
 const storageKey = "cafnet.mock-business-updates";
 
-const emptyStorage: UpdateStorage = { updates: [] };
+export const defaultSeedUpdates: BusinessUpdate[] = [
+  {
+    id: "update-seed-1",
+    businessId: 1,
+    type: "event",
+    title: "Live Cultural Show & Dinner",
+    description: "Experience authentic Ethiopian live music and traditional dance performances every Friday and Saturday evening from 7:30 PM.",
+    createdAt: "2026-09-20T10:00:00.000Z",
+    publishedAt: "2026-09-20T10:00:00.000Z",
+    eventDate: "Every Friday & Saturday",
+    eventTime: "7:30 PM",
+    status: "published",
+  },
+  {
+    id: "update-seed-2",
+    businessId: 2,
+    type: "new_menu",
+    title: "Single-Origin Guji Roast Now Available",
+    description: "Try our freshly roasted Guji beans with notes of wild berries and jasmine honey. Available in-store and whole beans to go.",
+    createdAt: "2026-09-22T08:30:00.000Z",
+    publishedAt: "2026-09-22T08:30:00.000Z",
+    price: "180 ETB",
+    status: "published",
+  },
+  {
+    id: "update-seed-4",
+    businessId: 4,
+    type: "offer",
+    title: "Weekend Lakeside Lunch Special",
+    description: "Enjoy 15% off our signature fresh fish platter when dining on the lakefront patio between 12:00 PM and 3:00 PM.",
+    createdAt: "2026-09-24T12:00:00.000Z",
+    publishedAt: "2026-09-24T12:00:00.000Z",
+    offerDetails: "15% off lunch platters",
+    validUntil: "Weekend afternoons",
+    status: "published",
+  },
+];
+
+const emptyStorage: UpdateStorage = { updates: defaultSeedUpdates };
 
 export function loadBusinessUpdates(): UpdateStorage {
-  if (typeof window === "undefined") return emptyStorage;
+  if (typeof window === "undefined") return { updates: defaultSeedUpdates };
   try {
     const stored = window.localStorage.getItem(storageKey);
-    return stored ? { ...emptyStorage, ...JSON.parse(stored) as UpdateStorage } : emptyStorage;
+    if (!stored) return { updates: defaultSeedUpdates };
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.updates)) {
+      return { updates: defaultSeedUpdates };
+    }
+    const sanitizedUpdates = parsed.updates.filter((u: unknown): u is BusinessUpdate =>
+      Boolean(
+        u &&
+        typeof u === "object" &&
+        typeof (u as BusinessUpdate).id === "string" &&
+        typeof (u as BusinessUpdate).businessId === "number" &&
+        typeof (u as BusinessUpdate).title === "string" &&
+        ((u as BusinessUpdate).status === "published" || (u as BusinessUpdate).status === "draft" || (u as BusinessUpdate).status === "expired")
+      )
+    );
+    return { updates: sanitizedUpdates };
   } catch {
-    return emptyStorage;
+    return { updates: defaultSeedUpdates };
   }
 }
 
 export function saveBusinessUpdates(state: UpdateStorage) {
-  window.localStorage.setItem(storageKey, JSON.stringify(state));
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent("cafnet:updates-updated"));
+  } catch {
+    // Ignore storage write failures
+  }
 }
 
 export function getUpdatesByBusiness(businessId: number): BusinessUpdate[] {
@@ -57,18 +116,18 @@ export function getAllUpdates(): BusinessUpdate[] {
 export function getActiveUpdates(): BusinessUpdate[] {
   const allUpdates = getAllUpdates();
   const now = new Date().toISOString();
-  
+
   return allUpdates.filter((update) => {
     if (update.status !== "published") return false;
-    
+
     if (update.expiresAt && new Date(update.expiresAt) < new Date(now)) {
       return false;
     }
-    
-    if (update.validUntil && new Date(update.validUntil) < new Date(now)) {
+
+    if (update.validUntil && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(update.validUntil) && new Date(update.validUntil) < new Date(now)) {
       return false;
     }
-    
+
     return true;
   });
 }
@@ -81,10 +140,10 @@ export function getUpdatesByBusinessIds(businessIds: number[]): BusinessUpdate[]
 export function createUpdate(update: Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">): BusinessUpdate {
   const state = loadBusinessUpdates();
   const now = new Date().toISOString();
-  
+
   const newUpdate: BusinessUpdate = {
     ...update,
-    id: `update-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `update-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     createdAt: now,
     publishedAt: now,
     status: "published",
@@ -92,7 +151,7 @@ export function createUpdate(update: Omit<BusinessUpdate, "id" | "createdAt" | "
 
   const updatedState = {
     ...state,
-    updates: [...state.updates, newUpdate],
+    updates: [newUpdate, ...state.updates],
   };
 
   saveBusinessUpdates(updatedState);
@@ -184,16 +243,16 @@ export function formatUpdateDate(dateString: string): string {
 
 export function isUpdateExpired(update: BusinessUpdate): boolean {
   if (update.status !== "published") return false;
-  
+
   const now = new Date().toISOString();
-  
+
   if (update.expiresAt && new Date(update.expiresAt) < new Date(now)) {
     return true;
   }
-  
-  if (update.validUntil && new Date(update.validUntil) < new Date(now)) {
+
+  if (update.validUntil && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(update.validUntil) && new Date(update.validUntil) < new Date(now)) {
     return true;
   }
-  
+
   return false;
 }

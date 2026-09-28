@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useReservations } from "@/components/ReservationProvider";
 import { loadCustomerReviews, saveCustomerReviews, type CustomerReview } from "@/data/customerReviewStorage";
@@ -14,32 +14,43 @@ export function isReservationEligible(date: string, status: string) {
 type CustomerReviewContextValue = {
   ready: boolean;
   reviews: CustomerReview[];
+  userReviews: CustomerReview[];
   getReviewsForBusiness: (businessId: number) => CustomerReview[];
   getCustomerReviewForBusiness: (businessId: number) => CustomerReview | undefined;
   getReviewForReservation: (reservationId: string) => CustomerReview | undefined;
+  getReviewById: (reviewId: string) => CustomerReview | undefined;
   eligibleReservations: (businessId: number) => ReturnType<typeof useReservations>["reservations"];
   createReview: (reservationId: string, businessId: number, rating: number, text: string) => CustomerReview | null;
-  updateReview: (reviewId: string, rating: number, text: string) => void;
+  updateReview: (reviewId: string, rating: number, text: string) => boolean;
 };
 
 const CustomerReviewContext = createContext<CustomerReviewContextValue | null>(null);
 
 export function CustomerReviewProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useCustomer();
+  const { currentUser, showToast } = useCustomer();
   const { reservations } = useReservations();
   const [ready, setReady] = useState(false);
   const [reviews, setReviews] = useState<CustomerReview[]>([]);
 
-  useEffect(() => {
-    queueMicrotask(() => {
-      setReviews(loadCustomerReviews());
-      setReady(true);
-    });
+  const refreshReviews = useCallback(() => {
+    setReviews(loadCustomerReviews());
   }, []);
 
-  const createReview = (reservationId: string, businessId: number, rating: number, text: string) => {
+  useEffect(() => {
+    queueMicrotask(() => {
+      refreshReviews();
+      setReady(true);
+    });
+
+    const handleUpdate = () => refreshReviews();
+    window.addEventListener("cafnet:reviews-updated", handleUpdate);
+    return () => window.removeEventListener("cafnet:reviews-updated", handleUpdate);
+  }, [refreshReviews]);
+
+  const createReview = (reservationId: string, businessId: number, rating: number, text: string): CustomerReview | null => {
     if (!currentUser || rating < 1 || rating > 5 || text.length > 1000) return null;
     if (reviews.some((review) => review.reservationId === reservationId)) return null;
+
     const review: CustomerReview = {
       id: `customer-review-${Date.now()}`,
       businessId,
@@ -56,30 +67,53 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
       helpfulByCustomer: [],
       verifiedVisit: true,
     };
-    const next = [...reviews, review];
+
+    const next = [review, ...reviews];
     setReviews(next);
     saveCustomerReviews(next);
+    showToast("Review posted");
     return review;
   };
 
-  const updateReview = (reviewId: string, rating: number, text: string) => {
-    if (rating < 1 || rating > 5 || text.length > 1000) return;
-    const next = reviews.map((review) => review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review);
+  const updateReview = (reviewId: string, rating: number, text: string): boolean => {
+    if (rating < 1 || rating > 5 || text.length > 1000) return false;
+    const exists = reviews.some((r) => r.id === reviewId);
+    if (!exists) return false;
+
+    const next = reviews.map((review) =>
+      review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review
+    );
     setReviews(next);
     saveCustomerReviews(next);
+    showToast("Review updated");
+    return true;
   };
 
   const customerReservations = currentUser ? reservations : [];
-  return <CustomerReviewContext.Provider value={{
-    ready,
-    reviews,
-    getReviewsForBusiness: (businessId) => reviews.filter((review) => review.businessId === businessId),
-    getCustomerReviewForBusiness: (businessId) => reviews.find((review) => review.businessId === businessId),
-    getReviewForReservation: (reservationId) => reviews.find((review) => review.reservationId === reservationId),
-    eligibleReservations: (businessId) => customerReservations.filter((reservation) => reservation.businessId === businessId && isReservationEligible(reservation.date, reservation.status) && !reviews.some((review) => review.reservationId === reservation.id)),
-    createReview,
-    updateReview,
-  }}>{children}</CustomerReviewContext.Provider>;
+  const userReviews = currentUser ? reviews.filter((r) => r.customerId === currentUser.id) : [];
+
+  return (
+    <CustomerReviewContext.Provider value={{
+      ready,
+      reviews,
+      userReviews,
+      getReviewsForBusiness: (businessId) => reviews.filter((review) => review.businessId === businessId),
+      getCustomerReviewForBusiness: (businessId) => reviews.find((review) => review.businessId === businessId),
+      getReviewForReservation: (reservationId) => reviews.find((review) => review.reservationId === reservationId),
+      getReviewById: (reviewId) => reviews.find((review) => review.id === reviewId),
+      eligibleReservations: (businessId) =>
+        customerReservations.filter(
+          (reservation) =>
+            reservation.businessId === businessId &&
+            isReservationEligible(reservation.date, reservation.status) &&
+            !reviews.some((review) => review.reservationId === reservation.id)
+        ),
+      createReview,
+      updateReview,
+    }}>
+      {children}
+    </CustomerReviewContext.Provider>
+  );
 }
 
 export function useCustomerReviews() {
@@ -89,5 +123,5 @@ export function useCustomerReviews() {
 }
 
 export function getCombinedBusinessReviews(businessId: number, customerReviews: CustomerReview[]) {
-  return [...getBusinessReviews(businessId), ...customerReviews.filter((review) => review.businessId === businessId)];
+  return [...customerReviews.filter((review) => review.businessId === businessId), ...getBusinessReviews(businessId)];
 }

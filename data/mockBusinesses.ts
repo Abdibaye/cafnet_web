@@ -1,4 +1,5 @@
 import { getReviewSummary } from "@/data/mockReviews";
+import { getEditableData } from "@/data/ownerManagedBusinessStorage";
 export type BusinessCategory = "restaurant" | "cafe" | "drinks";
 export type BusinessClaimStatus = "unclaimed" | "pending" | "claimed";
 
@@ -277,24 +278,53 @@ export const mockBusinesses: MockBusiness[] = [
   },
 ];
 
-export function getBusinessById(id: string | number) {
-  return mockBusinesses.find((business) => business.id === Number(id));
+export function getMergedBusiness(business: MockBusiness): MockBusiness {
+  if (typeof window === "undefined") return business;
+  try {
+    const editable = getEditableData(business.id);
+    if (!editable) return business;
+    return {
+      ...business,
+      name: editable.name || business.name,
+      description: editable.description || business.description,
+      shortDescription: editable.description ? (editable.description.length > 80 ? editable.description.slice(0, 80) + "..." : editable.description) : business.shortDescription,
+      phone: editable.phone || business.phone,
+      location: editable.location || business.location,
+      category: editable.category || business.category,
+      priceRange: editable.priceRange || business.priceRange,
+      tags: editable.tags && editable.tags.length > 0 ? editable.tags : business.tags,
+    };
+  } catch {
+    return business;
+  }
+}
+
+export function getBusinessById(id: string | number): MockBusiness | undefined {
+  const seed = mockBusinesses.find((business) => business.id === Number(id));
+  if (!seed) return undefined;
+  return getMergedBusiness(seed);
+}
+
+export function getAllBusinesses(): MockBusiness[] {
+  return mockBusinesses.map(getMergedBusiness);
 }
 
 export function getBusinessesByCategory(category?: BusinessCategory) {
-  return category ? mockBusinesses.filter((business) => business.category === category) : mockBusinesses;
+  const all = getAllBusinesses();
+  return category ? all.filter((business) => business.category === category) : all;
 }
 
 export function toBusinessCardItem(business: MockBusiness) {
-  const reviewSummary = getReviewSummary(business.id);
+  const merged = getMergedBusiness(business);
+  const reviewSummary = getReviewSummary(merged.id);
   return {
-    id: business.id,
-    name: business.name,
-    image: business.images[0],
-    location: `${business.location}, ${business.distance}`,
-    description: business.shortDescription,
+    id: merged.id,
+    name: merged.name,
+    image: merged.images[0],
+    location: `${merged.location}, ${merged.distance}`,
+    description: merged.shortDescription,
     rating: reviewSummary.average,
     reviews: reviewSummary.count,
-    tags: business.tags,
+    tags: merged.tags,
   };
 }
