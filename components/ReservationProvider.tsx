@@ -51,17 +51,12 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
 
     try {
       const apiList = await reservationsApi.listCustomerReservations();
-      if (apiList && apiList.length > 0) {
+      if (Array.isArray(apiList)) {
         const adapted = apiList.map(reservationToViewModel);
         setReservations(adapted);
-      } else {
-        // Fallback to local storage if API returned empty or during initial bootstrap
-        const local = loadReservations();
-        const userLocal = local.filter((r) => r.customerId === currentUser.id);
-        setReservations(userLocal.length > 0 ? local : []);
       }
     } catch {
-      // If network is offline or unauthenticated, fallback to storage
+      // If network is offline or server unreachable, maintain resilient offline state
       setReservations(loadReservations());
     } finally {
       setReady(true);

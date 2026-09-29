@@ -10,6 +10,7 @@ import { getBusinessById } from "@/data/mockBusinesses";
 import { getBusinessProfileData } from "@/data/businessProfileData";
 import { getBusinessProfile } from "@/lib/api/businesses";
 import { publicProfileToViewModel } from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
 
 export async function generateMetadata({
   params,
@@ -30,7 +31,13 @@ export async function generateMetadata({
       description = profile.business.short_description || profile.business.description;
       images = profile.images?.map((img) => img.image_url) || [];
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof ApiError && err.isNotFound()) {
+      return {
+        title: "Business Not Found | Cafnet",
+        description: "This place may have been removed or the link may be incorrect.",
+      };
+    }
     const fallback = getBusinessById(id);
     if (fallback) {
       businessName = fallback.name;
@@ -150,7 +157,10 @@ export default async function BusinessProfile({
     if (apiProfile?.business) {
       profileData = publicProfileToViewModel(apiProfile);
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof ApiError && err.isNotFound()) {
+      return <MissingBusiness />;
+    }
     profileData = getBusinessProfileData(id);
   }
 
@@ -280,7 +290,11 @@ export default async function BusinessProfile({
 
             <section id="menu" className="scroll-mt-36 border-b border-outline-variant py-10">
               <SectionHeading eyebrow="What you can eat" title="Popular dishes" />
-              <BusinessProfileMenuSection businessId={profileData.id} images={profileData.images} />
+              <BusinessProfileMenuSection
+                businessId={profileData.id}
+                images={profileData.images}
+                initialMenu={profileData.menu}
+              />
             </section>
 
             <section id="updates" className="scroll-mt-36 border-b border-outline-variant py-10">

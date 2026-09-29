@@ -3,8 +3,8 @@ import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
 import { getBusinessesByCategory, toBusinessCardItem } from "@/data/mockBusinesses";
-
-const popularPlaces: BusinessCardItem[] = getBusinessesByCategory("restaurant").slice(0, 3).map(toBusinessCardItem);
+import { listBusinesses } from "@/lib/api/businesses";
+import { businessToCardItem } from "@/lib/api/adapters";
 
 const cuisines = ["Ethiopian", "Italian", "Asian", "Indian", "Bakery", "Coffee"];
 
@@ -26,7 +26,17 @@ function BusinessSection({ heading, items }: { heading: string; items: BusinessC
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  let popularPlaces: BusinessCardItem[] = getBusinessesByCategory("restaurant").slice(0, 3).map(toBusinessCardItem);
+
+  try {
+    const res = await listBusinesses({ category: "restaurant", limit: 3 });
+    if (res.businesses && res.businesses.length > 0) {
+      popularPlaces = res.businesses.map((b) => businessToCardItem(b));
+    }
+  } catch {
+    // Graceful fallback to seed places
+  }
   return (
     <div className="w-full bg-background">
       <section className="mx-auto max-w-7xl px-5 pb-0 pt-8 lg:px-12 lg:pt-14">

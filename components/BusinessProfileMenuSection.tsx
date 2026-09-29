@@ -6,11 +6,20 @@ import { getBusinessMenu, type BusinessMenu } from "@/data/menuStorage";
 type BusinessProfileMenuSectionProps = {
   businessId: number;
   images: string[];
+  initialMenu?: {
+    category: string;
+    items: {
+      name: string;
+      price: string;
+      description: string;
+    }[];
+  }[];
 };
 
 export default function BusinessProfileMenuSection({
   businessId,
   images,
+  initialMenu,
 }: BusinessProfileMenuSectionProps) {
   const [menu, setMenu] = useState<BusinessMenu | undefined>(() => getBusinessMenu(businessId));
 
@@ -26,7 +35,18 @@ export default function BusinessProfileMenuSection({
     return () => window.removeEventListener("cafnet:menu-updated", handleMenuUpdate);
   }, [businessId]);
 
-  const activeCategories = (menu?.categories || []).filter((cat) => cat.items.length > 0);
+  const activeCategories = (initialMenu && initialMenu.length > 0)
+    ? initialMenu.map((c, i) => ({
+        id: String(i),
+        name: c.category,
+        items: c.items.map((it, j) => ({
+          id: `${i}-${j}`,
+          name: it.name,
+          price: it.price,
+          description: it.description,
+        })),
+      }))
+    : (menu?.categories || []).filter((cat) => cat.items.length > 0);
 
   if (activeCategories.length === 0) {
     return (

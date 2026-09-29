@@ -52,29 +52,22 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
     };
   }, [isAuthenticated, kind, currentUser?.savedBusinessIds, currentUser?.followedBusinessIds]);
 
-  // Combine real API items and any local mock items, deduplicating by ID
+  // Prefer authoritative API businesses; fallback to mock seed only if offline
   const cardItems: BusinessCardItem[] = (() => {
-    const map = new Map<number, BusinessCardItem>();
-
-    // 1. Add API businesses
-    for (const b of apiBusinesses) {
-      map.set(b.id, businessToCardItem(b));
+    if (apiBusinesses.length > 0) {
+      return apiBusinesses.map((b) => businessToCardItem(b));
     }
-
-    // 2. Add any mock businesses that are in ids
-    const mockList = getAllBusinesses().filter((b) => ids.includes(b.id));
-    for (const m of mockList) {
-      if (!map.has(m.id)) {
-        map.set(m.id, toBusinessCardItem(m));
+    // Only fall back to mock businesses if still initializing or offline
+    if (ids.length > 0 && !loading) {
+      const mockList = getAllBusinesses().filter((b) => ids.includes(b.id));
+      if (mockList.length > 0) {
+        return mockList.map(toBusinessCardItem);
       }
     }
-
-    return Array.from(map.values());
+    return [];
   })();
 
-  const [followedUpdates, setFollowedUpdates] = useState<StorageBusinessUpdate[]>(() =>
-    kind === "following" ? getActiveUpdates().filter((u) => ids.includes(u.businessId)) : [],
-  );
+  const [followedUpdates, setFollowedUpdates] = useState<StorageBusinessUpdate[]>([]);
 
   useEffect(() => {
     if (kind !== "following" || !isAuthenticated) {
@@ -86,26 +79,16 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
     const fetchFollowedUpdates = async () => {
       try {
         const apiUpdates = await updatesApi.listFollowingUpdates();
-        if (!cancelled && apiUpdates && apiUpdates.length > 0) {
+        if (!cancelled && Array.isArray(apiUpdates)) {
           const adapted = apiUpdates.map(apiUpdateToStorageUpdate);
-          const mockList = getActiveUpdates().filter((u) => ids.includes(u.businessId));
-          const map = new Map<string, StorageBusinessUpdate>();
-          for (const u of adapted) {
-            map.set(u.id, u);
-          }
-          for (const m of mockList) {
-            if (!map.has(m.id)) {
-              map.set(m.id, m);
-            }
-          }
-          setFollowedUpdates(Array.from(map.values()));
+          setFollowedUpdates(adapted);
           return;
         }
       } catch {
-        // Fall back to local mock updates
-      }
-      if (!cancelled) {
-        setFollowedUpdates(getActiveUpdates().filter((u) => ids.includes(u.businessId)));
+        // Fall back to local mock updates only if network/server is unreachable
+        if (!cancelled) {
+          setFollowedUpdates(getActiveUpdates().filter((u) => ids.includes(u.businessId)));
+        }
       }
     };
 

@@ -61,15 +61,11 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
 
     try {
       const myApiReviews = await reviewsApi.listMyReviews();
-      if (myApiReviews && myApiReviews.length > 0) {
+      if (Array.isArray(myApiReviews)) {
         const adapted = myApiReviews.map((r) =>
           reviewToViewModel(r, currentUser.name, currentUser.avatar),
         );
         setReviews(adapted.filter((r) => !isReviewRemoved(r.id)));
-      } else {
-        const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
-        const userLocal = loaded.filter((r) => r.customerId === currentUser.id);
-        setReviews(userLocal.length > 0 ? loaded : []);
       }
     } catch {
       const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
