@@ -15,7 +15,7 @@ import {
 
 export default function ManagedBusinessPage({ businessId }: { businessId: string }) {
   const business = getBusinessById(businessId);
-  const { ready, getManagedBusiness: getManagedFromContext } = useBusinessOwner();
+  const { ready, getManagedBusiness: getManagedFromContext, isBusinessManaged } = useBusinessOwner();
   
   const managedBusiness = getManagedFromContext?.(Number(businessId)) || getManagedBusinessFromStorage(Number(businessId));
   const editableData = getEditableDataFromStorage(Number(businessId));
@@ -54,6 +54,27 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
         <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
           Business Center
         </Link>
+      </div>
+    );
+  }
+
+  const isManaged = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed" || managedBusiness);
+
+  if (ready && !isManaged) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Not Managed</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          You do not have management access for this business on Cafnet.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-4">
+          <Link href="/business/dashboard" className="inline-flex text-sm font-semibold text-primary">
+            Business Center
+          </Link>
+          <Link href={`/business/claim?id=${business.id}`} className="inline-flex text-sm font-semibold text-on-surface-variant hover:text-primary">
+            Claim this business
+          </Link>
+        </div>
       </div>
     );
   }

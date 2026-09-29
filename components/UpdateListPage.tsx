@@ -9,7 +9,7 @@ import { formatUpdateDate, isUpdateExpired, type BusinessUpdate } from "@/data/b
 
 export default function UpdateListPage({ businessId }: { businessId: string }) {
   const router = useRouter();
-  const { ready, getUpdatesByBusiness, getUpdateTypeLabel, getUpdateTypeIcon, deleteExistingUpdate } = useBusinessOwner();
+  const { ready, getUpdatesByBusiness, getUpdateTypeLabel, getUpdateTypeIcon, deleteExistingUpdate, isBusinessManaged } = useBusinessOwner();
   const business = getBusinessById(businessId);
   
   const [updates, setUpdates] = useState<BusinessUpdate[]>([]);
@@ -53,7 +53,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
     );
   }
 
-  const canManage = business.claimStatus === "claimed";
+  const canManage = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed");
 
   if (!canManage) {
     return (

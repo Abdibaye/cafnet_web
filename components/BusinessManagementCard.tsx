@@ -15,7 +15,8 @@ function categoryLabel(category: MockBusiness["category"] | BusinessSubmission["
 }
 
 export default function BusinessManagementCard({ business, claim, submission }: BusinessManagementCardProps) {
-  const isManaged = business?.claimStatus === "claimed";
+  const managedBusiness = business ? getManagedBusinessFromStorage(business.id) : undefined;
+  const isManaged = Boolean(business?.claimStatus === "claimed" || managedBusiness);
   const title = business?.name || submission?.businessName || "Business submission";
   const category = business ? categoryLabel(business.category) : submission ? categoryLabel(submission.category) : "Business";
   const area = business?.location || submission?.area || "Area pending";
@@ -61,7 +62,6 @@ export default function BusinessManagementCard({ business, claim, submission }: 
   const detailHref = isManaged && business ? `/business/dashboard/business/${business.id}` : claim ? `/business/dashboard/claim/${claim.id}` : `/business/dashboard/submission/${submission?.id}`;
   const profileHref = business ? `/business/${business.id}` : "/business";
 
-  const managedBusiness = business ? getManagedBusinessFromStorage(business.id) : undefined;
   const lastUpdated = managedBusiness?.editableData.updatedAt ? new Date(managedBusiness.editableData.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : undefined;
   const isReservable = Boolean(isManaged && business && business.reservationAvailable);
   const pendingReservations = isReservable ? getPendingReservationsCount(business!.id) : 0;

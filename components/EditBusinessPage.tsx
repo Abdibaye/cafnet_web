@@ -48,6 +48,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
     getEditableData, 
     updateManagedBusiness,
     createManagedBusiness,
+    isBusinessManaged,
     availableTags,
     priceRangeOptions,
     categoryOptions,
@@ -280,13 +281,16 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
     );
   }
 
-  const canEdit = managedBusiness || !existingEditableData;
+  const isManaged = Boolean(isBusinessManaged?.(Number(businessId)) || seedBusiness.claimStatus === "claimed" || managedBusiness);
 
-  if (!canEdit) {
+  if (!isManaged) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Access Denied</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">You do not have permission to edit this business listing.</p>
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
+          <span className="material-symbols-outlined text-3xl">lock</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-on-surface">Access restricted</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">You must have verified management rights to edit this business listing.</p>
         <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
           Back to Business Center
         </Link>

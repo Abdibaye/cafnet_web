@@ -19,7 +19,7 @@ type FormErrors = {
 
 export default function EditUpdatePage({ businessId, updateId }: { businessId: string; updateId: string }) {
   const router = useRouter();
-  const { ready, getUpdateById, updateExistingUpdate, updateTypeOptions, getUpdateTypeLabel, getUpdateTypeIcon } = useBusinessOwner();
+  const { ready, getUpdateById, updateExistingUpdate, updateTypeOptions, getUpdateTypeLabel, getUpdateTypeIcon, isBusinessManaged } = useBusinessOwner();
   const business = getBusinessById(businessId);
 
   const [formData, setFormData] = useState<Partial<Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">>>({
@@ -160,7 +160,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
     );
   }
 
-  const canManage = business.claimStatus === "claimed";
+  const canManage = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed");
 
   if (!canManage) {
     return (
