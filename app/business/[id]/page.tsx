@@ -5,6 +5,7 @@ import BusinessProfileActions from "@/components/BusinessProfileActions";
 import BusinessReviewSection, { BusinessRatingSummary } from "@/components/BusinessReviewSection";
 import BusinessProfileUpdatesSection from "@/components/BusinessProfileUpdatesSection";
 import BusinessProfileMenuSection from "@/components/BusinessProfileMenuSection";
+import ReportBusinessModal from "@/components/ReportBusinessModal";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getBusinessProfileData } from "@/data/businessProfileData";
 
@@ -281,6 +282,10 @@ export default async function BusinessProfile({
                   />
                 ))}
               </div>
+              <ReportBusinessModal
+                businessId={profileData.id}
+                businessName={profileData.name}
+              />
             </section>
           </aside>
         </div>

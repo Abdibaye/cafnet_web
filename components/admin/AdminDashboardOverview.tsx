@@ -6,16 +6,19 @@ import { getAllBusinesses, type MockBusiness } from "@/data/mockBusinesses";
 import { loadBusinessOwnerState } from "@/data/businessOwnerStorage";
 import { getAdminStats, type AdminStats } from "@/data/adminStorage";
 import { loadReviewReports, type ReviewReport } from "@/data/reviewReportStorage";
+import { loadBusinessReports, type BusinessReport } from "@/data/businessReportStorage";
 
 export default function AdminDashboardOverview() {
   const [businesses, setBusinesses] = useState<MockBusiness[]>(() => getAllBusinesses());
   const [ownerState, setOwnerState] = useState(() => loadBusinessOwnerState());
   const [reports, setReports] = useState<ReviewReport[]>(() => loadReviewReports());
+  const [businessReports, setBusinessReports] = useState<BusinessReport[]>(() => loadBusinessReports());
 
   const reload = () => {
     setBusinesses(getAllBusinesses());
     setOwnerState(loadBusinessOwnerState());
     setReports(loadReviewReports());
+    setBusinessReports(loadBusinessReports());
   };
 
   useEffect(() => {
@@ -25,12 +28,14 @@ export default function AdminDashboardOverview() {
     window.addEventListener("cafnet:business-owner-updated", handleEvents);
     window.addEventListener("cafnet:managed-businesses-updated", handleEvents);
     window.addEventListener("cafnet:review-moderation-updated", handleEvents);
+    window.addEventListener("cafnet:business-reports-updated", handleEvents);
 
     return () => {
       window.removeEventListener("cafnet:admin-updated", handleEvents);
       window.removeEventListener("cafnet:business-owner-updated", handleEvents);
       window.removeEventListener("cafnet:managed-businesses-updated", handleEvents);
       window.removeEventListener("cafnet:review-moderation-updated", handleEvents);
+      window.removeEventListener("cafnet:business-reports-updated", handleEvents);
     };
   }, []);
 
@@ -38,6 +43,7 @@ export default function AdminDashboardOverview() {
   const pendingClaims = ownerState.claims.filter((c) => c.status === "pending");
   const pendingSubmissions = ownerState.submissions.filter((s) => s.status === "pending");
   const pendingReports = reports.filter((r) => r.status === "PENDING");
+  const pendingBusinessReports = businessReports.filter((r) => r.status === "PENDING");
 
   return (
     <div className="mx-auto max-w-6xl space-y-10">
@@ -53,7 +59,7 @@ export default function AdminDashboardOverview() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {/* Pending Claims */}
         <div className="relative overflow-hidden rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
@@ -169,6 +175,37 @@ export default function AdminDashboardOverview() {
               className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-[#0f46b8]"
             >
               View businesses
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Business Information Reports */}
+        <div className="relative overflow-hidden rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-secondary">
+              Listing Reports
+            </span>
+            <span className="flex size-9 items-center justify-center rounded-xl bg-surface-container text-secondary">
+              <span className="material-symbols-outlined text-[20px]">flag</span>
+            </span>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-on-surface">
+              {pendingBusinessReports.length}
+            </span>
+            <span className="text-xs font-semibold text-on-surface-variant">pending</span>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+            {businessReports.filter((r) => r.status === "ACTIONED").length} actioned ·{" "}
+            {businessReports.filter((r) => r.status === "DISMISSED").length} dismissed
+          </p>
+          <div className="mt-5 border-t border-outline-variant/60 pt-4">
+            <Link
+              href="/admin/reports"
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-[#0f46b8]"
+            >
+              Review reports
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>

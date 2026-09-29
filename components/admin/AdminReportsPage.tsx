@@ -1,0 +1,267 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  loadBusinessReports,
+  getReportReasonLabel,
+  getReportReasonIcon,
+  type BusinessReport,
+  type BusinessReportStatus,
+} from "@/data/businessReportStorage";
+
+type FilterTab = "PENDING" | "DISMISSED" | "ACTIONED" | "ALL";
+
+export default function AdminReportsPage() {
+  const [reports, setReports] = useState<BusinessReport[]>(() => loadBusinessReports());
+  const [activeTab, setActiveTab] = useState<FilterTab>("PENDING");
+
+  const reload = () => {
+    setReports(loadBusinessReports());
+  };
+
+  useEffect(() => {
+    reload();
+    const handleUpdate = () => reload();
+    window.addEventListener("cafnet:business-reports-updated", handleUpdate);
+    return () => window.removeEventListener("cafnet:business-reports-updated", handleUpdate);
+  }, []);
+
+  const pending = reports.filter((r) => r.status === "PENDING");
+  const dismissed = reports.filter((r) => r.status === "DISMISSED");
+  const actioned = reports.filter((r) => r.status === "ACTIONED");
+
+  const displayedReports =
+    activeTab === "PENDING"
+      ? pending
+      : activeTab === "DISMISSED"
+      ? dismissed
+      : activeTab === "ACTIONED"
+      ? actioned
+      : reports;
+
+  const renderStatusBadge = (status: BusinessReportStatus) => {
+    switch (status) {
+      case "PENDING":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">
+            <span className="material-symbols-outlined text-[13px]">schedule</span>
+            Pending
+          </span>
+        );
+      case "DISMISSED":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2.5 py-0.5 text-xs font-bold text-on-surface-variant">
+            <span className="material-symbols-outlined text-[13px]">close</span>
+            Dismissed
+          </span>
+        );
+      case "ACTIONED":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+            <span className="material-symbols-outlined text-[13px]">check_circle</span>
+            Actioned
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-8">
+      {/* Header */}
+      <div className="border-b border-outline-variant pb-6">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+            Governance & Quality
+          </span>
+          <span className="text-outline-variant">·</span>
+          <span className="text-xs text-on-surface-variant font-medium">Information Accuracy</span>
+        </div>
+        <h1 className="mt-2 text-3xl font-bold text-on-surface">Business reports</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Review customer reports of inaccurate business hours, closed venues, wrong locations, or invalid phone numbers.
+        </p>
+
+        {/* Tab Navigation */}
+        <div className="mt-8 flex flex-wrap gap-2 border-b border-outline-variant">
+          <button
+            type="button"
+            onClick={() => setActiveTab("PENDING")}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${
+              activeTab === "PENDING"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Pending
+            {pending.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                {pending.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("ACTIONED")}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${
+              activeTab === "ACTIONED"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Actioned
+            {actioned.length > 0 && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                {actioned.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("DISMISSED")}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${
+              activeTab === "DISMISSED"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Dismissed
+            {dismissed.length > 0 && (
+              <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs font-bold text-on-surface">
+                {dismissed.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("ALL")}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${
+              activeTab === "ALL"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            All
+            {reports.length > 0 && (
+              <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs font-bold text-on-surface">
+                {reports.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Reports List */}
+      <div>
+        {displayedReports.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
+            <span className="material-symbols-outlined text-4xl text-outline">
+              {activeTab === "PENDING"
+                ? "check_circle"
+                : activeTab === "ACTIONED"
+                ? "task_alt"
+                : "flag"}
+            </span>
+            <h2 className="mt-3 text-base font-bold text-on-surface">
+              {activeTab === "PENDING"
+                ? "No business reports need your attention."
+                : activeTab === "DISMISSED"
+                ? "No dismissed reports."
+                : activeTab === "ACTIONED"
+                ? "No actioned reports."
+                : "No business reports found."}
+            </h2>
+            <p className="mt-1 text-xs">
+              {activeTab === "PENDING"
+                ? "All customer reports regarding business accuracy have been processed."
+                : "Reports will be archived here once reviewed."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {displayedReports.map((report) => {
+              const reasonLabel = getReportReasonLabel(report.reason);
+              const reasonIcon = getReportReasonIcon(report.reason);
+
+              return (
+                <div
+                  key={report.id}
+                  className="flex flex-col justify-between gap-5 rounded-2xl border border-outline-variant bg-white p-5 shadow-sm transition-all sm:flex-row sm:items-center hover:border-primary/30"
+                >
+                  <div className="min-w-0 flex-1">
+                    {/* Header info */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="font-bold text-base text-on-surface">
+                        {report.businessName}
+                      </h2>
+                      <span className="rounded-md bg-surface-container-low px-2 py-0.5 text-[11px] font-semibold text-secondary">
+                        ID: #{report.businessId}
+                      </span>
+                      <div className="ml-auto sm:ml-2">{renderStatusBadge(report.status)}</div>
+                    </div>
+
+                    {/* Reported Issue Badge */}
+                    <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-red-700 bg-red-50/70 border border-red-200/60 rounded-lg px-2.5 py-1 w-fit">
+                      <span className="material-symbols-outlined text-[15px]">{reasonIcon}</span>
+                      <span>{reasonLabel}</span>
+                    </div>
+
+                    {/* Short details */}
+                    {report.details && (
+                      <p className="mt-2.5 text-xs text-on-surface italic line-clamp-2 bg-surface-container-low/60 rounded-lg p-2.5 border border-outline-variant/40">
+                        &ldquo;{report.details}&rdquo;
+                      </p>
+                    )}
+
+                    {/* Reporter & Submitted Date */}
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-on-surface-variant">
+                      <span>
+                        Reported by:{" "}
+                        <strong className="font-semibold text-on-surface">
+                          {report.reporterName || report.reporterId}
+                        </strong>
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Submitted on{" "}
+                        {new Date(report.createdAt).toLocaleString("en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                      {report.reviewedAt && (
+                        <>
+                          <span>·</span>
+                          <span>
+                            Reviewed on{" "}
+                            {new Date(report.reviewedAt).toLocaleDateString("en-US", {
+                              dateStyle: "medium",
+                            })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="flex shrink-0">
+                    <Link
+                      href={`/admin/reports/${report.id}`}
+                      className="inline-flex h-10 w-full sm:w-auto items-center justify-center gap-1.5 rounded-xl bg-primary px-5 text-xs font-bold text-white shadow-sm hover:bg-[#0f46b8] transition-colors"
+                    >
+                      <span>Review</span>
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
