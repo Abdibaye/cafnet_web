@@ -8,6 +8,8 @@ import BusinessProfileMenuSection from "@/components/BusinessProfileMenuSection"
 import ReportBusinessModal from "@/components/ReportBusinessModal";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getBusinessProfileData } from "@/data/businessProfileData";
+import { getBusinessProfile } from "@/lib/api/businesses";
+import { publicProfileToViewModel } from "@/lib/api/adapters";
 
 export async function generateMetadata({
   params,
@@ -15,28 +17,54 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const business = getBusinessById(id);
+  let businessName = "";
+  let location = "";
+  let description = "";
+  let images: string[] = [];
 
-  if (!business) {
+  try {
+    const profile = await getBusinessProfile(id);
+    if (profile?.business) {
+      businessName = profile.business.name;
+      location = profile.business.location_name || profile.business.neighborhood;
+      description = profile.business.short_description || profile.business.description;
+      images = profile.images?.map((img) => img.image_url) || [];
+    }
+  } catch {
+    const fallback = getBusinessById(id);
+    if (fallback) {
+      businessName = fallback.name;
+      location = fallback.neighborhood || fallback.location;
+      description = fallback.shortDescription || fallback.description;
+      images = fallback.images || [];
+    }
+  }
+
+  if (!businessName) {
+    const fallback = getBusinessById(id);
+    if (fallback) {
+      businessName = fallback.name;
+      location = fallback.neighborhood || fallback.location;
+      description = fallback.shortDescription || fallback.description;
+      images = fallback.images || [];
+    }
+  }
+
+  if (!businessName) {
     return {
       title: "Business Not Found | Cafnet",
       description: "This place may have been removed or the link may be incorrect.",
     };
   }
 
-  const title = `${business.name} - ${business.neighborhood || business.location} | Cafnet`;
-  const description =
-    business.shortDescription ||
-    business.description ||
-    `Explore ${business.name} in Addis Ababa on Cafnet. View menu, reviews, photos, and updates.`;
-
+  const title = `${businessName} - ${location} | Cafnet`;
   return {
     title,
-    description,
+    description: description || `Explore ${businessName} in Addis Ababa on Cafnet.`,
     openGraph: {
       title,
       description,
-      images: business.images && business.images.length > 0 ? [business.images[0]] : [],
+      images: images.length > 0 ? [images[0]] : [],
     },
   };
 }
@@ -115,23 +143,36 @@ export default async function BusinessProfile({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const profileData = getBusinessProfileData(id);
+  let profileData: any = null;
+
+  try {
+    const apiProfile = await getBusinessProfile(id);
+    if (apiProfile?.business) {
+      profileData = publicProfileToViewModel(apiProfile);
+    }
+  } catch {
+    profileData = getBusinessProfileData(id);
+  }
+
+  if (!profileData) {
+    profileData = getBusinessProfileData(id);
+  }
 
   if (!profileData) return <MissingBusiness />;
 
   const address = `${profileData.location}, Addis Ababa, Ethiopia`;
-  const amenities = profileData.tags.filter((tag) =>
-    ["Credit card accepted", "Wi-Fi available", "Parking available", "Family friendly"].includes(tag)
+  const amenities = profileData.tags.filter((tag: string) =>
+    ["Credit card accepted", "Wi-Fi available", "Parking available", "Family friendly"].includes(tag),
   );
-  const highlights = profileData.tags.filter((tag) => !amenities.includes(tag)).slice(0, 3);
+  const highlights = profileData.tags.filter((tag: string) => !amenities.includes(tag)).slice(0, 3);
 
   const formattedOpeningHours =
     typeof profileData.openingHours === "string"
       ? profileData.openingHours || "Hours not available"
       : Array.isArray(profileData.openingHours)
         ? profileData.openingHours
-            .filter((h) => !h.isClosed)
-            .map((h) => `${h.day}: ${h.open} – ${h.close}`)
+            .filter((h: any) => !h.isClosed)
+            .map((h: any) => `${h.day}: ${h.open} – ${h.close}`)
             .join(", ") || "Closed"
         : "Hours not available";
 
@@ -225,7 +266,7 @@ export default async function BusinessProfile({
               <div className="mt-8">
                 <h3 className="mb-3 text-base font-bold text-on-surface">Highlights</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {highlights.map((tag) => (
+                  {highlights.map((tag: string) => (
                     <div key={tag} className="flex items-center gap-2 text-sm text-on-surface-variant">
                       <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
                         check_circle
@@ -265,7 +306,7 @@ export default async function BusinessProfile({
                 <Info icon="location_on" label="Location" value={address} />
                 <Info icon="schedule" label="Hours" value={formattedOpeningHours} />
                 <Info icon="call" label="Phone" value={profileData.phone} />
-                {amenities.map((tag) => (
+                {amenities.map((tag: string) => (
                   <Info
                     key={tag}
                     icon={

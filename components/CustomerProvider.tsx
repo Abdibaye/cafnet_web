@@ -1,14 +1,26 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
-import { loadMockCustomer, saveMockCustomer } from "@/data/customerStorage";
+import * as authApi from "@/lib/api/auth";
+import * as customerApi from "@/lib/api/customer";
+import { ApiError } from "@/lib/api/errors";
+import type { User } from "@/lib/api/types";
 
 export type MockCustomer = {
   id: string;
   name: string;
   phone: string;
   avatar: string;
+  role?: string;
   savedBusinessIds: number[];
   followedBusinessIds: number[];
 };
@@ -16,7 +28,7 @@ export type MockCustomer = {
 export type CustomerAction = "save" | "follow";
 export type AuthStep = "prompt" | "phone" | "otp" | null;
 
-export type AuthIntent = 
+export type AuthIntent =
   | { type: CustomerAction; businessId: number }
   | { type: "callback"; callback: () => void }
   | { type: "redirect"; url: string };
@@ -27,22 +39,28 @@ type CustomerContextValue = {
   authStep: AuthStep;
   authError: string;
   authPhone: string;
+  devOtp: string;
+  isSubmitting: boolean;
   pendingAction: { type: CustomerAction; businessId: number } | null;
   isAuthenticated: boolean;
   isSaved: (businessId: number) => boolean;
   isFollowing: (businessId: number) => boolean;
   requestAction: (type: CustomerAction, businessId: number) => void;
-  requestAuth: (options?: { intent?: AuthIntent; callback?: () => void; redirectUrl?: string }) => void;
+  requestAuth: (options?: {
+    intent?: AuthIntent;
+    callback?: () => void;
+    redirectUrl?: string;
+  }) => void;
   closeAuth: () => void;
   continueToPhone: () => void;
   setAuthPhone: (phone: string) => void;
-  submitPhone: () => void;
-  verifyOtp: (code: string) => void;
-  saveBusiness: (businessId: number) => void;
-  unsaveBusiness: (businessId: number) => void;
-  followBusiness: (businessId: number) => void;
-  unfollowBusiness: (businessId: number) => void;
-  logout: () => void;
+  submitPhone: () => Promise<void>;
+  verifyOtp: (code: string) => Promise<void>;
+  saveBusiness: (businessId: number) => Promise<void>;
+  unsaveBusiness: (businessId: number) => Promise<void>;
+  followBusiness: (businessId: number) => Promise<void>;
+  unfollowBusiness: (businessId: number) => Promise<void>;
+  logout: () => Promise<void>;
   startSignIn: () => void;
   toast: string;
   showToast: (message: string) => void;
@@ -50,27 +68,50 @@ type CustomerContextValue = {
 
 const CustomerContext = createContext<CustomerContextValue | null>(null);
 
-const mockCustomer: MockCustomer = {
-  id: "mock-customer-abdi",
-  name: "Abdi",
-  phone: "+251 9XX XXX XXX",
-  avatar: "A",
-  savedBusinessIds: [],
-  followedBusinessIds: [],
-};
-
-function updateIds(ids: number[], businessId: number, shouldInclude: boolean) {
-  return shouldInclude ? Array.from(new Set([...ids, businessId])) : ids.filter((id) => id !== businessId);
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/[\s()-]/g, "");
+  if (digits.startsWith("+251")) {
+    return digits;
+  }
+  if (digits.startsWith("09")) {
+    return `+251${digits.slice(1)}`;
+  }
+  if (digits.startsWith("9") && digits.length === 9) {
+    return `+251${digits}`;
+  }
+  return digits;
 }
 
-export function CustomerProvider({ children }: { children: React.ReactNode }) {
+function mapUserToCustomer(
+  user: User,
+  savedIds: number[],
+  followedIds: number[],
+): MockCustomer {
+  const name = user.full_name && user.full_name !== "" ? user.full_name : "Customer";
+  const avatar = name.charAt(0).toUpperCase() || "C";
+  return {
+    id: user.id,
+    name,
+    phone: user.phone,
+    avatar,
+    role: user.role,
+    savedBusinessIds: savedIds,
+    followedBusinessIds: followedIds,
+  };
+}
+
+export function CustomerProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<MockCustomer | null>(null);
-  const [storedCustomer, setStoredCustomer] = useState<MockCustomer>(mockCustomer);
+  const [savedIds, setSavedIds] = useState<number[]>([]);
+  const [followedIds, setFollowedIds] = useState<number[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [authStep, setAuthStep] = useState<AuthStep>(null);
   const [authError, setAuthError] = useState("");
   const [authPhone, setAuthPhone] = useState("");
+  const [challengeId, setChallengeId] = useState("");
+  const [devOtp, setDevOtp] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<AuthIntent | null>(null);
   const [toast, setToast] = useState("");
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -83,140 +124,304 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     }, 2800);
   }, []);
 
-  const refreshCustomer = useCallback(() => {
-    const savedCustomer = loadMockCustomer();
-    if (savedCustomer) {
-      setStoredCustomer(savedCustomer);
-      setCurrentUser(savedCustomer);
+  const refreshCustomerState = useCallback(async () => {
+    try {
+      const user = await authApi.getCurrentUser();
+      if (user) {
+        const [savedList, followedList] = await Promise.all([
+          customerApi.getSavedBusinesses().catch(() => []),
+          customerApi.getFollowedBusinesses().catch(() => []),
+        ]);
+        const s = savedList.map((b) => b.id);
+        const f = followedList.map((b) => b.id);
+        setSavedIds(s);
+        setFollowedIds(f);
+        setCurrentUser(mapUserToCustomer(user, s, f));
+      } else {
+        setCurrentUser(null);
+        setSavedIds([]);
+        setFollowedIds([]);
+      }
+    } catch {
+      setCurrentUser(null);
+      setSavedIds([]);
+      setFollowedIds([]);
+    } finally {
+      setAuthReady(true);
     }
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      refreshCustomer();
-      setAuthReady(true);
-    });
+    let cancelled = false;
+    refreshCustomerState();
 
-    const handleUpdate = () => refreshCustomer();
-    window.addEventListener("cafnet:customer-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:customer-updated", handleUpdate);
-  }, [refreshCustomer]);
-
-  const persistCustomer = (customer: MockCustomer) => {
-    setStoredCustomer(customer);
-    setCurrentUser(customer);
-    saveMockCustomer(customer);
-  };
-
-  const changeBusinessState = (type: CustomerAction, businessId: number, shouldInclude: boolean, sourceCustomer = currentUser) => {
-    if (!sourceCustomer) return;
-    const customer = {
-      ...sourceCustomer,
-      savedBusinessIds: type === "save" ? updateIds(sourceCustomer.savedBusinessIds, businessId, shouldInclude) : sourceCustomer.savedBusinessIds,
-      followedBusinessIds: type === "follow" ? updateIds(sourceCustomer.followedBusinessIds, businessId, shouldInclude) : sourceCustomer.followedBusinessIds,
+    const handleUpdate = () => {
+      if (!cancelled) refreshCustomerState();
     };
-    persistCustomer(customer);
-    if (type === "save") {
-      showToast(shouldInclude ? "Saved to your places" : "Removed from saved places");
-    } else {
-      showToast(shouldInclude ? "Following updates" : "Unfollowed");
-    }
-  };
+    window.addEventListener("cafnet:customer-updated", handleUpdate);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cafnet:customer-updated", handleUpdate);
+    };
+  }, [refreshCustomerState]);
 
-  const requestAction = (type: CustomerAction, businessId: number) => {
-    if (currentUser) {
-      const isActive = type === "save" ? currentUser.savedBusinessIds.includes(businessId) : currentUser.followedBusinessIds.includes(businessId);
-      changeBusinessState(type, businessId, !isActive);
-      return;
-    }
-    setPendingIntent({ type, businessId });
-    setAuthError("");
-    setAuthStep("prompt");
-  };
+  const saveBusiness = useCallback(
+    async (businessId: number) => {
+      if (!currentUser) return;
+      const prev = savedIds;
+      const next = Array.from(new Set([...prev, businessId]));
+      setSavedIds(next);
+      setCurrentUser((u) => (u ? { ...u, savedBusinessIds: next } : null));
+      showToast("Saved to your places");
 
-  const requestAuth = (options?: { intent?: AuthIntent; callback?: () => void; redirectUrl?: string }) => {
-    if (currentUser) {
-      if (options?.callback) options.callback();
-      else if (options?.redirectUrl) router.push(options.redirectUrl);
-      return;
-    }
-    if (options?.callback) {
-      setPendingIntent({ type: "callback", callback: options.callback });
-    } else if (options?.redirectUrl) {
-      setPendingIntent({ type: "redirect", url: options.redirectUrl });
-    } else if (options?.intent) {
-      setPendingIntent(options.intent);
-    } else {
-      setPendingIntent(null);
-    }
+      try {
+        await customerApi.saveBusiness(businessId);
+      } catch (err) {
+        // Rollback
+        setSavedIds(prev);
+        setCurrentUser((u) => (u ? { ...u, savedBusinessIds: prev } : null));
+        const msg = err instanceof ApiError ? err.message : "Failed to save place";
+        showToast(msg);
+      }
+    },
+    [currentUser, savedIds, showToast],
+  );
+
+  const unsaveBusiness = useCallback(
+    async (businessId: number) => {
+      if (!currentUser) return;
+      const prev = savedIds;
+      const next = prev.filter((id) => id !== businessId);
+      setSavedIds(next);
+      setCurrentUser((u) => (u ? { ...u, savedBusinessIds: next } : null));
+      showToast("Removed from saved places");
+
+      try {
+        await customerApi.unsaveBusiness(businessId);
+      } catch (err) {
+        // Rollback
+        setSavedIds(prev);
+        setCurrentUser((u) => (u ? { ...u, savedBusinessIds: prev } : null));
+        const msg = err instanceof ApiError ? err.message : "Failed to remove place";
+        showToast(msg);
+      }
+    },
+    [currentUser, savedIds, showToast],
+  );
+
+  const followBusiness = useCallback(
+    async (businessId: number) => {
+      if (!currentUser) return;
+      const prev = followedIds;
+      const next = Array.from(new Set([...prev, businessId]));
+      setFollowedIds(next);
+      setCurrentUser((u) => (u ? { ...u, followedBusinessIds: next } : null));
+      showToast("Following updates");
+
+      try {
+        await customerApi.followBusiness(businessId);
+      } catch (err) {
+        // Rollback
+        setFollowedIds(prev);
+        setCurrentUser((u) => (u ? { ...u, followedBusinessIds: prev } : null));
+        const msg = err instanceof ApiError ? err.message : "Failed to follow place";
+        showToast(msg);
+      }
+    },
+    [currentUser, followedIds, showToast],
+  );
+
+  const unfollowBusiness = useCallback(
+    async (businessId: number) => {
+      if (!currentUser) return;
+      const prev = followedIds;
+      const next = prev.filter((id) => id !== businessId);
+      setFollowedIds(next);
+      setCurrentUser((u) => (u ? { ...u, followedBusinessIds: next } : null));
+      showToast("Unfollowed");
+
+      try {
+        await customerApi.unfollowBusiness(businessId);
+      } catch (err) {
+        // Rollback
+        setFollowedIds(prev);
+        setCurrentUser((u) => (u ? { ...u, followedBusinessIds: prev } : null));
+        const msg = err instanceof ApiError ? err.message : "Failed to unfollow place";
+        showToast(msg);
+      }
+    },
+    [currentUser, followedIds, showToast],
+  );
+
+  const requestAction = useCallback(
+    (type: CustomerAction, businessId: number) => {
+      if (currentUser) {
+        if (type === "save") {
+          const isCurrentlySaved = savedIds.includes(businessId);
+          if (isCurrentlySaved) unsaveBusiness(businessId);
+          else saveBusiness(businessId);
+        } else {
+          const isCurrentlyFollowed = followedIds.includes(businessId);
+          if (isCurrentlyFollowed) unfollowBusiness(businessId);
+          else followBusiness(businessId);
+        }
+        return;
+      }
+      setPendingIntent({ type, businessId });
+      setAuthError("");
+      setAuthStep("prompt");
+    },
+    [currentUser, savedIds, followedIds, saveBusiness, unsaveBusiness, followBusiness, unfollowBusiness],
+  );
+
+  const requestAuth = useCallback(
+    (options?: {
+      intent?: AuthIntent;
+      callback?: () => void;
+      redirectUrl?: string;
+    }) => {
+      if (currentUser) {
+        if (options?.callback) options.callback();
+        else if (options?.redirectUrl) router.push(options.redirectUrl);
+        return;
+      }
+      if (options?.callback) {
+        setPendingIntent({ type: "callback", callback: options.callback });
+      } else if (options?.redirectUrl) {
+        setPendingIntent({ type: "redirect", url: options.redirectUrl });
+      } else if (options?.intent) {
+        setPendingIntent(options.intent);
+      } else {
+        setPendingIntent(null);
+      }
+      setAuthError("");
+      setAuthStep("phone");
+    },
+    [currentUser, router],
+  );
+
+  const continueToPhone = useCallback(() => {
     setAuthError("");
     setAuthStep("phone");
-  };
+  }, []);
 
-  const continueToPhone = () => {
-    setAuthError("");
-    setAuthStep("phone");
-  };
-
-  const submitPhone = () => {
-    const digits = authPhone.replace(/[\s()-]/g, "");
-    if (!/^(?:\+2519\d{8}|09\d{8}|9\d{8})$/.test(digits)) {
+  const submitPhone = useCallback(async () => {
+    const formattedPhone = normalizePhone(authPhone);
+    if (!/^\+2519\d{8}$/.test(formattedPhone)) {
       setAuthError("Enter a valid Ethiopian phone number (e.g. +251 9XX XXX XXX or 09XX XXX XXX).");
       return;
     }
-    setAuthError("");
-    setAuthStep("otp");
-  };
 
-  const verifyOtp = (code: string) => {
-    if (code !== "123456") {
-      setAuthError("Incorrect code. Please enter 123456.");
-      return;
-    }
-    const customer = { ...storedCustomer, phone: authPhone || storedCustomer.phone };
-    
-    if (pendingIntent) {
-      if (pendingIntent.type === "save" || pendingIntent.type === "follow") {
-        const updatedCustomer = {
-          ...customer,
-          savedBusinessIds: pendingIntent.type === "save" ? updateIds(customer.savedBusinessIds, pendingIntent.businessId, true) : customer.savedBusinessIds,
-          followedBusinessIds: pendingIntent.type === "follow" ? updateIds(customer.followedBusinessIds, pendingIntent.businessId, true) : customer.followedBusinessIds,
-        };
-        persistCustomer(updatedCustomer);
-        showToast(pendingIntent.type === "save" ? "Saved to your places" : "Following updates");
+    setAuthError("");
+    setIsSubmitting(true);
+    try {
+      const res = await authApi.requestOtp(formattedPhone);
+      setChallengeId(res.challenge_id);
+      setDevOtp(res.dev_otp || "");
+      setAuthStep("otp");
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setAuthError(err.message);
       } else {
-        persistCustomer(customer);
-        if (pendingIntent.type === "callback") {
-          pendingIntent.callback();
-        } else if (pendingIntent.type === "redirect") {
-          router.push(pendingIntent.url);
-        }
+        setAuthError("Failed to send verification code. Please check your connection.");
       }
-    } else {
-      persistCustomer(customer);
+    } finally {
+      setIsSubmitting(false);
     }
+  }, [authPhone]);
 
-    setPendingIntent(null);
-    setAuthError("");
-    setAuthStep(null);
-  };
+  const verifyOtp = useCallback(
+    async (code: string) => {
+      const formattedPhone = normalizePhone(authPhone);
+      setAuthError("");
+      setIsSubmitting(true);
 
-  const logout = () => {
+      try {
+        const res = await authApi.verifyOtp(challengeId, formattedPhone, code);
+        const [savedList, followedList] = await Promise.all([
+          customerApi.getSavedBusinesses().catch(() => []),
+          customerApi.getFollowedBusinesses().catch(() => []),
+        ]);
+        const s = savedList.map((b) => b.id);
+        const f = followedList.map((b) => b.id);
+        setSavedIds(s);
+        setFollowedIds(f);
+
+        const customer = mapUserToCustomer(res.user, s, f);
+        setCurrentUser(customer);
+
+        // Execute pending intent if any
+        if (pendingIntent) {
+          if (pendingIntent.type === "save") {
+            try {
+              await customerApi.saveBusiness(pendingIntent.businessId);
+              const nextSaved = Array.from(new Set([...s, pendingIntent.businessId]));
+              setSavedIds(nextSaved);
+              setCurrentUser((u) => (u ? { ...u, savedBusinessIds: nextSaved } : null));
+              showToast("Saved to your places");
+            } catch {
+              showToast("Signed in, but failed to save place");
+            }
+          } else if (pendingIntent.type === "follow") {
+            try {
+              await customerApi.followBusiness(pendingIntent.businessId);
+              const nextFollowed = Array.from(new Set([...f, pendingIntent.businessId]));
+              setFollowedIds(nextFollowed);
+              setCurrentUser((u) => (u ? { ...u, followedBusinessIds: nextFollowed } : null));
+              showToast("Following updates");
+            } catch {
+              showToast("Signed in, but failed to follow");
+            }
+          } else if (pendingIntent.type === "callback") {
+            pendingIntent.callback();
+          } else if (pendingIntent.type === "redirect") {
+            router.push(pendingIntent.url);
+          }
+        } else {
+          showToast(res.is_new_user ? "Welcome to Cafnet!" : "Welcome back!");
+        }
+
+        setPendingIntent(null);
+        setAuthStep(null);
+        setDevOtp("");
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setAuthError(err.message);
+        } else {
+          setAuthError("Failed to verify code. Please try again.");
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [authPhone, challengeId, pendingIntent, router, showToast],
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Clear client state even if network call failed
+    }
     setCurrentUser(null);
+    setSavedIds([]);
+    setFollowedIds([]);
     setAuthStep(null);
     setPendingIntent(null);
     showToast("Signed out");
-  };
+  }, [showToast]);
 
-  const startSignIn = () => {
+  const startSignIn = useCallback(() => {
     setPendingIntent(null);
     setAuthError("");
     setAuthStep("phone");
-  };
+  }, []);
 
-  const pendingActionLegacy = pendingIntent && (pendingIntent.type === "save" || pendingIntent.type === "follow")
-    ? { type: pendingIntent.type, businessId: pendingIntent.businessId }
-    : null;
+  const pendingActionLegacy =
+    pendingIntent &&
+    (pendingIntent.type === "save" || pendingIntent.type === "follow")
+      ? { type: pendingIntent.type, businessId: pendingIntent.businessId }
+      : null;
 
   const value: CustomerContextValue = {
     currentUser,
@@ -224,21 +429,27 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     authStep,
     authError,
     authPhone,
+    devOtp,
+    isSubmitting,
     pendingAction: pendingActionLegacy,
     isAuthenticated: Boolean(currentUser),
-    isSaved: (businessId) => Boolean(currentUser?.savedBusinessIds.includes(businessId)),
-    isFollowing: (businessId) => Boolean(currentUser?.followedBusinessIds.includes(businessId)),
+    isSaved: (businessId) => savedIds.includes(businessId),
+    isFollowing: (businessId) => followedIds.includes(businessId),
     requestAction,
     requestAuth,
-    closeAuth: () => { setAuthStep(null); setPendingIntent(null); setAuthError(""); },
+    closeAuth: () => {
+      setAuthStep(null);
+      setPendingIntent(null);
+      setAuthError("");
+    },
     continueToPhone,
     setAuthPhone,
     submitPhone,
     verifyOtp,
-    saveBusiness: (businessId) => changeBusinessState("save", businessId, true),
-    unsaveBusiness: (businessId) => changeBusinessState("save", businessId, false),
-    followBusiness: (businessId) => changeBusinessState("follow", businessId, true),
-    unfollowBusiness: (businessId) => changeBusinessState("follow", businessId, false),
+    saveBusiness,
+    unsaveBusiness,
+    followBusiness,
+    unfollowBusiness,
     logout,
     startSignIn,
     toast,
@@ -248,7 +459,7 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   return (
     <CustomerContext.Provider value={value}>
       {children}
-      <MockAuthFlow />
+      <AuthModalFlow />
       {toast && (
         <div
           className="fixed bottom-24 left-1/2 z-[80] -translate-x-1/2 rounded-xl bg-on-surface px-5 py-3 text-sm font-semibold text-white shadow-xl md:bottom-8 transition-all animate-in fade-in slide-in-from-bottom-2"
@@ -262,13 +473,16 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MockAuthFlow() {
+function AuthModalFlow() {
   const customer = useCustomer();
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!customer.authStep) return;
+    if (!customer.authStep) {
+      setOtpValue("");
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") customer.closeAuth();
     };
@@ -279,7 +493,10 @@ function MockAuthFlow() {
   if (!customer.authStep) return null;
 
   if (customer.authStep === "prompt") {
-    const noun = customer.pendingAction?.type === "follow" ? "your favorite places" : "places you love";
+    const noun =
+      customer.pendingAction?.type === "follow"
+        ? "your favorite places"
+        : "places you love";
     return (
       <div
         className="fixed inset-0 z-[70] flex items-end justify-center bg-on-surface/40 p-4 backdrop-blur-xs sm:items-center"
@@ -335,10 +552,9 @@ function MockAuthFlow() {
   const isOtp = customer.authStep === "otp";
 
   const handleOtpInput = (value: string) => {
-    if (value.length === 6 && !isVerifying) {
-      setIsVerifying(true);
+    setOtpValue(value);
+    if (value.length === 6 && !customer.isSubmitting) {
       customer.verifyOtp(value);
-      setTimeout(() => setIsVerifying(false), 500);
     }
   };
 
@@ -347,7 +563,9 @@ function MockAuthFlow() {
       className="fixed inset-0 z-[70] flex items-center justify-center bg-background/95 backdrop-blur-xs p-5"
       role="presentation"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) customer.closeAuth();
+        if (e.target === e.currentTarget && !customer.isSubmitting) {
+          customer.closeAuth();
+        }
       }}
     >
       <section
@@ -361,6 +579,7 @@ function MockAuthFlow() {
           type="button"
           className="mb-8 inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           onClick={customer.closeAuth}
+          disabled={customer.isSubmitting}
         >
           <span className="material-symbols-outlined text-[19px]" aria-hidden="true">arrow_back</span>
           Back
@@ -380,25 +599,29 @@ function MockAuthFlow() {
 
         {isOtp ? (
           <>
-            <label htmlFor="mock-otp" className="mt-7 block text-sm font-semibold text-on-surface">
+            <label htmlFor="auth-otp-input" className="mt-7 block text-sm font-semibold text-on-surface">
               Verification code
             </label>
             <input
-              id="mock-otp"
+              id="auth-otp-input"
               className="mt-2 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-center text-lg tracking-[0.35em] font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
               inputMode="numeric"
               maxLength={6}
               placeholder="123456"
+              value={otpValue}
               onChange={(event) => handleOtpInput(event.target.value)}
               autoFocus
-              disabled={isVerifying}
+              disabled={customer.isSubmitting}
             />
             <div className="mt-3 flex items-center justify-between text-xs text-on-surface-variant">
-              <span>Verification code: <strong>123456</strong></span>
+              <span>
+                Verification code: <strong>{customer.devOtp || "123456"}</strong>
+              </span>
               <button
                 type="button"
                 className="font-semibold text-primary hover:underline cursor-pointer"
                 onClick={customer.continueToPhone}
+                disabled={customer.isSubmitting}
               >
                 Change number
               </button>
@@ -406,11 +629,11 @@ function MockAuthFlow() {
           </>
         ) : (
           <>
-            <label htmlFor="mock-phone" className="mt-7 block text-sm font-semibold text-on-surface">
+            <label htmlFor="auth-phone-input" className="mt-7 block text-sm font-semibold text-on-surface">
               Ethiopian phone number
             </label>
             <input
-              id="mock-phone"
+              id="auth-phone-input"
               className="mt-2 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
               type="tel"
               inputMode="tel"
@@ -418,16 +641,18 @@ function MockAuthFlow() {
               value={customer.authPhone}
               onChange={(event) => customer.setAuthPhone(event.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") customer.submitPhone();
+                if (e.key === "Enter" && !customer.isSubmitting) customer.submitPhone();
               }}
               autoFocus
+              disabled={customer.isSubmitting}
             />
             <button
               type="button"
-              className="mt-5 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
+              className="mt-5 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer disabled:opacity-60"
               onClick={customer.submitPhone}
+              disabled={customer.isSubmitting}
             >
-              Continue with code
+              {customer.isSubmitting ? "Sending code..." : "Continue with code"}
             </button>
           </>
         )}
