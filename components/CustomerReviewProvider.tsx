@@ -3,6 +3,9 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useReservations } from "@/components/ReservationProvider";
+import * as reviewsApi from "@/lib/api/reviews";
+import { ApiError } from "@/lib/api/errors";
+import { reviewToViewModel } from "@/lib/api/adapters";
 import {
   loadCustomerReviews,
   saveCustomerReviews,
@@ -13,7 +16,8 @@ import { getBusinessReviews } from "@/data/mockReviews";
 import { isReviewRemoved } from "@/data/reviewReportStorage";
 
 export function isReservationEligible(date: string, status: string) {
-  return status === "completed";
+  const s = status ? status.toLowerCase() : "";
+  return s === "completed";
 }
 
 type CustomerReviewContextValue = {
@@ -25,9 +29,18 @@ type CustomerReviewContextValue = {
   getReviewForReservation: (reservationId: string) => CustomerReview | undefined;
   getReviewById: (reviewId: string) => CustomerReview | undefined;
   eligibleReservations: (businessId: number) => ReturnType<typeof useReservations>["reservations"];
-  createReview: (reservationId: string, businessId: number, rating: number, text: string) => CustomerReview | null;
-  updateReview: (reviewId: string, rating: number, text: string) => boolean;
-  deleteReview: (reviewId: string) => boolean;
+  createReview: (
+    reservationId: string,
+    businessId: number,
+    rating: number,
+    text: string,
+  ) => Promise<CustomerReview | null>;
+  updateReview: (
+    reviewId: string,
+    rating: number,
+    text: string,
+  ) => Promise<boolean>;
+  deleteReview: (reviewId: string) => Promise<boolean>;
 };
 
 const CustomerReviewContext = createContext<CustomerReviewContextValue | null>(null);
@@ -38,16 +51,36 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
   const [ready, setReady] = useState(false);
   const [reviews, setReviews] = useState<CustomerReview[]>([]);
 
-  const refreshReviews = useCallback(() => {
-    const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
-    setReviews(loaded);
-  }, []);
+  const refreshReviews = useCallback(async () => {
+    if (!currentUser) {
+      const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
+      setReviews(loaded);
+      setReady(true);
+      return;
+    }
+
+    try {
+      const myApiReviews = await reviewsApi.listMyReviews();
+      if (myApiReviews && myApiReviews.length > 0) {
+        const adapted = myApiReviews.map((r) =>
+          reviewToViewModel(r, currentUser.name, currentUser.avatar),
+        );
+        setReviews(adapted.filter((r) => !isReviewRemoved(r.id)));
+      } else {
+        const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
+        const userLocal = loaded.filter((r) => r.customerId === currentUser.id);
+        setReviews(userLocal.length > 0 ? loaded : []);
+      }
+    } catch {
+      const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
+      setReviews(loaded);
+    } finally {
+      setReady(true);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      refreshReviews();
-      setReady(true);
-    });
+    refreshReviews();
 
     const handleUpdate = () => refreshReviews();
     window.addEventListener("cafnet:reviews-updated", handleUpdate);
@@ -59,10 +92,41 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
     };
   }, [refreshReviews]);
 
-  const createReview = (reservationId: string, businessId: number, rating: number, text: string): CustomerReview | null => {
+  const createReview = async (
+    reservationId: string,
+    businessId: number,
+    rating: number,
+    text: string,
+  ): Promise<CustomerReview | null> => {
     if (!currentUser || rating < 1 || rating > 5 || text.length > 1000) return null;
-    if (reviews.some((review) => review.reservationId === reservationId)) return null;
+    if (reviews.some((review) => review.reservationId === reservationId)) {
+      showToast("A review has already been submitted for this visit.");
+      return null;
+    }
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reservationId);
+
+    if (isUuid) {
+      try {
+        const created = await reviewsApi.createReview({
+          reservation_id: reservationId,
+          business_id: businessId,
+          rating,
+          review_text: text.trim(),
+        });
+        const viewModel = reviewToViewModel(created, currentUser.name, currentUser.avatar);
+        setReviews((prev) => [viewModel, ...prev]);
+        showToast("Review posted");
+        return viewModel;
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          showToast(err.message);
+          return null;
+        }
+      }
+    }
+
+    // Local / fallback review creation
     const review: CustomerReview = {
       id: `customer-review-${Date.now()}`,
       businessId,
@@ -87,13 +151,41 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
     return review;
   };
 
-  const updateReview = (reviewId: string, rating: number, text: string): boolean => {
+  const updateReview = async (
+    reviewId: string,
+    rating: number,
+    text: string,
+  ): Promise<boolean> => {
     if (rating < 1 || rating > 5 || text.length > 1000) return false;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
+
+    if (currentUser && isUuid) {
+      try {
+        const updated = await reviewsApi.updateReview(reviewId, {
+          rating,
+          review_text: text.trim(),
+        });
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === reviewId
+              ? { ...r, rating: updated.rating, text: updated.review_text, date: "Just now" }
+              : r,
+          ),
+        );
+        showToast("Review updated");
+        return true;
+      } catch (err: unknown) {
+        const msg = err instanceof ApiError ? err.message : "Failed to update review";
+        showToast(msg);
+        return false;
+      }
+    }
+
     const exists = reviews.some((r) => r.id === reviewId);
     if (!exists) return false;
 
     const next = reviews.map((review) =>
-      review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review
+      review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review,
     );
     setReviews(next);
     saveCustomerReviews(next);
@@ -101,8 +193,23 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
     return true;
   };
 
-  const deleteReview = (reviewId: string): boolean => {
+  const deleteReview = async (reviewId: string): Promise<boolean> => {
     if (!currentUser) return false;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
+
+    if (isUuid) {
+      try {
+        await reviewsApi.deleteReview(reviewId);
+        setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+        showToast("Review deleted");
+        return true;
+      } catch (err: unknown) {
+        const msg = err instanceof ApiError ? err.message : "Failed to delete review";
+        showToast(msg);
+        return false;
+      }
+    }
+
     const target = reviews.find((r) => r.id === reviewId);
     if (!target || target.customerId !== currentUser.id) return false;
 
@@ -118,25 +225,30 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
   const userReviews = currentUser ? reviews.filter((r) => r.customerId === currentUser.id) : [];
 
   return (
-    <CustomerReviewContext.Provider value={{
-      ready,
-      reviews,
-      userReviews,
-      getReviewsForBusiness: (businessId) => reviews.filter((review) => review.businessId === businessId),
-      getCustomerReviewForBusiness: (businessId) => reviews.find((review) => review.businessId === businessId),
-      getReviewForReservation: (reservationId) => reviews.find((review) => review.reservationId === reservationId),
-      getReviewById: (reviewId) => reviews.find((review) => review.id === reviewId),
-      eligibleReservations: (businessId) =>
-        customerReservations.filter(
-          (reservation) =>
-            reservation.businessId === businessId &&
-            isReservationEligible(reservation.date, reservation.status) &&
-            !reviews.some((review) => review.reservationId === reservation.id)
-        ),
-      createReview,
-      updateReview,
-      deleteReview,
-    }}>
+    <CustomerReviewContext.Provider
+      value={{
+        ready,
+        reviews,
+        userReviews,
+        getReviewsForBusiness: (businessId) =>
+          reviews.filter((review) => review.businessId === businessId),
+        getCustomerReviewForBusiness: (businessId) =>
+          reviews.find((review) => review.businessId === businessId),
+        getReviewForReservation: (reservationId) =>
+          reviews.find((review) => review.reservationId === reservationId),
+        getReviewById: (reviewId) => reviews.find((review) => review.id === reviewId),
+        eligibleReservations: (businessId) =>
+          customerReservations.filter(
+            (reservation) =>
+              reservation.businessId === businessId &&
+              isReservationEligible(reservation.date, reservation.status) &&
+              !reviews.some((review) => review.reservationId === reservation.id),
+          ),
+        createReview,
+        updateReview,
+        deleteReview,
+      }}
+    >
       {children}
     </CustomerReviewContext.Provider>
   );
@@ -149,8 +261,10 @@ export function useCustomerReviews() {
 }
 
 export function getCombinedBusinessReviews(businessId: number, customerReviews: CustomerReview[]) {
-  return [
-    ...customerReviews.filter((review) => review.businessId === businessId && !isReviewRemoved(review.id)),
-    ...getBusinessReviews(businessId),
-  ];
+  const custom = customerReviews.filter(
+    (review) => review.businessId === businessId && !isReviewRemoved(review.id),
+  );
+  const customIds = new Set(custom.map((r) => r.id));
+  const base = getBusinessReviews(businessId).filter((r) => !customIds.has(r.id));
+  return [...custom, ...base];
 }

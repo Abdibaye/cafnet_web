@@ -4,7 +4,11 @@ import type {
   BusinessHours,
   PublicBusinessProfile,
   ReviewSummary,
+  Reservation,
+  Review,
 } from "./types";
+import type { MockReservation } from "@/data/reservationStorage";
+import type { CustomerReview } from "@/data/customerReviewStorage";
 
 const DAY_NAMES = [
   "Sunday",
@@ -23,7 +27,7 @@ const DEFAULT_IMAGES = [
   "/images/placeholder4.jpeg",
 ];
 
-function formatTime(timeStr?: string): string {
+export function formatTime(timeStr?: string): string {
   if (!timeStr) return "";
   // If in HH:MM:SS or HH:MM format
   const parts = timeStr.split(":");
@@ -239,5 +243,85 @@ export function publicProfileToViewModel(
     address,
     amenities,
     highlights,
+  };
+}
+
+export function formatReservationTimeForApi(timeStr: string): string {
+  if (!timeStr) return "19:00:00";
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return timeStr;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const ampm = match[4]?.toUpperCase();
+  if (ampm === "PM" && hours < 12) hours += 12;
+  if (ampm === "AM" && hours === 12) hours = 0;
+  const hh = hours.toString().padStart(2, "0");
+  return `${hh}:${minutes}:00`;
+}
+
+export function reservationToViewModel(r: Reservation): MockReservation {
+  const dateStr = typeof r.reservation_date === "string" ? r.reservation_date.slice(0, 10) : "";
+  const statusStr = (r.status ? r.status.toLowerCase() : "pending") as MockReservation["status"];
+
+  return {
+    id: r.id,
+    businessId: r.business_id,
+    customerId: r.customer_user_id,
+    customerName: r.customer_name || "Guest",
+    customerPhone: r.customer_phone || "",
+    date: dateStr,
+    time: formatTime(r.reservation_time),
+    partySize: r.party_size,
+    specialRequest: r.special_request || "",
+    status: statusStr,
+    createdAt: r.created_at,
+    confirmedAt: r.confirmed_at,
+    declinedAt: r.declined_at,
+    declineReason: r.decline_reason,
+    completedAt: r.completed_at,
+    cancelledAt: r.cancelled_at,
+    reviewedBy: r.reviewed_by_user,
+  };
+}
+
+export function reviewToViewModel(
+  r: Review,
+  authorName = "Verified Guest",
+  authorAvatar?: string,
+): CustomerReview {
+  const avatar = authorAvatar || authorName.charAt(0).toUpperCase() || "V";
+  const dateFormatted = r.created_at
+    ? new Date(r.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Recently";
+
+  return {
+    id: r.id,
+    businessId: r.business_id,
+    userId: r.customer_user_id,
+    userName: authorName,
+    userAvatar: avatar,
+    rating: r.rating,
+    text: r.review_text,
+    date: dateFormatted,
+    helpfulCount: r.helpful_count || 0,
+    verifiedVisit: r.is_verified_visit,
+    customerId: r.customer_user_id,
+    reservationId: r.reservation_id,
+    createdAt: r.created_at,
+    helpfulByCustomer: [],
+  };
+}
+
+export function reviewSummaryToDistribution(
+  summary: ReviewSummary,
+): { count: number; average: number; distribution: number[] } {
+  return {
+    count: summary.count,
+    average: summary.average,
+    distribution: [...summary.distribution],
   };
 }

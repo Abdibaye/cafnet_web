@@ -39,10 +39,10 @@ export default function CustomerReviewsPage() {
     );
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingReviewId) return;
     setIsDeleting(true);
-    const success = deleteReview(deletingReviewId);
+    const success = await deleteReview(deletingReviewId);
     setIsDeleting(false);
     setDeletingReviewId(null);
     if (!success) {

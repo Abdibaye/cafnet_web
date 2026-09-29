@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import type { MockReview } from "@/data/mockReviews";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useCustomerReviews } from "@/components/CustomerReviewProvider";
+import * as reviewsApi from "@/lib/api/reviews";
+import type { ReviewReportReason } from "@/lib/api/types";
 import {
   isReviewHelpfulVoted,
   getHelpfulVotesCount,
@@ -88,7 +90,7 @@ export default function BusinessReviews({
     return bHelpful - aHelpful || b.id.localeCompare(a.id);
   });
 
-  const handleHelpfulClick = (review: MockReview) => {
+  const handleHelpfulClick = async (review: MockReview) => {
     if (!currentUser) {
       requestAuth({
         callback: () => {
@@ -97,6 +99,20 @@ export default function BusinessReviews({
         },
       });
       return;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(review.id);
+    if (isUuid) {
+      const alreadyVoted = isReviewHelpfulVoted(review.id, currentUser.id);
+      try {
+        if (alreadyVoted) {
+          await reviewsApi.unmarkReviewHelpful(review.id);
+        } else {
+          await reviewsApi.markReviewHelpful(review.id);
+        }
+      } catch {
+        // Fall back to local UI state
+      }
     }
 
     toggleHelpfulVote(review.id, currentUser.id, review.helpfulCount);
@@ -128,9 +144,21 @@ export default function BusinessReviews({
     proceedWithReporting(currentUser.id);
   };
 
-  const handleSubmitReport = () => {
+  const handleSubmitReport = async () => {
     if (!reportingReview || !currentUser) return;
     setReportSubmitting(true);
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportingReview.id);
+    if (isUuid) {
+      try {
+        await reviewsApi.reportReview(reportingReview.id, {
+          reason: reportReason as ReviewReportReason,
+          explanation: reportExplanation,
+        });
+      } catch {
+        // Local moderation state will still handle it
+      }
+    }
 
     const result = createReviewReport({
       reviewId: reportingReview.id,
@@ -157,10 +185,10 @@ export default function BusinessReviews({
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingReviewId) return;
     setIsDeleting(true);
-    const success = deleteReview(deletingReviewId);
+    const success = await deleteReview(deletingReviewId);
     setIsDeleting(false);
     setDeletingReviewId(null);
     if (!success) {

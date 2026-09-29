@@ -9,6 +9,8 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
   const { ready, getReservation, cancelReservation } = useReservations();
   const [showCancel, setShowCancel] = useState(false);
 
+  const [cancelling, setCancelling] = useState(false);
+
   if (!ready) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-sm text-on-surface-variant">
@@ -245,13 +247,19 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
               </button>
               <button
                 type="button"
-                className="h-11 flex-1 rounded-xl bg-secondary text-sm font-semibold text-white hover:bg-secondary/90 shadow-sm"
-                onClick={() => {
-                  cancelReservation(reservation.id);
-                  setShowCancel(false);
+                disabled={cancelling}
+                className="h-11 flex-1 rounded-xl bg-secondary text-sm font-semibold text-white hover:bg-secondary/90 shadow-sm disabled:opacity-50"
+                onClick={async () => {
+                  setCancelling(true);
+                  try {
+                    await cancelReservation(reservation.id);
+                    setShowCancel(false);
+                  } finally {
+                    setCancelling(false);
+                  }
                 }}
               >
-                {isPending ? "Cancel request" : "Cancel reservation"}
+                {cancelling ? "Cancelling..." : isPending ? "Cancel request" : "Cancel reservation"}
               </button>
             </div>
           </div>

@@ -6,9 +6,15 @@ import * as authApi from "../lib/api/auth";
 import * as businessesApi from "../lib/api/businesses";
 import * as searchApi from "../lib/api/search";
 import * as customerApi from "../lib/api/customer";
+import * as reservationsApi from "../lib/api/reservations";
+import * as reviewsApi from "../lib/api/reviews";
 import {
   formatPriceEtb,
   formatHours,
+  formatReservationTimeForApi,
+  reservationToViewModel,
+  reviewToViewModel,
+  reviewSummaryToDistribution,
   businessToCardItem,
   publicProfileToViewModel,
 } from "../lib/api/adapters";
@@ -16,6 +22,9 @@ import type {
   Business,
   BusinessHours,
   PublicBusinessProfile,
+  Reservation,
+  Review,
+  ReviewSummary,
 } from "../lib/api/types";
 
 // ==========================================
@@ -391,6 +400,412 @@ test("customerApi handles saved and followed places", async () => {
 
     const followedList = await customerApi.getFollowedBusinesses();
     assert.equal(followedList.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ==========================================
+// 7. Reservation & Review Adapters
+// ==========================================
+test("formatReservationTimeForApi converts 12-hour AM/PM to 24-hour time string", () => {
+  assert.equal(formatReservationTimeForApi("7:00 PM"), "19:00:00");
+  assert.equal(formatReservationTimeForApi("7:30 PM"), "19:30:00");
+  assert.equal(formatReservationTimeForApi("12:00 PM"), "12:00:00");
+  assert.equal(formatReservationTimeForApi("12:00 AM"), "00:00:00");
+  assert.equal(formatReservationTimeForApi("18:45"), "18:45:00");
+});
+
+test("reservationToViewModel converts Go domain model to UI view model", () => {
+  const sampleRes: Reservation = {
+    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    reservation_code: "CAF-1001",
+    business_id: 1,
+    customer_user_id: "user-123",
+    customer_name: "Abdi User",
+    customer_phone: "+251911223344",
+    reservation_date: "2026-10-15T00:00:00Z",
+    reservation_time: "19:30:00",
+    party_size: 4,
+    special_request: "Quiet booth please",
+    status: "CONFIRMED",
+    created_at: "2026-10-01T12:00:00Z",
+    updated_at: "2026-10-01T12:00:00Z",
+  };
+
+  const vm = reservationToViewModel(sampleRes);
+  assert.equal(vm.id, "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+  assert.equal(vm.businessId, 1);
+  assert.equal(vm.partySize, 4);
+  assert.equal(vm.time, "7:30 PM");
+  assert.equal(vm.status, "confirmed");
+  assert.equal(vm.date, "2026-10-15");
+  assert.equal(vm.specialRequest, "Quiet booth please");
+});
+
+test("reviewToViewModel and reviewSummaryToDistribution convert domain reviews accurately", () => {
+  const sampleRev: Review = {
+    id: "rev-uuid-12345",
+    business_id: 1,
+    customer_user_id: "user-123",
+    reservation_id: "res-uuid-67890",
+    rating: 5,
+    review_text: "Incredible tibs and coffee ceremony!",
+    is_verified_visit: true,
+    status: "VISIBLE",
+    helpful_count: 14,
+    created_at: "2026-10-02T15:30:00Z",
+    updated_at: "2026-10-02T15:30:00Z",
+  };
+
+  const vm = reviewToViewModel(sampleRev, "Dawit K.");
+  assert.equal(vm.id, "rev-uuid-12345");
+  assert.equal(vm.businessId, 1);
+  assert.equal(vm.rating, 5);
+  assert.equal(vm.userName, "Dawit K.");
+  assert.equal(vm.userAvatar, "D");
+  assert.equal(vm.verifiedVisit, true);
+  assert.equal(vm.helpfulCount, 14);
+
+  const summary: ReviewSummary = {
+    business_id: 1,
+    count: 25,
+    average: 4.8,
+    distribution: [18, 5, 2, 0, 0],
+  };
+  const dist = reviewSummaryToDistribution(summary);
+  assert.equal(dist.count, 25);
+  assert.equal(dist.average, 4.8);
+  assert.deepEqual(dist.distribution, [18, 5, 2, 0, 0]);
+});
+
+// ==========================================
+// 8. Reservations API Endpoints
+// ==========================================
+test("reservationsApi handles create, list, get, and cancel", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(input);
+    const method = init?.method || "GET";
+
+    if (strUrl.includes("/api/v1/reservations/cancel-uuid-123/cancel") && method === "POST") {
+      return new Response(JSON.stringify({ data: { cancelled: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/reservations/get-uuid-123") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "get-uuid-123",
+            reservation_code: "CAF-2001",
+            business_id: 5,
+            customer_user_id: "user-456",
+            customer_name: "Hana",
+            customer_phone: "+251911000000",
+            reservation_date: "2026-11-01",
+            reservation_time: "19:00:00",
+            party_size: 2,
+            status: "PENDING",
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reservations") && method === "POST") {
+      const parsedBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "new-res-uuid",
+            reservation_code: "CAF-3001",
+            business_id: parsedBody.business_id,
+            customer_user_id: "user-456",
+            customer_name: parsedBody.customer_name || "Guest",
+            customer_phone: parsedBody.customer_phone || "+251911000000",
+            reservation_date: parsedBody.reservation_date,
+            reservation_time: parsedBody.reservation_time,
+            party_size: parsedBody.party_size,
+            special_request: parsedBody.special_request || "",
+            status: "PENDING",
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reservations") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "res-list-uuid-1",
+              reservation_code: "CAF-1001",
+              business_id: 1,
+              customer_user_id: "user-456",
+              customer_name: "Hana",
+              customer_phone: "+251911000000",
+              reservation_date: "2026-11-01",
+              reservation_time: "20:00:00",
+              party_size: 3,
+              status: "CONFIRMED",
+              created_at: "2026-10-01T00:00:00Z",
+              updated_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    // 1. Create reservation
+    const created = await reservationsApi.createReservation({
+      business_id: 1,
+      party_size: 4,
+      reservation_date: "2026-10-20",
+      reservation_time: "19:00:00",
+      special_request: "Window table",
+    });
+    assert.equal(created.id, "new-res-uuid");
+    assert.equal(created.status, "PENDING");
+    assert.equal(created.party_size, 4);
+
+    // 2. List customer reservations
+    const list = await reservationsApi.listCustomerReservations();
+    assert.equal(list.length, 1);
+    assert.equal(list[0].id, "res-list-uuid-1");
+
+    // 3. Get customer reservation
+    const item = await reservationsApi.getCustomerReservation("get-uuid-123");
+    assert.equal(item.id, "get-uuid-123");
+    assert.equal(item.reservation_code, "CAF-2001");
+
+    // 4. Cancel reservation
+    const cancelRes = await reservationsApi.cancelReservation("cancel-uuid-123");
+    assert.equal(cancelRes.cancelled, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ==========================================
+// 9. Reviews API Endpoints
+// ==========================================
+test("reviewsApi handles business reviews, summaries, customer creation, update, delete, helpful, and report", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(input);
+    const method = init?.method || "GET";
+
+    if (strUrl.includes("/api/v1/businesses/10/reviews/summary") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            business_id: 10,
+            count: 42,
+            average: 4.7,
+            distribution: [30, 8, 3, 1, 0],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/businesses/10/reviews") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "rev-uuid-1",
+              business_id: 10,
+              customer_user_id: "user-1",
+              reservation_id: "res-uuid-1",
+              rating: 5,
+              review_text: "Delicious pastry and buna!",
+              is_verified_visit: true,
+              status: "VISIBLE",
+              helpful_count: 7,
+              created_at: "2026-10-01T00:00:00Z",
+              updated_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reviews/mine") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "rev-uuid-my-1",
+              business_id: 10,
+              customer_user_id: "my-user-id",
+              reservation_id: "res-uuid-my-res",
+              rating: 4,
+              review_text: "Great atmosphere and quick service.",
+              is_verified_visit: true,
+              status: "VISIBLE",
+              helpful_count: 2,
+              created_at: "2026-10-01T00:00:00Z",
+              updated_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reviews/rev-uuid-1/helpful") && method === "POST") {
+      return new Response(JSON.stringify({ data: { helpful: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/reviews/rev-uuid-1/helpful") && method === "DELETE") {
+      return new Response(JSON.stringify({ data: { helpful: false } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/reviews/rev-uuid-1/reports") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "rep-uuid-1",
+            review_id: "rev-uuid-1",
+            reporter_user_id: "my-user-id",
+            reason: "spam",
+            explanation: "Suspicious advertising content",
+            status: "PENDING",
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reviews/rev-uuid-my-1") && method === "PATCH") {
+      const parsedBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "rev-uuid-my-1",
+            business_id: 10,
+            customer_user_id: "my-user-id",
+            reservation_id: "res-uuid-my-res",
+            rating: parsedBody.rating,
+            review_text: parsedBody.review_text,
+            is_verified_visit: true,
+            status: "VISIBLE",
+            helpful_count: 2,
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T01:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/reviews/rev-uuid-my-1") && method === "DELETE") {
+      return new Response(JSON.stringify({ data: { deleted: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/reviews") && method === "POST") {
+      const parsedBody = JSON.parse(init?.body as string);
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "rev-uuid-created",
+            business_id: 10,
+            customer_user_id: "my-user-id",
+            reservation_id: parsedBody.reservation_id,
+            rating: parsedBody.rating,
+            review_text: parsedBody.review_text,
+            is_verified_visit: true,
+            status: "VISIBLE",
+            helpful_count: 0,
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    // 1. List business reviews & summary
+    const bizReviews = await reviewsApi.listBusinessReviews(10);
+    assert.equal(bizReviews.length, 1);
+    assert.equal(bizReviews[0].id, "rev-uuid-1");
+
+    const summary = await reviewsApi.getReviewSummary(10);
+    assert.equal(summary.count, 42);
+    assert.equal(summary.average, 4.7);
+
+    // 2. Create review
+    const createdRev = await reviewsApi.createReview({
+      reservation_id: "completed-res-uuid",
+      rating: 5,
+      review_text: "Best dining experience in Addis Ababa!",
+    });
+    assert.equal(createdRev.id, "rev-uuid-created");
+    assert.equal(createdRev.is_verified_visit, true);
+
+    // 3. Update review
+    const updatedRev = await reviewsApi.updateReview("rev-uuid-my-1", {
+      rating: 5,
+      review_text: "Updated: Absolutely perfect experience.",
+    });
+    assert.equal(updatedRev.rating, 5);
+    assert.equal(updatedRev.review_text, "Updated: Absolutely perfect experience.");
+
+    // 4. Delete review
+    const deleteRes = await reviewsApi.deleteReview("rev-uuid-my-1");
+    assert.equal(deleteRes.deleted, true);
+
+    // 5. Helpful toggle
+    const markRes = await reviewsApi.markReviewHelpful("rev-uuid-1");
+    assert.equal(markRes.helpful, true);
+
+    const unmarkRes = await reviewsApi.unmarkReviewHelpful("rev-uuid-1");
+    assert.equal(unmarkRes.helpful, false);
+
+    // 6. List my reviews
+    const myReviews = await reviewsApi.listMyReviews();
+    assert.equal(myReviews.length, 1);
+    assert.equal(myReviews[0].customer_user_id, "my-user-id");
+
+    // 7. Report review
+    const reportRes = await reviewsApi.reportReview("rev-uuid-1", {
+      reason: "spam",
+      explanation: "Suspicious advertising content",
+    });
+    assert.equal(reportRes.status, "PENDING");
+    assert.equal(reportRes.reason, "spam");
   } finally {
     globalThis.fetch = originalFetch;
   }

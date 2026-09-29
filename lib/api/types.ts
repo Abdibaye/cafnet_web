@@ -214,6 +214,39 @@ export interface Review {
   deleted_at?: string;
 }
 
+export interface Reservation {
+  id: string;
+  reservation_code: string;
+  business_id: number;
+  customer_user_id: string;
+  customer_name: string;
+  customer_phone: string;
+  reservation_date: string; // "YYYY-MM-DD"
+  reservation_time: string; // "HH:MM:SS" or "HH:MM"
+  party_size: number;
+  special_request?: string;
+  status: ReservationStatus;
+  decline_reason?: string;
+  created_at: string;
+  confirmed_at?: string;
+  declined_at?: string;
+  completed_at?: string;
+  cancelled_at?: string;
+  reviewed_by_user?: string;
+  updated_at: string;
+}
+
+export interface ReviewReport {
+  id: string;
+  review_id: string;
+  reporter_user_id: string;
+  reason: ReviewReportReason;
+  explanation: string;
+  status: ReportStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PublicBusinessProfile {
   business: Business;
   hours: BusinessHours[];
@@ -306,4 +339,44 @@ export interface SearchParams {
   q: string;
   limit?: number;
   offset?: number;
+}
+
+// Reservation DTOs
+
+export interface CreateReservationInput {
+  business_id: number;
+  party_size: number;
+  reservation_date: string; // "YYYY-MM-DD"
+  reservation_time: string; // "HH:MM" or "HH:MM:SS"
+  customer_name?: string;
+  customer_phone?: string;
+  special_request?: string;
+  special_requests?: string;
+}
+
+export interface ReservationFilterParams {
+  [key: string]: string | number | boolean | null | undefined;
+  limit?: number;
+  offset?: number;
+  status?: ReservationStatus;
+  date?: string;
+}
+
+// Review DTOs
+
+export interface CreateReviewInput {
+  reservation_id: string;
+  rating: number; // 1 to 5
+  review_text: string;
+  business_id?: number;
+}
+
+export interface UpdateReviewInput {
+  rating: number;
+  review_text: string;
+}
+
+export interface ReviewReportInput {
+  reason: ReviewReportReason;
+  explanation: string;
 }
