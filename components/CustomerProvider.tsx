@@ -394,7 +394,7 @@ function MockAuthFlow() {
               disabled={isVerifying}
             />
             <div className="mt-3 flex items-center justify-between text-xs text-on-surface-variant">
-              <span>Code for testing: <strong>123456</strong></span>
+              <span>Verification code: <strong>123456</strong></span>
               <button
                 type="button"
                 className="font-semibold text-primary hover:underline cursor-pointer"

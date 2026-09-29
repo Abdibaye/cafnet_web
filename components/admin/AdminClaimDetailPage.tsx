@@ -340,7 +340,7 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
                   type="submit"
                   className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
                 >
-                  Confirm rejection
+                  Reject claim
                 </button>
               </div>
             </form>

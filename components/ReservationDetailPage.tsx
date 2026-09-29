@@ -233,25 +233,25 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
               {isPending ? "Cancel reservation request?" : "Cancel reservation?"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Are you sure you want to cancel this booking?
+              Are you sure you want to cancel this booking? This action cannot be undone.
             </p>
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                className="h-11 flex-1 rounded-xl border border-outline-variant text-sm font-semibold text-on-surface"
+                className="h-11 flex-1 rounded-xl border border-outline-variant text-sm font-semibold text-on-surface hover:bg-surface-container"
                 onClick={() => setShowCancel(false)}
               >
                 Keep booking
               </button>
               <button
                 type="button"
-                className="h-11 flex-1 rounded-xl bg-secondary text-sm font-semibold text-white"
+                className="h-11 flex-1 rounded-xl bg-secondary text-sm font-semibold text-white hover:bg-secondary/90 shadow-sm"
                 onClick={() => {
                   cancelReservation(reservation.id);
                   setShowCancel(false);
                 }}
               >
-                Yes, cancel
+                {isPending ? "Cancel request" : "Cancel reservation"}
               </button>
             </div>
           </div>

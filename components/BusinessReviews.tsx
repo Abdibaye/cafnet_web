@@ -429,7 +429,7 @@ export default function BusinessReviews({
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-on-surface">Delete your review?</h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              This review will be removed from your profile and the business&apos;s review list.
+              This review will be removed from your profile and the business&apos;s review list. This action cannot be undone.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button

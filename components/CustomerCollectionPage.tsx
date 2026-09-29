@@ -79,8 +79,8 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
             {kind === "saved" ? "Nothing saved yet" : "You're not following any businesses yet."}
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-on-surface-variant">{emptyText}</p>
-          <Link href="/explore" className="mt-6 inline-flex text-sm font-semibold text-primary hover:text-[#0f46b8]">
-            Explore places <span className="ml-1" aria-hidden="true">→</span>
+          <Link href="/explore" className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#0f46b8]">
+            Explore places
           </Link>
         </div>
       )}

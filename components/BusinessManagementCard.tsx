@@ -106,9 +106,18 @@ export default function BusinessManagementCard({ business, claim, submission }: 
           {pendingReservations > 0 ? `Manage reservations (${pendingReservations})` : "View reservations"}
         </Link>
       )}
-      {detailHref && <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold text-primary hover:bg-primary-container">
-        {isManaged ? "Manage business" : claim ? "View request" : "View submission"}
-      </Link>}
+      {detailHref && (
+        <Link
+          href={detailHref}
+          className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-colors ${
+            isManaged
+              ? "bg-primary text-white shadow-sm hover:bg-[#0f46b8]"
+              : "border border-outline-variant text-primary hover:bg-primary-container"
+          }`}
+        >
+          {isManaged ? "Manage business" : claim ? "View request" : "View submission"}
+        </Link>
+      )}
     </div>
   </article>;
 }

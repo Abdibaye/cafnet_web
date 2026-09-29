@@ -62,7 +62,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
   const handleApprove = () => {
     const res = approveSubmission(submission.id);
     if (res.success) {
-      showToast("Business approved and published live!");
+      showToast("Business approved and published.");
       setIsApproving(false);
       reload();
     } else {
@@ -333,7 +333,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
                   type="submit"
                   className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
                 >
-                  Confirm rejection
+                  Reject submission
                 </button>
               </div>
             </form>

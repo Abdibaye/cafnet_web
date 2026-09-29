@@ -118,7 +118,7 @@ export default function Navbar() {
                 <div className="px-3 py-2 text-sm font-semibold text-on-surface" role="menuitem">
                   English <span className="ml-1 text-xs font-normal text-on-surface-variant">(current)</span>
                 </div>
-                <p className="px-3 pb-2 text-xs leading-5 text-on-surface-variant">Amharic & Afaan Oromoo coming soon.</p>
+                <p className="px-3 pb-2 text-xs leading-5 text-on-surface-variant">Additional languages will be available in upcoming releases.</p>
               </div>
             )}
           </div>

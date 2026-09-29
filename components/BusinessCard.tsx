@@ -49,7 +49,7 @@ export default function BusinessCard({ item }: BusinessCardProps) {
         <button
           type="button"
           onClick={() => requestAction("save", item.id)}
-          className={`absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-white/95 shadow-sm transition-colors duration-200 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+          className={`absolute right-4 top-4 flex size-11 items-center justify-center rounded-full bg-white/95 shadow-sm transition-colors duration-200 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
             saved ? "text-secondary" : "text-on-surface"
           }`}
           aria-label={saved ? `Remove ${item.name} from saved places` : `Save ${item.name}`}

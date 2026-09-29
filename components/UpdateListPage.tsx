@@ -173,7 +173,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
                   Delete this update?
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  This update will no longer appear to customers.
+                  This update will no longer appear to customers and cannot be undone.
                 </p>
               </div>
               <button
@@ -198,7 +198,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
                 onClick={handleConfirmDelete}
                 className="flex-1 h-11 rounded-xl bg-error-container text-sm font-semibold text-error hover:bg-error-container/90"
               >
-                Delete
+                Delete update
               </button>
             </div>
           </section>
