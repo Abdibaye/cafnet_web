@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import {
   BUSINESS_REPORT_REASONS,
-  createBusinessReport,
+  createBusinessReport as createBusinessReportInStorage,
   hasPendingReport,
   type BusinessReportReason,
 } from "@/data/businessReportStorage";
+import * as reportsApi from "@/lib/api/reports";
 
 type ReportBusinessModalProps = {
   businessId: number;
@@ -51,7 +52,7 @@ export default function ReportBusinessModal({
     setErrorMessage(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
       startSignIn();
@@ -66,22 +67,28 @@ export default function ReportBusinessModal({
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const result = createBusinessReport({
-      businessId,
-      businessName,
-      reporterId: currentUser.id,
-      reporterName: currentUser.name,
-      reason,
-      details,
-    });
+    try {
+      await reportsApi.reportBusiness(businessId, {
+        reason: reason as any,
+        details: details.trim() || undefined,
+      });
 
-    setIsSubmitting(false);
+      // Maintain storage synchronization for un-migrated admin moderation views
+      createBusinessReportInStorage({
+        businessId,
+        businessName,
+        reporterId: currentUser.id,
+        reporterName: currentUser.name,
+        reason,
+        details,
+      });
 
-    if (result.success) {
       showToast("Report submitted. Thanks for helping keep Cafnet accurate.");
       handleClose();
-    } else {
-      setErrorMessage(result.error || "Unable to submit report. Please try again.");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Unable to submit report. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

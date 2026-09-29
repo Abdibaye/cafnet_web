@@ -6,6 +6,8 @@ import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { getUpdatesByBusiness, isUpdateExpired, type BusinessUpdate } from "@/data/businessUpdateStorage";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { MergedBusinessProfile } from "@/data/businessProfileData";
+import * as updatesApi from "@/lib/api/updates";
+import { apiUpdateToStorageUpdate } from "@/lib/api/adapters";
 
 type BusinessProfileUpdatesSectionProps = {
   business: MockBusiness | MergedBusinessProfile;
@@ -17,14 +19,30 @@ export default function BusinessProfileUpdatesSection({ business }: BusinessProf
   });
 
   useEffect(() => {
-    const handleUpdate = () => {
-      const current = getUpdatesByBusiness(business.id).filter((u) => u.status === "published" && !isUpdateExpired(u));
-      setUpdates(current);
+    let cancelled = false;
+
+    const loadUpdates = async () => {
+      try {
+        const apiUpdates = await updatesApi.listBusinessUpdates(business.id);
+        if (!cancelled && apiUpdates && apiUpdates.length > 0) {
+          setUpdates(apiUpdates.map(apiUpdateToStorageUpdate));
+          return;
+        }
+      } catch {
+        // Fall back to storage
+      }
+      if (!cancelled) {
+        const current = getUpdatesByBusiness(business.id).filter((u) => u.status === "published" && !isUpdateExpired(u));
+        setUpdates(current);
+      }
     };
 
-    handleUpdate();
-    window.addEventListener("cafnet:updates-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:updates-updated", handleUpdate);
+    loadUpdates();
+    window.addEventListener("cafnet:updates-updated", loadUpdates);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cafnet:updates-updated", loadUpdates);
+    };
   }, [business.id]);
 
   if (updates.length === 0) {

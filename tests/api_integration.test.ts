@@ -8,6 +8,8 @@ import * as searchApi from "../lib/api/search";
 import * as customerApi from "../lib/api/customer";
 import * as reservationsApi from "../lib/api/reservations";
 import * as reviewsApi from "../lib/api/reviews";
+import * as updatesApi from "../lib/api/updates";
+import * as reportsApi from "../lib/api/reports";
 import {
   formatPriceEtb,
   formatHours,
@@ -17,6 +19,7 @@ import {
   reviewSummaryToDistribution,
   businessToCardItem,
   publicProfileToViewModel,
+  apiUpdateToStorageUpdate,
 } from "../lib/api/adapters";
 import type {
   Business,
@@ -810,3 +813,169 @@ test("reviewsApi handles business reviews, summaries, customer creation, update,
     globalThis.fetch = originalFetch;
   }
 });
+
+// ==========================================
+// 8. Updates & Business Reports API Integration
+// ==========================================
+test("apiUpdateToStorageUpdate converts API updates to storage format", () => {
+  const apiUpdate = {
+    id: "upd-123",
+    business_id: 42,
+    author_user_id: "usr-456",
+    update_type: "OFFER" as const,
+    title: "Special Lunch Discount",
+    description: "20% off all pasta dishes today only!",
+    status: "PUBLISHED" as const,
+    event_date: "2026-10-01",
+    event_time: "12:00 PM",
+    price_text: "250 ETB",
+    offer_details: "20% off",
+    valid_until: "2026-10-01",
+    published_at: "2026-09-29T10:00:00Z",
+    created_at: "2026-09-29T10:00:00Z",
+    updated_at: "2026-09-29T10:00:00Z",
+  };
+
+  const adapted = apiUpdateToStorageUpdate(apiUpdate);
+  assert.equal(adapted.id, "upd-123");
+  assert.equal(adapted.businessId, 42);
+  assert.equal(adapted.type, "offer");
+  assert.equal(adapted.title, "Special Lunch Discount");
+  assert.equal(adapted.description, "20% off all pasta dishes today only!");
+  assert.equal(adapted.status, "published");
+  assert.equal(adapted.price, "250 ETB");
+  assert.equal(adapted.offerDetails, "20% off");
+  assert.equal(adapted.eventDate, "2026-10-01");
+  assert.equal(adapted.eventTime, "12:00 PM");
+});
+
+test("updatesApi and reportsApi correctly invoke backend endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const mockCalls: { url: string; method: string; body?: unknown }[] = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const urlStr = typeof input === "string" ? input : input.toString();
+    const method = init?.method || "GET";
+    const body = init?.body ? JSON.parse(init.body as string) : undefined;
+    mockCalls.push({ url: urlStr, method, body });
+
+    // 1. GET /api/v1/updates
+    if (urlStr.includes("/api/v1/updates?limit=6")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "upd-1",
+              business_id: 1,
+              author_user_id: "usr-1",
+              update_type: "EVENT",
+              title: "Live Jazz Night",
+              description: "Enjoy jazz music every Friday evening.",
+              status: "PUBLISHED",
+              published_at: "2026-09-29T12:00:00Z",
+              created_at: "2026-09-29T12:00:00Z",
+              updated_at: "2026-09-29T12:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 2. GET /api/v1/following/updates
+    if (urlStr.includes("/api/v1/following/updates")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "upd-2",
+              business_id: 2,
+              author_user_id: "usr-2",
+              update_type: "ANNOUNCEMENT",
+              title: "Holiday Schedule Notice",
+              description: "We are open on Meskel holiday.",
+              status: "PUBLISHED",
+              published_at: "2026-09-29T12:00:00Z",
+              created_at: "2026-09-29T12:00:00Z",
+              updated_at: "2026-09-29T12:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 3. GET /api/v1/businesses/1/updates
+    if (urlStr.includes("/api/v1/businesses/1/updates")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "upd-1",
+              business_id: 1,
+              author_user_id: "usr-1",
+              update_type: "EVENT",
+              title: "Live Jazz Night",
+              description: "Enjoy jazz music every Friday evening.",
+              status: "PUBLISHED",
+              published_at: "2026-09-29T12:00:00Z",
+              created_at: "2026-09-29T12:00:00Z",
+              updated_at: "2026-09-29T12:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 4. POST /api/v1/businesses/1/reports
+    if (urlStr.includes("/api/v1/businesses/1/reports") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "rep-uuid-1",
+            business_id: 1,
+            reporter_user_id: "my-user-id",
+            reason: body.reason,
+            details: body.details,
+            status: "PENDING",
+            created_at: "2026-09-29T12:00:00Z",
+            updated_at: "2026-09-29T12:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { message: "Not found" } }), { status: 404 });
+  }) as unknown as typeof fetch;
+
+  try {
+    // 1. List active updates
+    const active = await updatesApi.listActiveUpdates({ limit: 6 });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].title, "Live Jazz Night");
+
+    // 2. List following updates
+    const following = await updatesApi.listFollowingUpdates();
+    assert.equal(following.length, 1);
+    assert.equal(following[0].title, "Holiday Schedule Notice");
+
+    // 3. List business updates
+    const bizUpdates = await updatesApi.listBusinessUpdates(1);
+    assert.equal(bizUpdates.length, 1);
+    assert.equal(bizUpdates[0].business_id, 1);
+
+    // 4. Report business
+    const rep = await reportsApi.reportBusiness(1, {
+      reason: "WRONG_HOURS",
+      details: "Closes at 8pm instead of 10pm",
+    });
+    assert.equal(rep.id, "rep-uuid-1");
+    assert.equal(rep.reason, "WRONG_HOURS");
+    assert.equal(rep.status, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+

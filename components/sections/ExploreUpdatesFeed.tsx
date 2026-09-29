@@ -4,18 +4,36 @@ import { useEffect, useState } from "react";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { getActiveUpdates, type BusinessUpdate } from "@/data/businessUpdateStorage";
 import { getBusinessById } from "@/data/mockBusinesses";
+import * as updatesApi from "@/lib/api/updates";
+import { apiUpdateToStorageUpdate } from "@/lib/api/adapters";
 
 export default function ExploreUpdatesFeed() {
   const [updates, setUpdates] = useState<BusinessUpdate[]>(() => getActiveUpdates().slice(0, 6));
 
   useEffect(() => {
-    const handleUpdatesChange = () => {
-      setUpdates(getActiveUpdates().slice(0, 6));
+    let cancelled = false;
+
+    const loadUpdates = async () => {
+      try {
+        const apiData = await updatesApi.listActiveUpdates({ limit: 6 });
+        if (!cancelled && apiData && apiData.length > 0) {
+          setUpdates(apiData.map(apiUpdateToStorageUpdate));
+          return;
+        }
+      } catch {
+        // Fall back gracefully to local storage
+      }
+      if (!cancelled) {
+        setUpdates(getActiveUpdates().slice(0, 6));
+      }
     };
 
-    handleUpdatesChange();
-    window.addEventListener("cafnet:updates-updated", handleUpdatesChange);
-    return () => window.removeEventListener("cafnet:updates-updated", handleUpdatesChange);
+    loadUpdates();
+    window.addEventListener("cafnet:updates-updated", loadUpdates);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cafnet:updates-updated", loadUpdates);
+    };
   }, []);
 
   if (updates.length === 0) {

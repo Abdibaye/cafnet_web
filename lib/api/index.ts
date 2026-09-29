@@ -7,3 +7,5 @@ export * as searchApi from "./search";
 export * as customerApi from "./customer";
 export * as reservationsApi from "./reservations";
 export * as reviewsApi from "./reviews";
+export * as updatesApi from "./updates";
+export * as reportsApi from "./reports";

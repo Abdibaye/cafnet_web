@@ -95,6 +95,11 @@ Next.js Frontend (React 19 / App Router)
 | **Remove Helpful** | `BusinessReviews.tsx` | `/api/v1/reviews/{id}/helpful` | `DELETE` | Required | **Live API** |
 | **My Reviews** | `CustomerReviewsPage.tsx` | `/api/v1/reviews/mine` | `GET` | Required | **Live API** |
 | **Report Review** | `BusinessReviews.tsx` (Report modal) | `/api/v1/reviews/{id}/reports` | `POST` | Required | **Live API** |
+| **Explore Updates** | `ExploreUpdatesFeed.tsx` | `/api/v1/updates` | `GET` | Optional | **Live API** |
+| **Following Updates** | `CustomerCollectionPage.tsx` | `/api/v1/following/updates` | `GET` | Required | **Live API** |
+| **Venue Profile Updates** | `BusinessProfileUpdatesSection.tsx` | `/api/v1/businesses/{id}/updates` | `GET` | Optional | **Live API** |
+| **Report Business Listing** | `ReportBusinessModal.tsx` | `/api/v1/businesses/{id}/reports` | `POST` | Required | **Live API** |
+| **Account Settings** | `app/account/settings/page.tsx` | Authoritative OTP phone security | — | Client | **Live** |
 
 ---
 

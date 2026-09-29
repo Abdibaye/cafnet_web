@@ -27,7 +27,10 @@ export type UpdateType =
   | "offer"
   | "event"
   | "price_update"
-  | "announcement";
+  | "announcement"
+  | "ANNOUNCEMENT"
+  | "OFFER"
+  | "EVENT";
 
 export type UpdateStatus = "DRAFT" | "PUBLISHED" | "EXPIRED";
 
@@ -243,6 +246,20 @@ export interface ReviewReport {
   reason: ReviewReportReason;
   explanation: string;
   status: ReportStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BusinessReport {
+  id: string;
+  business_id: number;
+  reporter_user_id: string;
+  reason: BusinessReportReason;
+  details?: string;
+  status: ReportStatus;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  admin_notes?: string;
   created_at: string;
   updated_at: string;
 }

@@ -6,6 +6,7 @@ import type {
   ReviewSummary,
   Reservation,
   Review,
+  BusinessUpdate,
 } from "./types";
 import type { MockReservation } from "@/data/reservationStorage";
 import type { CustomerReview } from "@/data/customerReviewStorage";
@@ -325,3 +326,39 @@ export function reviewSummaryToDistribution(
     distribution: [...summary.distribution],
   };
 }
+
+export function apiUpdateToStorageUpdate(
+  u: BusinessUpdate,
+): import("@/data/businessUpdateStorage").BusinessUpdate {
+  let mappedType: import("@/data/businessUpdateStorage").UpdateType = "announcement";
+  const rawType = (u.update_type || "").toLowerCase();
+  if (rawType === "event") mappedType = "event";
+  else if (rawType === "offer") mappedType = "offer";
+  else if (rawType === "new_menu") mappedType = "new_menu";
+  else if (rawType === "price_update") mappedType = "price_update";
+  else mappedType = "announcement";
+
+  let mappedStatus: "draft" | "published" | "expired" = "published";
+  const rawStatus = (u.status || "").toLowerCase();
+  if (rawStatus === "draft") mappedStatus = "draft";
+  else if (rawStatus === "expired") mappedStatus = "expired";
+  else mappedStatus = "published";
+
+  return {
+    id: u.id,
+    businessId: u.business_id,
+    type: mappedType,
+    title: u.title,
+    description: u.description,
+    createdAt: u.created_at,
+    publishedAt: u.published_at || u.created_at,
+    expiresAt: u.expires_at,
+    eventDate: u.event_date,
+    eventTime: u.event_time,
+    price: u.price_text,
+    offerDetails: u.offer_details,
+    validUntil: u.valid_until,
+    status: mappedStatus,
+  };
+}
+

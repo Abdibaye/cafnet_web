@@ -6,9 +6,10 @@ import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { useCustomer } from "@/components/CustomerProvider";
 import { getAllBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
-import { getActiveUpdates } from "@/data/businessUpdateStorage";
+import { getActiveUpdates, type BusinessUpdate as StorageBusinessUpdate } from "@/data/businessUpdateStorage";
 import * as customerApi from "@/lib/api/customer";
-import { businessToCardItem } from "@/lib/api/adapters";
+import * as updatesApi from "@/lib/api/updates";
+import { businessToCardItem, apiUpdateToStorageUpdate } from "@/lib/api/adapters";
 import type { Business } from "@/lib/api/types";
 
 type CustomerCollectionPageProps = { kind: "saved" | "following" };
@@ -71,19 +72,51 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
     return Array.from(map.values());
   })();
 
-  const loadUpdates = useCallback(
-    () => (kind === "following" ? getActiveUpdates().filter((u) => ids.includes(u.businessId)) : []),
-    [kind, ids],
+  const [followedUpdates, setFollowedUpdates] = useState<StorageBusinessUpdate[]>(() =>
+    kind === "following" ? getActiveUpdates().filter((u) => ids.includes(u.businessId)) : [],
   );
 
-  const [followedUpdates, setFollowedUpdates] = useState(loadUpdates);
-
   useEffect(() => {
-    setFollowedUpdates(loadUpdates());
-    const handler = () => setFollowedUpdates(loadUpdates());
+    if (kind !== "following" || !isAuthenticated) {
+      setFollowedUpdates([]);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchFollowedUpdates = async () => {
+      try {
+        const apiUpdates = await updatesApi.listFollowingUpdates();
+        if (!cancelled && apiUpdates && apiUpdates.length > 0) {
+          const adapted = apiUpdates.map(apiUpdateToStorageUpdate);
+          const mockList = getActiveUpdates().filter((u) => ids.includes(u.businessId));
+          const map = new Map<string, StorageBusinessUpdate>();
+          for (const u of adapted) {
+            map.set(u.id, u);
+          }
+          for (const m of mockList) {
+            if (!map.has(m.id)) {
+              map.set(m.id, m);
+            }
+          }
+          setFollowedUpdates(Array.from(map.values()));
+          return;
+        }
+      } catch {
+        // Fall back to local mock updates
+      }
+      if (!cancelled) {
+        setFollowedUpdates(getActiveUpdates().filter((u) => ids.includes(u.businessId)));
+      }
+    };
+
+    fetchFollowedUpdates();
+    const handler = () => fetchFollowedUpdates();
     window.addEventListener("cafnet:updates-updated", handler);
-    return () => window.removeEventListener("cafnet:updates-updated", handler);
-  }, [loadUpdates]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cafnet:updates-updated", handler);
+    };
+  }, [kind, isAuthenticated, ids]);
 
   if (!authReady) {
     return (
