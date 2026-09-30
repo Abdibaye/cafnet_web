@@ -2032,4 +2032,118 @@ test("Admin Center API integration (Backend 17)", async () => {
   }
 });
 
+// ==========================================
+// 22. User Account Creation & Onboarding (Backend 18)
+// ==========================================
+test("User Account Creation & Onboarding API integration (Backend 18)", async () => {
+  const originalFetch = globalThis.fetch;
+
+  let patchCalled = false;
+  let sentPayload: unknown = null;
+
+  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(url);
+    const method = init?.method || "GET";
+
+    if (strUrl.includes("/api/v1/account/profile") && method === "PATCH") {
+      patchCalled = true;
+      sentPayload = JSON.parse(String(init?.body));
+      const payloadObj = sentPayload as { full_name?: string; avatar_url?: string };
+
+      if (!payloadObj.full_name || payloadObj.full_name.length < 2) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "invalid_input",
+              message: "full name must be at least 2 characters",
+            },
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "user-uuid-18",
+            phone: "+251911223344",
+            full_name: payloadObj.full_name,
+            avatar_url: payloadObj.avatar_url,
+            role: "CUSTOMER",
+            is_active: true,
+            profile_completed: true,
+            created_at: "2026-09-30T12:00:00Z",
+            updated_at: "2026-09-30T12:05:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/auth/me") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "user-uuid-18",
+            phone: "+251911223344",
+            full_name: "Customer 3344",
+            role: "CUSTOMER",
+            is_active: true,
+            profile_completed: false,
+            created_at: "2026-09-30T12:00:00Z",
+            updated_at: "2026-09-30T12:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    // 1. Initial /auth/me returns new user with incomplete profile
+    const initialUser = await authApi.getCurrentUser();
+    assert.equal(initialUser?.id, "user-uuid-18");
+    assert.equal(initialUser?.full_name, "Customer 3344");
+    assert.equal(initialUser?.profile_completed, false);
+
+    // 2. Profile update validation failure (too short)
+    await assert.rejects(
+      async () => {
+        await authApi.updateProfile({ full_name: "A" });
+      },
+      (err: unknown) => {
+        assert(err instanceof ApiError);
+        assert.equal(err.status, 400);
+        assert.equal(err.code, "invalid_input");
+        return true;
+      },
+    );
+
+    // 3. Successful profile completion / onboarding
+    const updated = await authApi.updateProfile({
+      full_name: "Samuel Kebede",
+      avatar_url: "https://example.com/avatar.jpg",
+    });
+
+    assert.equal(patchCalled, true);
+    assert.deepEqual(sentPayload, {
+      full_name: "Samuel Kebede",
+      avatar_url: "https://example.com/avatar.jpg",
+    });
+    assert.equal(updated.id, "user-uuid-18");
+    assert.equal(updated.full_name, "Samuel Kebede");
+    assert.equal(updated.avatar_url, "https://example.com/avatar.jpg");
+    assert.equal(updated.profile_completed, true);
+
+    // 4. getProfile resolves properly
+    const profile = await authApi.getProfile();
+    assert.equal(profile?.id, "user-uuid-18");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
 

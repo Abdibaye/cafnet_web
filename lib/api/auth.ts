@@ -5,6 +5,7 @@ import type {
   LogoutResult,
   OTPRequestResult,
   RequestOTPInput,
+  UpdateProfileInput,
   User,
   VerifyOTPInput,
 } from "./types";
@@ -61,3 +62,20 @@ export async function getCurrentUser(): Promise<User | null> {
     throw err;
   }
 }
+
+/**
+ * Updates the authenticated user's profile information (display name, avatar).
+ * Authenticated session determines identity (IDOR-safe).
+ */
+export async function updateProfile(input: UpdateProfileInput): Promise<User> {
+  const res = await api.patch<User>("/api/v1/account/profile", input);
+  return res.data;
+}
+
+/**
+ * Retrieves the authenticated user's profile from the account endpoint.
+ */
+export async function getProfile(): Promise<User | null> {
+  return getCurrentUser();
+}
+

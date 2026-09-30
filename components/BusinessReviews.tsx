@@ -92,12 +92,7 @@ export default function BusinessReviews({
 
   const handleHelpfulClick = async (review: MockReview) => {
     if (!currentUser) {
-      requestAuth({
-        callback: () => {
-          toggleHelpfulVote(review.id, "mock-customer-abdi", review.helpfulCount);
-          setHelpfulRevision((prev) => prev + 1);
-        },
-      });
+      requestAuth();
       return;
     }
 
@@ -133,11 +128,7 @@ export default function BusinessReviews({
     };
 
     if (!currentUser) {
-      requestAuth({
-        callback: () => {
-          proceedWithReporting("mock-customer-abdi");
-        },
-      });
+      requestAuth();
       return;
     }
 

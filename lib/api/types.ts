@@ -77,6 +77,7 @@ export interface User {
   avatar_url?: string;
   role: UserRole;
   is_active: boolean;
+  profile_completed?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -371,6 +372,11 @@ export interface AuthResult {
 
 export interface LogoutResult {
   logged_out: boolean;
+}
+
+export interface UpdateProfileInput {
+  full_name: string;
+  avatar_url?: string;
 }
 
 // Query Filters
