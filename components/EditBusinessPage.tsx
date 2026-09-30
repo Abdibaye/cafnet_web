@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBusinessOwner } from "./BusinessOwnerProvider";
-import { getBusinessById, type MockBusiness, type BusinessCategory } from "@/data/mockBusinesses";
+import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
+import { businessToEditableData } from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business, BusinessCategory, BusinessHours, BusinessImage } from "@/lib/api/types";
 import type { EditableBusinessData, OpeningHours } from "@/data/ownerManagedBusinessStorage";
 
 type FormErrors = {
@@ -43,21 +46,20 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
   const router = useRouter();
   const { 
     ready, 
-    managedBusinesses, 
-    getManagedBusiness, 
-    getEditableData, 
     updateManagedBusiness,
-    createManagedBusiness,
-    isBusinessManaged,
     availableTags,
     priceRangeOptions,
     categoryOptions,
-    hasUnsavedChanges: checkHasUnsavedChanges
   } = useBusinessOwner();
   
-  const seedBusiness = getBusinessById(businessId);
-  const managedBusiness = getManagedBusiness(Number(businessId));
-  const existingEditableData = getEditableData(Number(businessId));
+  const [loadedBusiness, setLoadedBusiness] = useState<Business | null>(null);
+  const [loadedHours, setLoadedHours] = useState<BusinessHours[]>([]);
+  const [loadedImages, setLoadedImages] = useState<BusinessImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const initialDataRef = useRef<EditableBusinessData | null>(null);
 
   const [formData, setFormData] = useState<Partial<EditableBusinessData>>({
     businessId: Number(businessId),
@@ -79,50 +81,55 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
   const [isFormDirty, setIsFormDirty] = useState(false);
 
   useEffect(() => {
-    if (!ready || !seedBusiness) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setErrorStatus(null);
+      try {
+        const [b, hours, images] = await Promise.all([
+          getManagedBusiness(businessId),
+          getBusinessHours(businessId).catch(() => []),
+          getBusinessImages(businessId).catch(() => []),
+        ]);
+        if (!cancelled) {
+          setLoadedBusiness(b);
+          setLoadedHours(hours);
+          setLoadedImages(images);
 
-    const editableData = getEditableData(Number(businessId));
-    
-    if (editableData) {
-      setFormData({
-        businessId: editableData.businessId,
-        name: editableData.name,
-        description: editableData.description,
-        phone: editableData.phone,
-        location: editableData.location,
-        category: editableData.category,
-        priceRange: editableData.priceRange,
-        website: editableData.website,
-        openingHours: editableData.openingHours,
-        tags: editableData.tags,
-      });
-    } else {
-      setFormData({
-        businessId: seedBusiness.id,
-        name: seedBusiness.name,
-        description: seedBusiness.description,
-        phone: seedBusiness.phone,
-        location: seedBusiness.location,
-        category: seedBusiness.category,
-        priceRange: seedBusiness.priceRange,
-        website: "",
-        openingHours: seedBusiness.openingHours
-          ? daysOfWeek.map((day) => ({
-              day,
-              open: seedBusiness.openingHours,
-              close: "10:00 PM",
-              isClosed: false,
-            }))
-          : daysOfWeek.map((day) => ({
-              day,
-              open: "10:00 AM",
-              close: "10:00 PM",
-              isClosed: false,
-            })),
-        tags: seedBusiness.tags,
-      });
+          const initialData = businessToEditableData(b, hours);
+          initialDataRef.current = initialData;
+          setFormData({
+            businessId: initialData.businessId,
+            name: initialData.name,
+            description: initialData.description,
+            phone: initialData.phone,
+            location: initialData.location,
+            category: initialData.category,
+            priceRange: initialData.priceRange,
+            website: initialData.website,
+            openingHours: initialData.openingHours,
+            tags: initialData.tags,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError) {
+            setErrorStatus(err.status);
+          } else {
+            setErrorStatus(404);
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }, [ready, seedBusiness, businessId, getEditableData]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
 
   const handleChange = useCallback((field: keyof EditableBusinessData, value: string | string[] | OpeningHours[]) => {
     setFormData((prev) => ({
@@ -203,10 +210,26 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
+  const hasChanges = useMemo(() => {
+    if (!initialDataRef.current) return false;
+    const initial = initialDataRef.current;
+    if (formData.name !== initial.name) return true;
+    if (formData.description !== initial.description) return true;
+    if (formData.phone !== initial.phone) return true;
+    if (formData.location !== initial.location) return true;
+    if (formData.category !== initial.category) return true;
+    if (formData.priceRange !== initial.priceRange) return true;
+    if (formData.website !== initial.website) return true;
+    if (JSON.stringify(formData.tags || []) !== JSON.stringify(initial.tags || [])) return true;
+    if (JSON.stringify(formData.openingHours || []) !== JSON.stringify(initial.openingHours || [])) return true;
+    return false;
+  }, [formData]);
+
   const handleSave = useCallback(async () => {
     if (!validateForm()) return;
 
     setIsSaving(true);
+    setSaveError(null);
 
     try {
       const dataToSave: Partial<EditableBusinessData> = {
@@ -223,29 +246,34 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
         updatedAt: new Date().toISOString(),
       };
 
-      if (managedBusiness) {
-        await updateManagedBusiness(Number(businessId), dataToSave);
-      } else {
-        await createManagedBusiness(Number(businessId), dataToSave);
-      }
+      await updateManagedBusiness(Number(businessId), dataToSave);
+
+      initialDataRef.current = {
+        ...(initialDataRef.current || {}),
+        ...dataToSave,
+      } as EditableBusinessData;
 
       setSaveSuccess(true);
       setIsFormDirty(false);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Failed to save business data:", error);
+      if (error instanceof ApiError) {
+        setSaveError(error.message || "Failed to update business");
+      } else {
+        setSaveError("Failed to save changes. Please try again.");
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [validateForm, formData, managedBusiness, businessId, updateManagedBusiness, createManagedBusiness]);
+  }, [validateForm, formData, businessId, updateManagedBusiness]);
 
   const handleCancel = useCallback(() => {
-    if (isFormDirty && checkHasUnsavedChanges(Number(businessId), formData)) {
+    if (isFormDirty && hasChanges) {
       setShowUnsavedDialog(true);
     } else {
       router.push(`/business/dashboard/business/${businessId}`);
     }
-  }, [isFormDirty, formData, businessId, checkHasUnsavedChanges, router]);
+  }, [isFormDirty, hasChanges, businessId, router]);
 
   const handleDiscardChanges = useCallback(() => {
     setShowUnsavedDialog(false);
@@ -255,10 +283,6 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
   const handleStay = useCallback(() => {
     setShowUnsavedDialog(false);
   }, []);
-
-  const hasChanges = useMemo(() => {
-    return checkHasUnsavedChanges(Number(businessId), formData);
-  }, [checkHasUnsavedChanges, businessId, formData]);
 
   const handleNavigateAway = useCallback((e: BeforeUnloadEvent) => {
     if (hasChanges) {
@@ -272,18 +296,15 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
     return () => window.removeEventListener("beforeunload", handleNavigateAway);
   }, [handleNavigateAway]);
 
-  if (!ready || !seedBusiness) {
+  if (loading || !ready) {
     return (
-      <div className="mx-auto max-w-4xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Loading...</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">Preparing your business listing</p>
+      <div className="mx-auto max-w-4xl px-5 py-20 text-center text-sm text-on-surface-variant">
+        Loading business editor...
       </div>
     );
   }
 
-  const isManaged = Boolean(isBusinessManaged?.(Number(businessId)) || seedBusiness.claimStatus === "claimed" || managedBusiness);
-
-  if (!isManaged) {
+  if (errorStatus === 403) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
@@ -293,6 +314,18 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
         <p className="mt-3 text-sm text-on-surface-variant">You must have verified management rights to edit this business listing.</p>
         <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
           Back to Business Center
+        </Link>
+      </div>
+    );
+  }
+
+  if (errorStatus === 404 || !loadedBusiness) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Business not found</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">This business may no longer be available.</p>
+        <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
+          Business Center
         </Link>
       </div>
     );
@@ -550,6 +583,13 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                 Listing updated
               </div>
             )}
+
+            {saveError && (
+              <div className="inline-flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">error</span>
+                {saveError}
+              </div>
+            )}
           </form>
         </main>
 
@@ -560,17 +600,15 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
             
             <div className="mt-6">
               <div className="flex items-center gap-3">
-                {seedBusiness.images[0] && (
-                  <img
-                    src={seedBusiness.images[0]}
-                    alt=""
-                    className="size-16 rounded-xl object-cover"
-                  />
-                )}
+                <img
+                  src={loadedImages[0]?.image_url || "/images/placeholder1.jpeg"}
+                  alt=""
+                  className="size-16 rounded-xl object-cover"
+                />
                 <div>
-                  <h3 className="text-lg font-bold text-on-surface">{formData.name || seedBusiness.name}</h3>
+                  <h3 className="text-lg font-bold text-on-surface">{formData.name || loadedBusiness?.name}</h3>
                   <p className="text-sm text-on-surface-variant">
-                    {categoryOptions.find((c) => c.value === formData.category)?.label || seedBusiness.cuisine}
+                    {categoryOptions.find((c) => c.value === formData.category)?.label || loadedBusiness?.cuisine || "Restaurant"}
                   </p>
                 </div>
               </div>
@@ -578,7 +616,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
               <div className="mt-5">
                 <h4 className="text-sm font-semibold text-on-surface">About</h4>
                 <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  {formData.description || seedBusiness.description}
+                  {formData.description || loadedBusiness?.description}
                 </p>
               </div>
 

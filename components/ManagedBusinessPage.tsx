@@ -4,21 +4,60 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { getBusinessById } from "@/data/mockBusinesses";
-import { getManagedBusiness as getManagedBusinessFromStorage, getEditableData as getEditableDataFromStorage } from "@/data/ownerManagedBusinessStorage";
+import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
+import { businessToViewModel, type BusinessProfileViewModel } from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
 import { getUpdatesByBusiness } from "@/data/businessUpdateStorage";
 import { getMenuSummary, type MenuSummary } from "@/data/menuStorage";
 import {
-  getPendingReservationsCount,
   getReservationsByBusiness,
   type MockReservation,
 } from "@/data/reservationStorage";
 
 export default function ManagedBusinessPage({ businessId }: { businessId: string }) {
-  const business = getBusinessById(businessId);
-  const { ready, getManagedBusiness: getManagedFromContext, isBusinessManaged } = useBusinessOwner();
-  
-  const managedBusiness = getManagedFromContext?.(Number(businessId)) || getManagedBusinessFromStorage(Number(businessId));
-  const editableData = getEditableDataFromStorage(Number(businessId));
+  const { ready, getManagedBusiness: getManagedFromContext } = useBusinessOwner();
+  const [businessData, setBusinessData] = useState<BusinessProfileViewModel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setErrorStatus(null);
+      try {
+        const [b, hours, images] = await Promise.all([
+          getManagedBusiness(businessId),
+          getBusinessHours(businessId).catch(() => []),
+          getBusinessImages(businessId).catch(() => []),
+        ]);
+        if (!cancelled) {
+          setBusinessData(businessToViewModel(b, hours, images));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError) {
+            setErrorStatus(err.status);
+          } else {
+            const mock = getBusinessById(businessId);
+            if (mock) {
+              setBusinessData(mock as any);
+            } else {
+              setErrorStatus(404);
+            }
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
 
   const [menuSummary, setMenuSummary] = useState<MenuSummary>(() => getMenuSummary(Number(businessId)));
   const [businessReservations, setBusinessReservations] = useState<MockReservation[]>(() =>
@@ -46,7 +85,34 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
     };
   }, [businessId]);
 
-  if (!business) {
+  if (loading || !ready) {
+    return (
+      <div className="mx-auto max-w-4xl px-5 py-20 text-center text-sm text-on-surface-variant">
+        Loading business management details...
+      </div>
+    );
+  }
+
+  if (errorStatus === 403) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Not Managed</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          You do not have management access for this business on Cafnet.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-4">
+          <Link href="/business/dashboard" className="inline-flex text-sm font-semibold text-primary">
+            Business Center
+          </Link>
+          <Link href={`/business/claim?id=${businessId}`} className="inline-flex text-sm font-semibold text-on-surface-variant hover:text-primary">
+            Claim this business
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorStatus === 404 || !businessData) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Business not found</h1>
@@ -58,29 +124,10 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
     );
   }
 
-  const isManaged = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed" || managedBusiness);
-
-  if (ready && !isManaged) {
-    return (
-      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Not Managed</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">
-          You do not have management access for this business on Cafnet.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-4">
-          <Link href="/business/dashboard" className="inline-flex text-sm font-semibold text-primary">
-            Business Center
-          </Link>
-          <Link href={`/business/claim?id=${business.id}`} className="inline-flex text-sm font-semibold text-on-surface-variant hover:text-primary">
-            Claim this business
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const lastUpdated = managedBusiness?.editableData.updatedAt
-    ? new Date(managedBusiness.editableData.updatedAt).toLocaleDateString("en-US", {
+  const business = businessData;
+  const managedFromContext = getManagedFromContext?.(Number(businessId));
+  const lastUpdated = managedFromContext?.editableData?.updatedAt
+    ? new Date(managedFromContext.editableData.updatedAt).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",

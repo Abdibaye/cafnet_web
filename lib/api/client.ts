@@ -1,4 +1,5 @@
 import { ApiError } from "./errors";
+export { ApiError };
 import type { ApiResponse, Pagination } from "./types";
 
 export interface RequestOptions extends Omit<RequestInit, "body"> {

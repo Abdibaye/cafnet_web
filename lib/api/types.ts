@@ -250,6 +250,36 @@ export interface ReviewReport {
   updated_at: string;
 }
 
+export interface BusinessClaim {
+  id: string;
+  business_id: number;
+  claimant_user_id: string;
+  status: ClaimWorkflowStatus;
+  submitted_at: string;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BusinessSubmission {
+  id: string;
+  submitter_user_id: string;
+  business_name: string;
+  category: BusinessCategory;
+  area: string;
+  submitted_payload?: Record<string, unknown>;
+  status: SubmissionWorkflowStatus;
+  created_business_id?: number;
+  submitted_at: string;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BusinessReport {
   id: string;
   business_id: number;
@@ -397,3 +427,36 @@ export interface ReviewReportInput {
   reason: ReviewReportReason;
   explanation: string;
 }
+
+// Business Management & Ownership DTOs
+
+export interface UpdateBusinessInput {
+  name?: string;
+  category?: BusinessCategory;
+  cuisine?: string;
+  description?: string;
+  short_description?: string;
+  phone?: string;
+  website?: string;
+  location_name?: string;
+  neighborhood?: string;
+  address_line?: string;
+  latitude?: number;
+  longitude?: number;
+  price_range?: PriceRange;
+  tags?: string[];
+  payment_methods?: string[];
+  reservation_available?: boolean;
+}
+
+export interface CreateClaimInput {
+  business_id: number;
+}
+
+export interface CreateSubmissionInput {
+  business_name: string;
+  category: BusinessCategory;
+  area: string;
+  payload?: Record<string, unknown>;
+}
+

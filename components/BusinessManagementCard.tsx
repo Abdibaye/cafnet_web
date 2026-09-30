@@ -1,22 +1,26 @@
 import Link from "next/link";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { BusinessClaim, BusinessSubmission } from "@/data/businessOwnerStorage";
-import { getManagedBusiness as getManagedBusinessFromStorage } from "@/data/ownerManagedBusinessStorage";
+import type { BusinessProfileViewModel } from "@/lib/api/adapters";
+import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { getPendingReservationsCount } from "@/data/reservationStorage";
 
 type BusinessManagementCardProps = {
-  business?: MockBusiness;
+  business?: MockBusiness | BusinessProfileViewModel;
   claim?: BusinessClaim;
   submission?: BusinessSubmission;
+  isManaged?: boolean;
 };
 
-function categoryLabel(category: MockBusiness["category"] | BusinessSubmission["category"]) {
+function categoryLabel(category?: MockBusiness["category"] | BusinessSubmission["category"] | string) {
   return category === "cafe" ? "Café" : category === "drinks" ? "Drinks & More" : "Restaurant";
 }
 
-export default function BusinessManagementCard({ business, claim, submission }: BusinessManagementCardProps) {
-  const managedBusiness = business ? getManagedBusinessFromStorage(business.id) : undefined;
-  const isManaged = Boolean(business?.claimStatus === "claimed" || managedBusiness);
+export default function BusinessManagementCard({ business, claim, submission, isManaged: propIsManaged }: BusinessManagementCardProps) {
+  const { isBusinessManaged, getManagedBusiness } = useBusinessOwner();
+  const contextManaged = business ? isBusinessManaged?.(business.id) : false;
+  const isManaged = propIsManaged ?? Boolean(contextManaged || business?.claimStatus === "claimed");
+  const managedBusiness = business ? getManagedBusiness(business.id) : undefined;
   const title = business?.name || submission?.businessName || "Business submission";
   const category = business ? categoryLabel(business.category) : submission ? categoryLabel(submission.category) : "Business";
   const area = business?.location || submission?.area || "Area pending";
@@ -68,7 +72,13 @@ export default function BusinessManagementCard({ business, claim, submission }: 
 
   return <article className="flex flex-col gap-5 border border-outline-variant bg-white p-5 sm:flex-row sm:items-center">
     <div className="flex min-w-0 flex-1 items-center gap-4">
-      {business ? <img src={business.images[0]} alt="" className="size-20 shrink-0 rounded-xl object-cover" /> : <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-surface-container-low"><span className="material-symbols-outlined text-3xl text-outline" aria-hidden="true">storefront</span></div>}
+      {business && business.images && business.images.length > 0 ? (
+        <img src={business.images[0]} alt="" className="size-20 shrink-0 rounded-xl object-cover" />
+      ) : (
+        <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-surface-container-low">
+          <span className="material-symbols-outlined text-3xl text-outline" aria-hidden="true">storefront</span>
+        </div>
+      )}
       <div className="min-w-0">
         <h2 className="truncate text-base font-bold text-on-surface">{title}</h2>
         <p className="mt-1 text-sm text-on-surface-variant">{category} · {area}</p>

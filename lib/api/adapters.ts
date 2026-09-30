@@ -2,14 +2,28 @@ import type { BusinessCardItem } from "@/components/BusinessCard";
 import type {
   Business,
   BusinessHours,
+  BusinessImage,
+  BusinessClaim as ApiBusinessClaim,
+  BusinessSubmission as ApiBusinessSubmission,
   PublicBusinessProfile,
   ReviewSummary,
   Reservation,
   Review,
   BusinessUpdate,
+  UpdateBusinessInput,
+  PriceRange,
 } from "./types";
 import type { MockReservation } from "@/data/reservationStorage";
 import type { CustomerReview } from "@/data/customerReviewStorage";
+import type {
+  OpeningHours,
+  EditableBusinessData,
+  OwnerManagedBusiness,
+} from "@/data/ownerManagedBusinessStorage";
+import type {
+  BusinessClaim as UiBusinessClaim,
+  BusinessSubmission as UiBusinessSubmission,
+} from "@/data/businessOwnerStorage";
 
 const DAY_NAMES = [
   "Sunday",
@@ -247,6 +261,70 @@ export function publicProfileToViewModel(
   };
 }
 
+export function businessToViewModel(
+  business: Business,
+  hours: BusinessHours[] = [],
+  images: BusinessImage[] = [],
+): BusinessProfileViewModel {
+  const imgUrls =
+    images && images.length > 0
+      ? images.map((img) => img.image_url)
+      : DEFAULT_IMAGES;
+
+  const tags =
+    business.tags && business.tags.length > 0
+      ? business.tags
+      : [business.cuisine || "Ethiopian"];
+  const location = business.location_name || business.neighborhood || "Bole";
+  const address = business.address_line
+    ? `${business.address_line}, Addis Ababa, Ethiopia`
+    : `${location}, Addis Ababa, Ethiopia`;
+
+  const amenities = tags.filter((tag) =>
+    ["Credit card accepted", "Wi-Fi available", "Parking available", "Family friendly"].includes(tag),
+  );
+  const highlights = tags.filter((tag) => !amenities.includes(tag)).slice(0, 3);
+
+  const claimStatus =
+    business.claim_status === "CLAIMED"
+      ? ("claimed" as const)
+      : ("unclaimed" as const);
+
+  return {
+    id: business.id,
+    name: business.name,
+    category: business.category,
+    cuisine: business.cuisine || "Ethiopian",
+    location,
+    neighborhood: business.neighborhood || "Bole",
+    distance: "350m",
+    rating: 4.8,
+    reviewCount: 0,
+    priceRange: business.price_range || "$$",
+    description: business.description || "",
+    shortDescription: business.short_description || business.description || "",
+    images: imgUrls,
+    tags,
+    paymentMethods:
+      business.payment_methods?.length > 0
+        ? business.payment_methods
+        : ["Cash", "Telebirr"],
+    openingHours: formatHours(hours),
+    phone: business.phone || "",
+    verified: business.verification_status === "VERIFIED",
+    reservationAvailable: business.reservation_available,
+    claimStatus,
+    featured: business.is_featured,
+    isOpen: true,
+    menu: [],
+    updates: [],
+    reviews: [],
+    address,
+    amenities,
+    highlights,
+  };
+}
+
 export function formatReservationTimeForApi(timeStr: string): string {
   if (!timeStr) return "19:00:00";
   const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
@@ -361,4 +439,185 @@ export function apiUpdateToStorageUpdate(
     status: mappedStatus,
   };
 }
+
+// ==========================================
+// Business Center Adapters (Backend 13)
+// ==========================================
+
+const UI_DAYS_OF_WEEK = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const DAY_NAME_TO_INT: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+/**
+ * Converts backend BusinessHours[] to frontend OpeningHours[].
+ */
+export function businessHoursToOpeningHours(hours: BusinessHours[] = []): OpeningHours[] {
+  return UI_DAYS_OF_WEEK.map((dayName) => {
+    const dayInt = DAY_NAME_TO_INT[dayName];
+    const match = hours.find((h) => h.day_of_week === dayInt);
+    if (!match) {
+      return {
+        day: dayName,
+        open: "10:00 AM",
+        close: "10:00 PM",
+        isClosed: false,
+      };
+    }
+    return {
+      day: dayName,
+      open: match.opens_at ? formatTime(match.opens_at) : "10:00 AM",
+      close: match.closes_at ? formatTime(match.closes_at) : "10:00 PM",
+      isClosed: match.is_closed,
+    };
+  });
+}
+
+/**
+ * Converts 12-hour AM/PM string ("10:00 AM" or "10:00:00") to 24-hour "HH:MM:SS" format.
+ */
+export function timeStringTo24Hour(timeStr?: string): string | undefined {
+  if (!timeStr) return undefined;
+  const trimmed = timeStr.trim();
+  if (!trimmed) return undefined;
+  // Already in HH:MM:SS or HH:MM format without AM/PM
+  if (!trimmed.toLowerCase().includes("am") && !trimmed.toLowerCase().includes("pm")) {
+    const parts = trimmed.split(":");
+    const h = parts[0].padStart(2, "0");
+    const m = (parts[1] || "00").padStart(2, "0");
+    const s = (parts[2] || "00").padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  }
+  return formatReservationTimeForApi(trimmed);
+}
+
+/**
+ * Converts frontend OpeningHours[] to backend BusinessHours[].
+ */
+export function openingHoursToBusinessHours(
+  openingHours: OpeningHours[],
+  businessId: number,
+): BusinessHours[] {
+  return openingHours.map((oh) => {
+    const dayOfWeek = DAY_NAME_TO_INT[oh.day] ?? 1;
+    return {
+      id: "",
+      business_id: businessId,
+      day_of_week: dayOfWeek,
+      opens_at: oh.isClosed ? undefined : timeStringTo24Hour(oh.open),
+      closes_at: oh.isClosed ? undefined : timeStringTo24Hour(oh.close),
+      is_closed: Boolean(oh.isClosed),
+    };
+  });
+}
+
+/**
+ * Converts a backend Business (+ optional hours) into frontend EditableBusinessData.
+ */
+export function businessToEditableData(
+  business: Business,
+  hours: BusinessHours[] = [],
+): EditableBusinessData {
+  return {
+    businessId: business.id,
+    name: business.name,
+    description: business.description || "",
+    phone: business.phone || "",
+    location: business.location_name || business.neighborhood || "",
+    category: business.category,
+    priceRange: business.price_range || "$$",
+    website: business.website || "",
+    openingHours: businessHoursToOpeningHours(hours),
+    tags: business.tags || [],
+    updatedAt: business.updated_at || new Date().toISOString(),
+  };
+}
+
+/**
+ * Converts frontend EditableBusinessData into backend UpdateBusinessInput.
+ */
+export function editableDataToUpdateInput(
+  data: Partial<EditableBusinessData>,
+): UpdateBusinessInput {
+  const result: UpdateBusinessInput = {};
+  if (data.name !== undefined) result.name = data.name.trim();
+  if (data.category !== undefined) result.category = data.category;
+  if (data.description !== undefined) result.description = data.description.trim();
+  if (data.phone !== undefined) result.phone = data.phone.trim();
+  if (data.location !== undefined) {
+    result.location_name = data.location.trim();
+    result.neighborhood = data.location.trim();
+  }
+  if (data.priceRange !== undefined && data.priceRange !== "") {
+    result.price_range = data.priceRange as PriceRange;
+  }
+  if (data.website !== undefined) result.website = data.website.trim();
+  if (data.tags !== undefined) result.tags = data.tags;
+  return result;
+}
+
+/**
+ * Converts backend BusinessClaim to UI BusinessClaim model.
+ */
+export function apiClaimToViewModel(claim: ApiBusinessClaim): UiBusinessClaim {
+  return {
+    id: claim.id,
+    businessId: claim.business_id,
+    status: claim.status.toLowerCase() as "pending" | "approved" | "rejected",
+    submittedAt: claim.submitted_at,
+    reviewedAt: claim.reviewed_at,
+    rejectionReason: claim.rejection_reason,
+  };
+}
+
+/**
+ * Converts backend BusinessSubmission to UI BusinessSubmission model.
+ */
+export function apiSubmissionToViewModel(
+  sub: ApiBusinessSubmission,
+): UiBusinessSubmission {
+  return {
+    id: sub.id,
+    businessName: sub.business_name,
+    category: sub.category,
+    area: sub.area,
+    status: sub.status.toLowerCase() as "pending" | "approved" | "rejected",
+    submittedAt: sub.submitted_at,
+    reviewedAt: sub.reviewed_at,
+    rejectionReason: sub.rejection_reason,
+    createdBusinessId: sub.created_business_id,
+  };
+}
+
+/**
+ * Converts backend Business to OwnerManagedBusiness model.
+ */
+export function businessToOwnerManaged(
+  business: Business,
+  hours: BusinessHours[] = [],
+): OwnerManagedBusiness {
+  return {
+    id: `mb-${business.id}`,
+    businessId: business.id,
+    status: "managed",
+    editableData: businessToEditableData(business, hours),
+    createdAt: business.created_at || new Date().toISOString(),
+  };
+}
+
 

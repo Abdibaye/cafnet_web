@@ -11,7 +11,7 @@ type BusinessStatusPageProps = {
 };
 
 export default function BusinessStatusPage({ kind, claimId, submissionId }: BusinessStatusPageProps) {
-  const { ready, claims, submissions } = useBusinessOwner();
+  const { ready, claims, submissions, rawManagedBusinesses } = useBusinessOwner();
   if (!ready) {
     return <div className="mx-auto max-w-2xl px-5 py-20 text-sm text-on-surface-variant">Loading request...</div>;
   }
@@ -19,7 +19,10 @@ export default function BusinessStatusPage({ kind, claimId, submissionId }: Busi
   const claim = claims.find((item) => item.id === claimId);
   const submission = submissions.find((item) => item.id === submissionId);
   const businessId = claim ? claim.businessId : submission?.createdBusinessId;
-  const business = businessId ? getBusinessById(businessId) : undefined;
+  const managedBusiness = businessId ? rawManagedBusinesses.find((b) => b.id === businessId) : undefined;
+  const mockBusiness = businessId ? getBusinessById(businessId) : undefined;
+  const businessName = managedBusiness?.name || mockBusiness?.name || submission?.businessName;
+  const businessLocation = managedBusiness?.location_name || mockBusiness?.location || submission?.area;
 
   if (kind === "claim" && !claim) return <MissingStatus />;
   if (kind === "submission" && !submission) return <MissingStatus />;
@@ -61,11 +64,11 @@ export default function BusinessStatusPage({ kind, claimId, submissionId }: Busi
         <div className="p-5">
           <p className="text-xs text-on-surface-variant">Business</p>
           <p className="mt-1 text-lg font-bold text-on-surface">
-            {business?.name || submission?.businessName}
+            {businessName}
           </p>
-          {(business?.location || submission?.area) && (
+          {businessLocation && (
             <p className="mt-1 text-sm text-on-surface-variant">
-              {business?.location || submission?.area}
+              {businessLocation}
             </p>
           )}
         </div>

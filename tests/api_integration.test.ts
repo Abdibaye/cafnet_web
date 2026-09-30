@@ -20,6 +20,15 @@ import {
   businessToCardItem,
   publicProfileToViewModel,
   apiUpdateToStorageUpdate,
+  businessToViewModel,
+  businessHoursToOpeningHours,
+  timeStringTo24Hour,
+  openingHoursToBusinessHours,
+  businessToEditableData,
+  editableDataToUpdateInput,
+  apiClaimToViewModel,
+  apiSubmissionToViewModel,
+  businessToOwnerManaged,
 } from "../lib/api/adapters";
 import type {
   Business,
@@ -978,4 +987,346 @@ test("updatesApi and reportsApi correctly invoke backend endpoints", async () =>
     globalThis.fetch = originalFetch;
   }
 });
+
+// ==========================================
+// 16. Business Center Foundation & Profile Management Adapters
+// ==========================================
+test("timeStringTo24Hour converts 12-hour strings to HH:MM:SS format", () => {
+  assert.equal(timeStringTo24Hour("8:00 AM"), "08:00:00");
+  assert.equal(timeStringTo24Hour("10:30 PM"), "22:30:00");
+  assert.equal(timeStringTo24Hour("12:00 PM"), "12:00:00");
+  assert.equal(timeStringTo24Hour("12:00 AM"), "00:00:00");
+  assert.equal(timeStringTo24Hour("14:30:00"), "14:30:00");
+  assert.equal(timeStringTo24Hour(""), undefined);
+});
+
+test("businessHoursToOpeningHours and openingHoursToBusinessHours convert bi-directionally", () => {
+  const backendHours: BusinessHours[] = [
+    { id: "1", business_id: 42, day_of_week: 1, opens_at: "08:00:00", closes_at: "22:00:00", is_closed: false },
+    { id: "2", business_id: 42, day_of_week: 0, opens_at: "10:00:00", closes_at: "18:00:00", is_closed: true },
+  ];
+
+  const uiHours = businessHoursToOpeningHours(backendHours);
+  assert.equal(uiHours.length, 7);
+
+  const mon = uiHours.find((h) => h.day === "Monday");
+  assert.ok(mon);
+  assert.equal(mon?.isClosed, false);
+  assert.equal(mon?.open, "8:00 AM");
+  assert.equal(mon?.close, "10:00 PM");
+
+  const sun = uiHours.find((h) => h.day === "Sunday");
+  assert.ok(sun);
+  assert.equal(sun?.isClosed, true);
+
+  const backToBackend = openingHoursToBusinessHours(uiHours, 42);
+  assert.equal(backToBackend.length, 7);
+  const backMon = backToBackend.find((h) => h.day_of_week === 1);
+  assert.equal(backMon?.opens_at, "08:00:00");
+  assert.equal(backMon?.closes_at, "22:00:00");
+  assert.equal(backMon?.is_closed, false);
+});
+
+test("businessToEditableData and editableDataToUpdateInput map domain fields correctly", () => {
+  const mockBiz: Business = {
+    id: 101,
+    name: "Tomoca Coffee",
+    slug: "tomoca-coffee",
+    category: "cafe",
+    cuisine: "Traditional Coffee",
+    description: "Famous Addis cafe",
+    short_description: "Famous Addis cafe",
+    location_name: "Piazza",
+    neighborhood: "Piazza",
+    phone: "+251911223344",
+    website: "https://tomoca.et",
+    price_range: "$$",
+    tags: ["Wi-Fi available", "Outdoor seating"],
+    payment_methods: ["Cash", "Telebirr"],
+    reservation_available: false,
+    publication_status: "PUBLISHED",
+    verification_status: "VERIFIED",
+    claim_status: "CLAIMED",
+    is_featured: true,
+    created_at: "2026-09-01T10:00:00Z",
+    updated_at: "2026-09-02T10:00:00Z",
+  };
+
+  const editable = businessToEditableData(mockBiz, []);
+  assert.equal(editable.businessId, 101);
+  assert.equal(editable.name, "Tomoca Coffee");
+  assert.equal(editable.phone, "+251911223344");
+  assert.equal(editable.location, "Piazza");
+  assert.equal(editable.website, "https://tomoca.et");
+  assert.equal(editable.tags.length, 2);
+
+  const input = editableDataToUpdateInput({
+    name: " Tomoca Coffee Bole ",
+    category: "cafe",
+    description: " Updated description ",
+    phone: "+251911998877",
+    location: "Bole",
+    priceRange: "$$$",
+    website: "https://tomoca.com",
+    tags: ["Wi-Fi available"],
+  });
+
+  assert.equal(input.name, "Tomoca Coffee Bole");
+  assert.equal(input.category, "cafe");
+  assert.equal(input.description, "Updated description");
+  assert.equal(input.phone, "+251911998877");
+  assert.equal(input.location_name, "Bole");
+  assert.equal(input.price_range, "$$$");
+  assert.equal(input.website, "https://tomoca.com");
+  assert.deepEqual(input.tags, ["Wi-Fi available"]);
+});
+
+test("apiClaimToViewModel and apiSubmissionToViewModel normalize backend status", () => {
+  const claim = apiClaimToViewModel({
+    id: "claim-1",
+    business_id: 5,
+    user_id: "user-1",
+    status: "PENDING",
+    submitted_at: "2026-09-20T10:00:00Z",
+  });
+  assert.equal(claim.id, "claim-1");
+  assert.equal(claim.businessId, 5);
+  assert.equal(claim.status, "pending");
+
+  const sub = apiSubmissionToViewModel({
+    id: "sub-1",
+    user_id: "user-1",
+    business_name: "New Rooftop Bar",
+    category: "drinks",
+    area: "Kazanchis",
+    status: "APPROVED",
+    submitted_at: "2026-09-20T10:00:00Z",
+    reviewed_at: "2026-09-21T10:00:00Z",
+    created_business_id: 99,
+  });
+  assert.equal(sub.id, "sub-1");
+  assert.equal(sub.businessName, "New Rooftop Bar");
+  assert.equal(sub.status, "approved");
+  assert.equal(sub.createdBusinessId, 99);
+});
+
+// ==========================================
+// 17. Business Management, Claims, and Submissions API Integration
+// ==========================================
+test("businessesApi and customerApi handle management and submission endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const urlStr = String(input);
+    const method = init?.method || "GET";
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+
+    // 1. GET /api/v1/businesses/managed
+    if (urlStr.includes("/api/v1/businesses/managed") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 42,
+              name: "Bole Lounge",
+              slug: "bole-lounge",
+              category: "drinks",
+              cuisine: "Cocktails",
+              description: "Upscale lounge",
+              short_description: "Upscale lounge",
+              location_name: "Bole",
+              neighborhood: "Bole",
+              phone: "+251911000000",
+              price_range: "$$$",
+              tags: ["Cocktails"],
+              payment_methods: ["Cash", "Card"],
+              reservation_available: true,
+              publication_status: "PUBLISHED",
+              verification_status: "VERIFIED",
+              claim_status: "CLAIMED",
+              is_featured: false,
+              created_at: "2026-09-01T10:00:00Z",
+              updated_at: "2026-09-01T10:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 2. GET /api/v1/businesses/42/manage
+    if (urlStr.includes("/api/v1/businesses/42/manage") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: 42,
+            name: "Bole Lounge",
+            slug: "bole-lounge",
+            category: "drinks",
+            cuisine: "Cocktails",
+            description: "Upscale lounge",
+            location_name: "Bole",
+            phone: "+251911000000",
+            price_range: "$$$",
+            tags: ["Cocktails"],
+            payment_methods: ["Cash"],
+            reservation_available: true,
+            publication_status: "PUBLISHED",
+            verification_status: "VERIFIED",
+            claim_status: "CLAIMED",
+            created_at: "2026-09-01T10:00:00Z",
+            updated_at: "2026-09-01T10:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 3. PATCH /api/v1/businesses/42
+    if (urlStr.includes("/api/v1/businesses/42") && method === "PATCH") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: 42,
+            name: body.name || "Bole Lounge",
+            category: body.category || "drinks",
+            cuisine: "Cocktails",
+            description: body.description || "Upscale lounge",
+            location_name: body.location_name || "Bole",
+            phone: body.phone || "+251911000000",
+            price_range: body.price_range || "$$$",
+            tags: body.tags || ["Cocktails"],
+            payment_methods: ["Cash"],
+            reservation_available: true,
+            publication_status: "PUBLISHED",
+            verification_status: "VERIFIED",
+            claim_status: "CLAIMED",
+            created_at: "2026-09-01T10:00:00Z",
+            updated_at: "2026-09-30T10:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 4. GET /api/v1/claims
+    if (urlStr.includes("/api/v1/claims") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "claim-uuid-1",
+              business_id: 15,
+              user_id: "user-1",
+              status: "PENDING",
+              submitted_at: "2026-09-25T10:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 5. POST /api/v1/claims
+    if (urlStr.includes("/api/v1/claims") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "claim-uuid-2",
+            business_id: body.business_id,
+            user_id: "user-1",
+            status: "PENDING",
+            submitted_at: "2026-09-30T10:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 6. GET /api/v1/submissions
+    if (urlStr.includes("/api/v1/submissions") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "sub-uuid-1",
+              user_id: "user-1",
+              business_name: "Entoto Mountain Cafe",
+              category: "cafe",
+              area: "Entoto",
+              status: "PENDING",
+              submitted_at: "2026-09-28T10:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 7. POST /api/v1/submissions
+    if (urlStr.includes("/api/v1/submissions") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "sub-uuid-2",
+            user_id: "user-1",
+            business_name: body.business_name,
+            category: body.category,
+            area: body.area,
+            status: "PENDING",
+            submitted_at: "2026-09-30T10:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { message: "Not found" } }), { status: 404 });
+  }) as unknown as typeof fetch;
+
+  try {
+    // 1. Managed businesses
+    const managed = await businessesApi.getManagedBusinesses();
+    assert.equal(managed.length, 1);
+    assert.equal(managed[0].name, "Bole Lounge");
+
+    // 2. Manage detail
+    const detail = await businessesApi.getManagedBusiness(42);
+    assert.equal(detail.id, 42);
+    assert.equal(detail.name, "Bole Lounge");
+
+    // 3. Update managed business
+    const updated = await businessesApi.updateManagedBusiness(42, {
+      name: "Bole Lounge & Garden",
+      description: "Updated VIP lounge",
+    });
+    assert.equal(updated.name, "Bole Lounge & Garden");
+    assert.equal(updated.description, "Updated VIP lounge");
+
+    // 4. Claims
+    const claims = await customerApi.getMyClaims();
+    assert.equal(claims.length, 1);
+    assert.equal(claims[0].business_id, 15);
+
+    const newClaim = await customerApi.submitClaim(20);
+    assert.equal(newClaim.business_id, 20);
+    assert.equal(newClaim.status, "PENDING");
+
+    // 5. Submissions
+    const submissions = await customerApi.getMySubmissions();
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0].business_name, "Entoto Mountain Cafe");
+
+    const newSub = await customerApi.createSubmission({
+      business_name: "Piassa Pastry",
+      category: "cafe",
+      area: "Piazza",
+    });
+    assert.equal(newSub.business_name, "Piassa Pastry");
+    assert.equal(newSub.status, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 

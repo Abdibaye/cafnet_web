@@ -5,16 +5,15 @@ import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import BusinessManagementCard from "@/components/BusinessManagementCard";
 import { getAllBusinesses } from "@/data/mockBusinesses";
+import { businessToViewModel } from "@/lib/api/adapters";
 
 export default function BusinessCenterPage() {
   const { authReady, isAuthenticated, startSignIn } = useCustomer();
-  const { ready, claims, submissions, managedBusinesses: ownerManagedBusinesses } = useBusinessOwner();
+  const { ready, claims, submissions, rawManagedBusinesses } = useBusinessOwner();
 
   const allBusinesses = getAllBusinesses();
-  const managedBusinesses = allBusinesses.filter((business) =>
-    business.claimStatus === "claimed" ||
-    ownerManagedBusinesses.some((mb) => mb.businessId === business.id)
-  );
+  // Server-authoritative managed businesses returned by GET /api/v1/businesses/managed
+  const managedBusinesses = (rawManagedBusinesses || []).map((b) => businessToViewModel(b));
 
   // Filter pending or rejected claims so approved claims aren't duplicated as both claim and managed business
   const displayClaims = claims.filter(
@@ -78,7 +77,7 @@ export default function BusinessCenterPage() {
 
           <section id="businesses" className="mt-5 space-y-4">
             {managedBusinesses.map((business) => (
-              <BusinessManagementCard key={`managed-${business.id}`} business={business} />
+              <BusinessManagementCard key={`managed-${business.id}`} business={business} isManaged={true} />
             ))}
             {displayClaims.map((claim) => {
               const business = allBusinesses.find((item) => item.id === claim.businessId);

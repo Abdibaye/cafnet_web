@@ -55,3 +55,92 @@ export async function getBusinessBySlug(slug: string): Promise<Business> {
   );
   return res.data;
 }
+
+// ==========================================
+// Business Management Endpoints (ReBAC Protected)
+// ==========================================
+
+/**
+ * Returns all businesses managed by the authenticated user.
+ */
+export async function getManagedBusinesses(): Promise<Business[]> {
+  const res = await api.get<Business[]>("/api/v1/businesses/managed");
+  return res.data || [];
+}
+
+/**
+ * Retrieves private management-level venue details for an authorized manager.
+ */
+export async function getManagedBusiness(id: number | string): Promise<Business> {
+  const res = await api.get<Business>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}/manage`,
+  );
+  return res.data;
+}
+
+/**
+ * Updates mutable profile metadata for a managed business.
+ */
+export async function updateManagedBusiness(
+  id: number | string,
+  input: import("./types").UpdateBusinessInput,
+): Promise<Business> {
+  const res = await api.patch<Business>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}`,
+    input,
+  );
+  return res.data;
+}
+
+/**
+ * Retrieves 7-day operating hours schedule for a managed business.
+ */
+export async function getBusinessHours(
+  id: number | string,
+): Promise<import("./types").BusinessHours[]> {
+  const res = await api.get<import("./types").BusinessHours[]>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}/hours`,
+  );
+  return res.data || [];
+}
+
+/**
+ * Replaces the 7-day operating hours schedule for a managed business.
+ */
+export async function setBusinessHours(
+  id: number | string,
+  hours: import("./types").BusinessHours[],
+): Promise<{ updated: boolean }> {
+  const res = await api.put<{ updated: boolean }>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}/hours`,
+    hours,
+  );
+  return res.data;
+}
+
+/**
+ * Retrieves gallery images for a managed business.
+ */
+export async function getBusinessImages(
+  id: number | string,
+): Promise<import("./types").BusinessImage[]> {
+  const res = await api.get<import("./types").BusinessImage[]>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}/images`,
+  );
+  return res.data || [];
+}
+
+/**
+ * Replaces gallery images for a managed business.
+ */
+export async function setBusinessImages(
+  id: number | string,
+  images: import("./types").BusinessImage[],
+): Promise<{ updated: boolean }> {
+  const res = await api.put<{ updated: boolean }>(
+    `/api/v1/businesses/${encodeURIComponent(String(id))}/images`,
+    images,
+  );
+  return res.data;
+}
+
