@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { listClaims } from "@/lib/api/admin";
+import { listClaims, getAdminStats } from "@/lib/api/admin";
 import { listBusinesses } from "@/lib/api/businesses";
-import type { BusinessClaim, Business } from "@/lib/api/types";
+import type { BusinessClaim, Business, AdminStats } from "@/lib/api/types";
 
 export default function AdminClaimsPage() {
   const [claims, setClaims] = useState<BusinessClaim[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [businesses, setBusinesses] = useState<Record<number, Business>>({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -15,14 +16,17 @@ export default function AdminClaimsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [claimsData, bizResult] = await Promise.all([
+      const [claimsData, statsData, bizResult] = await Promise.all([
         listClaims({
           status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
+          limit: 100,
         }),
+        getAdminStats().catch(() => null),
         listBusinesses({ limit: 100 }),
       ]);
 
       setClaims(claimsData || []);
+      if (statsData) setStats(statsData);
       const bMap: Record<number, Business> = {};
       for (const b of bizResult?.businesses || []) {
         bMap[b.id] = b;
@@ -39,7 +43,7 @@ export default function AdminClaimsPage() {
     loadData();
   }, [loadData]);
 
-  const pendingCount = claims.filter((c) => c.status === "PENDING").length;
+  const pendingCount = stats?.pending_claims ?? claims.filter((c) => c.status === "PENDING").length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -57,17 +61,17 @@ export default function AdminClaimsPage() {
       {/* Filter Tabs */}
       <div className="flex border-b border-outline-variant">
         {[
-          { key: "all", label: "All Claims", count: claims.length },
-          { key: "pending", label: "Pending", count: pendingCount },
+          { key: "all", label: "All Claims", count: stats?.total_claims ?? claims.length },
+          { key: "pending", label: "Pending", count: stats?.pending_claims ?? pendingCount },
           {
             key: "approved",
             label: "Approved",
-            count: claims.filter((c) => c.status === "APPROVED").length,
+            count: stats?.approved_claims ?? claims.filter((c) => c.status === "APPROVED").length,
           },
           {
             key: "rejected",
             label: "Rejected",
-            count: claims.filter((c) => c.status === "REJECTED").length,
+            count: stats?.rejected_claims ?? claims.filter((c) => c.status === "REJECTED").length,
           },
         ].map((tab) => (
           <button

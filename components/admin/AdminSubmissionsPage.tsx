@@ -2,21 +2,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { listSubmissions } from "@/lib/api/admin";
-import type { BusinessSubmission } from "@/lib/api/types";
+import { listSubmissions, getAdminStats } from "@/lib/api/admin";
+import type { BusinessSubmission, AdminStats } from "@/lib/api/types";
 
 export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<BusinessSubmission[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const loadSubmissions = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await listSubmissions({
-        status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
-      });
+      const [data, statsData] = await Promise.all([
+        listSubmissions({
+          status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
+          limit: 100,
+        }),
+        getAdminStats().catch(() => null),
+      ]);
       setSubmissions(data || []);
+      if (statsData) setStats(statsData);
     } catch {
       setSubmissions([]);
     } finally {
@@ -28,7 +34,7 @@ export default function AdminSubmissionsPage() {
     loadSubmissions();
   }, [loadSubmissions]);
 
-  const pendingCount = submissions.filter((s) => s.status === "PENDING").length;
+  const pendingCount = stats?.pending_submissions ?? submissions.filter((s) => s.status === "PENDING").length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -46,10 +52,10 @@ export default function AdminSubmissionsPage() {
       {/* Filter Tabs */}
       <div className="flex border-b border-outline-variant">
         {[
-          { key: "all", label: "All Submissions", count: submissions.length },
-          { key: "pending", label: "Pending", count: pendingCount },
-          { key: "approved", label: "Approved", count: submissions.filter((s) => s.status === "APPROVED").length },
-          { key: "rejected", label: "Rejected", count: submissions.filter((s) => s.status === "REJECTED").length },
+          { key: "all", label: "All Submissions", count: stats?.total_submissions ?? submissions.length },
+          { key: "pending", label: "Pending", count: stats?.pending_submissions ?? pendingCount },
+          { key: "approved", label: "Approved", count: stats?.approved_submissions ?? submissions.filter((s) => s.status === "APPROVED").length },
+          { key: "rejected", label: "Rejected", count: stats?.rejected_submissions ?? submissions.filter((s) => s.status === "REJECTED").length },
         ].map((tab) => (
           <button
             key={tab.key}
