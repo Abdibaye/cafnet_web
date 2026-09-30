@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
-import { getActiveUpdates, type BusinessUpdate } from "@/data/businessUpdateStorage";
 import { getBusinessById } from "@/data/mockBusinesses";
 import * as updatesApi from "@/lib/api/updates";
-import { apiUpdateToStorageUpdate } from "@/lib/api/adapters";
+import { apiUpdateToViewModel, type BusinessUpdateViewModel } from "@/lib/api/adapters";
 
 export default function ExploreUpdatesFeed() {
-  const [updates, setUpdates] = useState<BusinessUpdate[]>(() => getActiveUpdates().slice(0, 6));
+  const [updates, setUpdates] = useState<BusinessUpdateViewModel[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -16,15 +16,18 @@ export default function ExploreUpdatesFeed() {
     const loadUpdates = async () => {
       try {
         const apiData = await updatesApi.listActiveUpdates({ limit: 6 });
-        if (!cancelled && apiData && apiData.length > 0) {
-          setUpdates(apiData.map(apiUpdateToStorageUpdate));
+        if (!cancelled && apiData) {
+          setUpdates(apiData.map(apiUpdateToViewModel));
           return;
         }
       } catch {
-        // Fall back gracefully to local storage
+        // Fall back gracefully to empty state
       }
       if (!cancelled) {
-        setUpdates(getActiveUpdates().slice(0, 6));
+        setUpdates([]);
+      }
+      if (!cancelled) {
+        setLoading(false);
       }
     };
 

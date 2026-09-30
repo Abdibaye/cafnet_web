@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { getBusinessById } from "@/data/mockBusinesses";
-import { formatUpdateDate, getUpdateTypeLabel, getUpdateTypeIcon, type BusinessUpdate } from "@/data/businessUpdateStorage";
+import {
+  formatUpdateDate,
+  getUpdateTypeLabel,
+  getUpdateTypeIcon,
+  type BusinessUpdateViewModel,
+} from "@/lib/api/adapters";
 
 type BusinessUpdateCardProps = {
-  update: BusinessUpdate;
+  update: BusinessUpdateViewModel;
   business?: any;
   showBusinessName?: boolean;
   showTimestamp?: boolean;
@@ -20,8 +25,6 @@ export default function BusinessUpdateCard({
   const business = propBusiness || getBusinessById(update.businessId);
   const typeLabel = getUpdateTypeLabel(update.type);
   const typeIcon = getUpdateTypeIcon(update.type);
-
-  if (!business) return null;
 
   return (
     <article

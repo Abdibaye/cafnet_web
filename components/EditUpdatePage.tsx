@@ -3,9 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBusinessOwner } from "./BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { type BusinessUpdate, type UpdateType } from "@/data/businessUpdateStorage";
+import { getManagedBusiness } from "@/lib/api/businesses";
+import { listBusinessUpdates, updateBusinessUpdate } from "@/lib/api/updates";
+import {
+  apiUpdateToViewModel,
+  updateTypeOptions,
+  type UpdateType,
+  type BusinessUpdateViewModel,
+} from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business } from "@/lib/api/types";
 import BusinessUpdateCard from "./BusinessUpdateCard";
 
 type FormErrors = {
@@ -17,13 +24,31 @@ type FormErrors = {
   validUntil?: string;
 };
 
-export default function EditUpdatePage({ businessId, updateId }: { businessId: string; updateId: string }) {
+export default function EditUpdatePage({
+  businessId,
+  updateId,
+}: {
+  businessId: string;
+  updateId: string;
+}) {
   const router = useRouter();
-  const { ready, getUpdateById, updateExistingUpdate, updateTypeOptions, getUpdateTypeLabel, getUpdateTypeIcon, isBusinessManaged } = useBusinessOwner();
-  const business = getBusinessById(businessId);
 
-  const [formData, setFormData] = useState<Partial<Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">>>({
-    businessId: Number(businessId),
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [existingUpdate, setExistingUpdate] = useState<BusinessUpdateViewModel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<{
+    type: UpdateType;
+    title: string;
+    description: string;
+    eventDate?: string;
+    eventTime?: string;
+    price?: string;
+    offerDetails?: string;
+    validUntil?: string;
+  }>({
     type: "new_menu",
     title: "",
     description: "",
@@ -31,28 +56,64 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!ready || !business) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setErrorStatus(null);
+      setErrorMessage(null);
+      try {
+        const [b, updates] = await Promise.all([
+          getManagedBusiness(businessId),
+          listBusinessUpdates(businessId, true),
+        ]);
+        if (cancelled) return;
+        setBusiness(b);
 
-    const update = getUpdateById(updateId);
-    if (update) {
-      setFormData({
-        businessId: update.businessId,
-        type: update.type,
-        title: update.title,
-        description: update.description,
-        eventDate: update.eventDate,
-        eventTime: update.eventTime,
-        validUntil: update.validUntil,
-        price: update.price,
-        offerDetails: update.offerDetails,
-      });
+        const found = updates.find((u) => u.id === updateId);
+        if (!found) {
+          setErrorStatus(404);
+          setErrorMessage("Update not found");
+          return;
+        }
+
+        const vm = apiUpdateToViewModel(found);
+        setExistingUpdate(vm);
+        setFormData({
+          type: vm.type,
+          title: vm.title,
+          description: vm.description,
+          eventDate: vm.eventDate || "",
+          eventTime: vm.eventTime || "",
+          price: vm.price || "",
+          offerDetails: vm.offerDetails || "",
+          validUntil: vm.validUntil || "",
+        });
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError) {
+            setErrorStatus(err.status);
+            setErrorMessage(err.message);
+          } else {
+            setErrorStatus(500);
+            setErrorMessage("Failed to load update details");
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-    setLoading(false);
-  }, [ready, businessId, updateId, business, getUpdateById]);
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, updateId]);
 
   const handleChange = useCallback((field: string, value: string) => {
     setFormData((prev) => ({
@@ -77,6 +138,8 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
 
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     if (!formData.type) {
       newErrors.type = "Update type is required";
@@ -84,14 +147,14 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
 
     if (!formData.title || formData.title.trim().length === 0) {
       newErrors.title = "Title is required";
-    } else if (formData.title.length > 100) {
-      newErrors.title = "Title must be less than 100 characters";
+    } else if (formData.title.length > 120) {
+      newErrors.title = "Title must be at most 120 characters";
     }
 
     if (!formData.description || formData.description.trim().length === 0) {
       newErrors.description = "Description is required";
-    } else if (formData.description.length > 500) {
-      newErrors.description = "Description must be less than 500 characters";
+    } else if (formData.description.length > 5000) {
+      newErrors.description = "Description must be at most 5000 characters";
     }
 
     if (formData.type === "event") {
@@ -99,20 +162,36 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(formData.eventDate)) {
           newErrors.eventDate = "Enter a valid date (YYYY-MM-DD)";
+        } else {
+          const parts = formData.eventDate.split("-").map(Number);
+          const eventTime = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+          if (eventTime < today) {
+            newErrors.eventDate = "Event date cannot be in the past";
+          }
         }
       }
       if (formData.eventTime && formData.eventTime.trim().length > 0) {
-        const timeRegex = /^\d{1,2}:\d{2} (AM|PM)$/i;
+        const timeRegex = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
         if (!timeRegex.test(formData.eventTime)) {
           newErrors.eventTime = "Enter a valid time (e.g., 7:00 PM)";
         }
       }
     }
 
-    if (formData.type === "offer" && formData.validUntil) {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(formData.validUntil)) {
-        newErrors.validUntil = "Enter a valid date (YYYY-MM-DD)";
+    if (formData.type === "offer") {
+      if (!formData.validUntil || !formData.validUntil.trim()) {
+        newErrors.validUntil = "Expiration date is required for special offers";
+      } else {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(formData.validUntil)) {
+          newErrors.validUntil = "Enter a valid date (YYYY-MM-DD)";
+        } else {
+          const parts = formData.validUntil.split("-").map(Number);
+          const expTime = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+          if (expTime < today) {
+            newErrors.validUntil = "Offer expiration date cannot be in the past";
+          }
+        }
       }
     }
 
@@ -124,34 +203,41 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
     if (!validateForm()) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      const updateData: Partial<BusinessUpdate> = {
-        businessId: Number(businessId),
-        type: formData.type!,
-        title: formData.title!.trim(),
-        description: formData.description!.trim(),
-        eventDate: formData.eventDate?.trim(),
-        eventTime: formData.eventTime?.trim(),
-        validUntil: formData.validUntil?.trim(),
-        price: formData.price?.trim(),
-        offerDetails: formData.offerDetails?.trim(),
-      };
+      await updateBusinessUpdate(businessId, updateId, {
+        update_type: formData.type,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        event_date: formData.type === "event" && formData.eventDate ? formData.eventDate.trim() : undefined,
+        event_time: formData.type === "event" && formData.eventTime ? formData.eventTime.trim() : undefined,
+        price_text: formData.type === "price_update" && formData.price ? formData.price.trim() : undefined,
+        offer_details: formData.type === "offer" && formData.offerDetails ? formData.offerDetails.trim() : undefined,
+        valid_until: formData.type === "offer" && formData.validUntil ? formData.validUntil.trim() : undefined,
+      });
 
-      await updateExistingUpdate(updateId, updateData);
       setShowSuccess(true);
-      
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cafnet:updates-updated"));
+      }
+
       setTimeout(() => {
         router.push(`/business/dashboard/business/${businessId}/updates`);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error("Failed to update:", error);
+      if (error instanceof ApiError) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitError("Failed to save changes. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [validateForm, formData, businessId, updateId, updateExistingUpdate, router]);
+  }, [validateForm, formData, businessId, updateId, router]);
 
-  if (!ready || !business) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Loading...</h1>
@@ -160,27 +246,58 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
     );
   }
 
-  const canManage = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed");
-
-  if (!canManage) {
+  if (errorStatus === 403) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Access Denied</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">You do not have permission to edit updates for this business.</p>
-        <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
+          <span className="material-symbols-outlined text-3xl">lock</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-on-surface">Access Denied</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          You do not have permission to edit updates for this business.
+        </p>
+        <Link
+          href="/business/dashboard"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-white hover:bg-[#0f46b8]"
+        >
           Back to Business Center
         </Link>
       </div>
     );
   }
 
-  if (loading) {
+  if (errorStatus === 404 || !business || !existingUpdate) {
     return (
-      <div className="mx-auto max-w-4xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Loading update...</h1>
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Update Not Found</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          {errorMessage || "The requested update could not be found."}
+        </p>
+        <Link
+          href={`/business/dashboard/business/${businessId}/updates`}
+          className="mt-6 inline-flex text-sm font-semibold text-primary"
+        >
+          Back to updates
+        </Link>
       </div>
     );
   }
+
+  const previewUpdate: BusinessUpdateViewModel = {
+    id: updateId,
+    businessId: business.id,
+    type: formData.type || "new_menu",
+    title: formData.title || "Update title",
+    description: formData.description || "Update description will appear here as you type.",
+    createdAt: existingUpdate.createdAt,
+    publishedAt: existingUpdate.publishedAt,
+    eventDate: formData.type === "event" ? formData.eventDate : undefined,
+    eventTime: formData.type === "event" ? formData.eventTime : undefined,
+    price: formData.type === "price_update" ? formData.price : undefined,
+    offerDetails: formData.type === "offer" ? formData.offerDetails : undefined,
+    validUntil: formData.type === "offer" ? formData.validUntil : undefined,
+    status: existingUpdate.status,
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-0 lg:py-16">
@@ -192,7 +309,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Edit Update</p>
           <h1 className="mt-2 text-3xl font-bold text-on-surface">Edit update</h1>
           <p className="mt-3 text-sm text-on-surface-variant">
-            Update the information for this announcement.
+            Update the information for this announcement at {business.name}.
           </p>
         </div>
       </div>
@@ -238,10 +355,10 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
                   <input
                     id="title"
                     type="text"
-                    value={formData.title || ""}
+                    value={formData.title}
                     onChange={(e) => handleChange("title", e.target.value)}
                     placeholder="e.g., Weekend Breakfast Menu"
-                    maxLength={100}
+                    maxLength={120}
                     className={`mt-2 h-12 w-full rounded-xl border ${errors.title ? "border-error" : "border-outline-variant"} bg-white px-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15`}
                   />
                   {errors.title && <p className="mt-1 text-xs text-error">{errors.title}</p>}
@@ -253,15 +370,15 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
                   </label>
                   <textarea
                     id="description"
-                    value={formData.description || ""}
+                    value={formData.description}
                     onChange={(e) => handleChange("description", e.target.value)}
                     placeholder="Tell customers what's new or useful about this update."
                     rows={4}
-                    maxLength={500}
+                    maxLength={5000}
                     className={`mt-2 w-full rounded-xl border ${errors.description ? "border-error" : "border-outline-variant"} bg-white px-4 py-3 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15`}
                   />
                   <p className="mt-1 text-xs text-on-surface-variant">
-                    {formData.description?.length || 0}/500 characters
+                    {formData.description.length}/5000 characters
                   </p>
                   {errors.description && <p className="mt-1 text-xs text-error">{errors.description}</p>}
                 </div>
@@ -315,7 +432,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
                     </div>
                     <div>
                       <label htmlFor="validUntil" className="block text-sm font-semibold text-on-surface">
-                        Valid until
+                        Valid until <span className="text-primary">*</span>
                       </label>
                       <input
                         id="validUntil"
@@ -347,6 +464,12 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
               </div>
             </section>
 
+            {submitError && (
+              <div className="rounded-xl border border-error/30 bg-error-container/20 p-4 text-sm text-error">
+                {submitError}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
@@ -356,7 +479,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
                 {isSubmitting ? (
                   <>
                     <span className="material-symbols-outlined text-[18px] animate-spin" aria-hidden="true">sync</span>
-                    Saving...
+                    Saving changes...
                   </>
                 ) : (
                   <>
@@ -376,7 +499,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
             {showSuccess && (
               <div className="inline-flex items-center gap-2 rounded-lg bg-primary-container px-4 py-2.5 text-sm font-semibold text-primary">
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
-                Update saved
+                Update saved successfully
               </div>
             )}
           </form>
@@ -389,16 +512,7 @@ export default function EditUpdatePage({ businessId, updateId }: { businessId: s
 
             <div className="mt-6">
               <BusinessUpdateCard
-                update={{
-                  id: "preview",
-                  businessId: Number(businessId),
-                  type: formData.type || "new_menu",
-                  title: formData.title || "Update title",
-                  description: formData.description || "Update description",
-                  createdAt: new Date().toISOString(),
-                  publishedAt: new Date().toISOString(),
-                  status: "published",
-                }}
+                update={previewUpdate}
                 business={business}
                 showBusinessName
               />

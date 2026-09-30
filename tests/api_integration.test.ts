@@ -11,6 +11,7 @@ import * as reviewsApi from "../lib/api/reviews";
 import * as updatesApi from "../lib/api/updates";
 import * as reportsApi from "../lib/api/reports";
 import * as menusApi from "../lib/api/menus";
+import * as adapters from "../lib/api/adapters";
 import {
   formatPriceEtb,
   formatHours,
@@ -1628,6 +1629,181 @@ test("menusApi executes full CRUD and reordering calls with canonical payloads",
     const delCatRes = await menusApi.deleteMenuCategory(10, "cat-1");
     assert.equal(delCatRes.deleted, true);
     assert.equal(requests[8].method, "DELETE");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Business Updates API & adapters integration (Backend 15)", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; method: string; body?: any }[] = [];
+
+  const fakeUpdates: any[] = [
+    {
+      id: "upd-1",
+      business_id: 25,
+      author_user_id: "user-1",
+      update_type: "offer",
+      title: "Weekend 20% Off",
+      description: "Enjoy 20% off all meals this weekend",
+      status: "PUBLISHED",
+      offer_details: "20% off meals",
+      valid_until: "2030-12-31",
+      expires_at: "2030-12-31T23:59:59Z",
+      published_at: "2026-09-25T10:00:00Z",
+      created_at: "2026-09-25T10:00:00Z",
+      updated_at: "2026-09-25T10:00:00Z",
+    },
+    {
+      id: "upd-2",
+      business_id: 25,
+      author_user_id: "user-1",
+      update_type: "event",
+      title: "Live Jazz Night",
+      description: "Acoustic jazz with local musicians",
+      status: "PUBLISHED",
+      event_date: "2030-05-15",
+      event_time: "7:00 PM",
+      expires_at: "2030-05-15T23:59:59Z",
+      published_at: "2026-09-26T10:00:00Z",
+      created_at: "2026-09-26T10:00:00Z",
+      updated_at: "2026-09-26T10:00:00Z",
+    },
+    {
+      id: "upd-3",
+      business_id: 25,
+      author_user_id: "user-1",
+      update_type: "price_update",
+      title: "New Coffee Pricing",
+      description: "Updated prices for specialty drinks",
+      status: "PUBLISHED",
+      price_text: "120 ETB",
+      published_at: "2026-09-27T10:00:00Z",
+      created_at: "2026-09-27T10:00:00Z",
+      updated_at: "2026-09-27T10:00:00Z",
+    },
+  ];
+
+  globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+    const urlStr = url.toString();
+    const method = init?.method || "GET";
+    let body: any;
+    if (init?.body) {
+      try {
+        body = JSON.parse(init.body as string);
+      } catch {
+        body = init.body;
+      }
+    }
+    requests.push({ url: urlStr, method, body });
+
+    if (urlStr.includes("/api/v1/businesses/25/updates") && method === "GET") {
+      return new Response(JSON.stringify({ data: fakeUpdates }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (urlStr.includes("/api/v1/businesses/25/updates") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "upd-new",
+            business_id: 25,
+            author_user_id: "user-1",
+            update_type: body.update_type,
+            title: body.title,
+            description: body.description,
+            status: "PUBLISHED",
+            valid_until: body.valid_until,
+            published_at: "2026-09-30T10:00:00Z",
+            created_at: "2026-09-30T10:00:00Z",
+            updated_at: "2026-09-30T10:00:00Z",
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (urlStr.includes("/api/v1/businesses/25/updates/upd-1") && method === "PATCH") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            ...fakeUpdates[0],
+            title: body.title,
+            updated_at: "2026-09-30T11:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (urlStr.includes("/api/v1/businesses/25/updates/upd-1") && method === "DELETE") {
+      return new Response(JSON.stringify({ data: { deleted: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "Not found" } }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+
+  try {
+    // 1. List business updates
+    const updates = await updatesApi.listBusinessUpdates(25, true);
+    assert.equal(updates.length, 3);
+    assert.equal(requests[0].method, "GET");
+
+    // 2. Adapters
+    const vms = updates.map(adapters.apiUpdateToViewModel);
+    assert.equal(vms[0].title, "Weekend 20% Off");
+    assert.equal(vms[0].type, "offer");
+    assert.equal(vms[0].offerDetails, "20% off meals");
+    assert.equal(adapters.isUpdateExpired(vms[0]), false);
+
+    // 3. Expiration detection
+    const expiredVm = {
+      ...vms[0],
+      expiresAt: "2020-01-01T00:00:00Z",
+    };
+    assert.equal(adapters.isUpdateExpired(expiredVm), true);
+
+    // 4. UI label & icon helpers
+    assert.equal(adapters.getUpdateTypeLabel("new_menu"), "New Menu");
+    assert.equal(adapters.getUpdateTypeLabel("offer"), "Offer");
+    assert.equal(adapters.getUpdateTypeLabel("event"), "Event");
+    assert.equal(adapters.getUpdateTypeLabel("price_update"), "Price Update");
+    assert.equal(adapters.getUpdateTypeLabel("announcement"), "Announcement");
+
+    assert.equal(adapters.getUpdateTypeIcon("new_menu"), "restaurant_menu");
+    assert.equal(adapters.getUpdateTypeIcon("offer"), "local_offer");
+    assert.equal(adapters.getUpdateTypeIcon("event"), "event");
+
+    // 5. Create business update
+    const created = await updatesApi.createBusinessUpdate(25, {
+      update_type: "offer",
+      title: "Midweek Special",
+      description: "Free dessert with every entree",
+      valid_until: "2030-11-30",
+    });
+    assert.equal(created.id, "upd-new");
+    assert.equal(created.title, "Midweek Special");
+    assert.equal(requests[1].method, "POST");
+
+    // 6. Update business update
+    const patched = await updatesApi.updateBusinessUpdate(25, "upd-1", {
+      title: "Weekend 25% Off Super Sale",
+    });
+    assert.equal(patched.title, "Weekend 25% Off Super Sale");
+    assert.equal(requests[2].method, "PATCH");
+
+    // 7. Delete business update
+    const delRes = await updatesApi.deleteBusinessUpdate(25, "upd-1");
+    assert.equal(delRes.deleted, true);
+    assert.equal(requests[3].method, "DELETE");
   } finally {
     globalThis.fetch = originalFetch;
   }

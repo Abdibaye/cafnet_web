@@ -3,9 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBusinessOwner } from "./BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { formatUpdateDate, type BusinessUpdate, type UpdateType } from "@/data/businessUpdateStorage";
+import { getManagedBusiness } from "@/lib/api/businesses";
+import { createBusinessUpdate } from "@/lib/api/updates";
+import {
+  updateTypeOptions,
+  type UpdateType,
+  type BusinessUpdateViewModel,
+} from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business } from "@/lib/api/types";
 import BusinessUpdateCard from "./BusinessUpdateCard";
 
 type FormErrors = {
@@ -19,11 +25,22 @@ type FormErrors = {
 
 export default function CreateUpdatePage({ businessId }: { businessId: string }) {
   const router = useRouter();
-  const { ready, createUpdate, updateTypeOptions, getUpdateTypeLabel, getUpdateTypeIcon, isBusinessManaged } = useBusinessOwner();
-  const business = getBusinessById(businessId);
 
-  const [formData, setFormData] = useState<Partial<Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status">>>({
-    businessId: Number(businessId),
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<{
+    type: UpdateType;
+    title: string;
+    description: string;
+    eventDate?: string;
+    eventTime?: string;
+    price?: string;
+    offerDetails?: string;
+    validUntil?: string;
+  }>({
     type: "new_menu",
     title: "",
     description: "",
@@ -31,15 +48,42 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    if (!ready || !business) return;
-    setFormData((prev) => ({
-      ...prev,
-      businessId: Number(businessId),
-    }));
-  }, [ready, businessId, business]);
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setErrorStatus(null);
+      setErrorMessage(null);
+      try {
+        const b = await getManagedBusiness(businessId);
+        if (!cancelled) {
+          setBusiness(b);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError) {
+            setErrorStatus(err.status);
+            setErrorMessage(err.message);
+          } else {
+            setErrorStatus(500);
+            setErrorMessage("Failed to load business details");
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
 
   const handleChange = useCallback((field: string, value: string) => {
     setFormData((prev) => ({
@@ -64,6 +108,8 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
 
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     if (!formData.type) {
       newErrors.type = "Update type is required";
@@ -71,14 +117,14 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
 
     if (!formData.title || formData.title.trim().length === 0) {
       newErrors.title = "Title is required";
-    } else if (formData.title.length > 100) {
-      newErrors.title = "Title must be less than 100 characters";
+    } else if (formData.title.length > 120) {
+      newErrors.title = "Title must be at most 120 characters";
     }
 
     if (!formData.description || formData.description.trim().length === 0) {
       newErrors.description = "Description is required";
-    } else if (formData.description.length > 500) {
-      newErrors.description = "Description must be less than 500 characters";
+    } else if (formData.description.length > 5000) {
+      newErrors.description = "Description must be at most 5000 characters";
     }
 
     if (formData.type === "event") {
@@ -86,20 +132,36 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(formData.eventDate)) {
           newErrors.eventDate = "Enter a valid date (YYYY-MM-DD)";
+        } else {
+          const parts = formData.eventDate.split("-").map(Number);
+          const eventTime = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+          if (eventTime < today) {
+            newErrors.eventDate = "Event date cannot be in the past";
+          }
         }
       }
       if (formData.eventTime && formData.eventTime.trim().length > 0) {
-        const timeRegex = /^\d{1,2}:\d{2} (AM|PM)$/i;
+        const timeRegex = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
         if (!timeRegex.test(formData.eventTime)) {
           newErrors.eventTime = "Enter a valid time (e.g., 7:00 PM)";
         }
       }
     }
 
-    if (formData.type === "offer" && formData.validUntil) {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(formData.validUntil)) {
-        newErrors.validUntil = "Enter a valid date (YYYY-MM-DD)";
+    if (formData.type === "offer") {
+      if (!formData.validUntil || !formData.validUntil.trim()) {
+        newErrors.validUntil = "Expiration date is required for special offers";
+      } else {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(formData.validUntil)) {
+          newErrors.validUntil = "Enter a valid date (YYYY-MM-DD)";
+        } else {
+          const parts = formData.validUntil.split("-").map(Number);
+          const expTime = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+          if (expTime < today) {
+            newErrors.validUntil = "Offer expiration date cannot be in the past";
+          }
+        }
       }
     }
 
@@ -111,34 +173,41 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
     if (!validateForm()) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      const updateData: Omit<BusinessUpdate, "id" | "createdAt" | "publishedAt" | "status"> = {
-        businessId: Number(businessId),
-        type: formData.type!,
-        title: formData.title!.trim(),
-        description: formData.description!.trim(),
-        eventDate: formData.eventDate?.trim(),
-        eventTime: formData.eventTime?.trim(),
-        validUntil: formData.validUntil?.trim(),
-        price: formData.price?.trim(),
-        offerDetails: formData.offerDetails?.trim(),
-      };
+      await createBusinessUpdate(businessId, {
+        update_type: formData.type,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        event_date: formData.type === "event" && formData.eventDate ? formData.eventDate.trim() : undefined,
+        event_time: formData.type === "event" && formData.eventTime ? formData.eventTime.trim() : undefined,
+        price_text: formData.type === "price_update" && formData.price ? formData.price.trim() : undefined,
+        offer_details: formData.type === "offer" && formData.offerDetails ? formData.offerDetails.trim() : undefined,
+        valid_until: formData.type === "offer" && formData.validUntil ? formData.validUntil.trim() : undefined,
+      });
 
-      await createUpdate(updateData);
       setShowSuccess(true);
-      
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cafnet:updates-updated"));
+      }
+
       setTimeout(() => {
         router.push(`/business/dashboard/business/${businessId}/updates`);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error("Failed to create update:", error);
+      if (error instanceof ApiError) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitError("Failed to create update. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [validateForm, formData, businessId, createUpdate, router]);
+  }, [validateForm, formData, businessId, router]);
 
-  if (!ready || !business) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Loading...</h1>
@@ -147,13 +216,33 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
     );
   }
 
-  const canManage = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed");
-
-  if (!canManage) {
+  if (errorStatus === 403) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Access Denied</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">You do not have permission to create updates for this business.</p>
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
+          <span className="material-symbols-outlined text-3xl">lock</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-on-surface">Access Denied</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          You do not have permission to create updates for this business.
+        </p>
+        <Link
+          href="/business/dashboard"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-white hover:bg-[#0f46b8]"
+        >
+          Back to Business Center
+        </Link>
+      </div>
+    );
+  }
+
+  if (errorStatus === 404 || !business) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Business Not Found</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          {errorMessage || "The requested business could not be found."}
+        </p>
         <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
           Back to Business Center
         </Link>
@@ -161,7 +250,21 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
     );
   }
 
-  const selectedType = updateTypeOptions.find((opt) => opt.value === formData.type) || updateTypeOptions[0];
+  const previewUpdate: BusinessUpdateViewModel = {
+    id: "preview",
+    businessId: business.id,
+    type: formData.type || "new_menu",
+    title: formData.title || "Update title",
+    description: formData.description || "Update description will appear here as you type.",
+    createdAt: new Date().toISOString(),
+    publishedAt: new Date().toISOString(),
+    eventDate: formData.type === "event" ? formData.eventDate : undefined,
+    eventTime: formData.type === "event" ? formData.eventTime : undefined,
+    price: formData.type === "price_update" ? formData.price : undefined,
+    offerDetails: formData.type === "offer" ? formData.offerDetails : undefined,
+    validUntil: formData.type === "offer" ? formData.validUntil : undefined,
+    status: "published",
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-0 lg:py-16">
@@ -173,7 +276,7 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Create Update</p>
           <h1 className="mt-2 text-3xl font-bold text-on-surface">Create a new update</h1>
           <p className="mt-3 text-sm text-on-surface-variant">
-            Share what's new at your business with customers.
+            Share what's new at {business.name} with customers.
           </p>
         </div>
       </div>
@@ -219,10 +322,10 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
                   <input
                     id="title"
                     type="text"
-                    value={formData.title || ""}
+                    value={formData.title}
                     onChange={(e) => handleChange("title", e.target.value)}
                     placeholder="e.g., Weekend Breakfast Menu"
-                    maxLength={100}
+                    maxLength={120}
                     className={`mt-2 h-12 w-full rounded-xl border ${errors.title ? "border-error" : "border-outline-variant"} bg-white px-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15`}
                   />
                   {errors.title && <p className="mt-1 text-xs text-error">{errors.title}</p>}
@@ -234,15 +337,15 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
                   </label>
                   <textarea
                     id="description"
-                    value={formData.description || ""}
+                    value={formData.description}
                     onChange={(e) => handleChange("description", e.target.value)}
                     placeholder="Tell customers what's new or useful about this update."
                     rows={4}
-                    maxLength={500}
+                    maxLength={5000}
                     className={`mt-2 w-full rounded-xl border ${errors.description ? "border-error" : "border-outline-variant"} bg-white px-4 py-3 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15`}
                   />
                   <p className="mt-1 text-xs text-on-surface-variant">
-                    {formData.description?.length || 0}/500 characters
+                    {formData.description.length}/5000 characters
                   </p>
                   {errors.description && <p className="mt-1 text-xs text-error">{errors.description}</p>}
                 </div>
@@ -296,7 +399,7 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
                     </div>
                     <div>
                       <label htmlFor="validUntil" className="block text-sm font-semibold text-on-surface">
-                        Valid until
+                        Valid until <span className="text-primary">*</span>
                       </label>
                       <input
                         id="validUntil"
@@ -328,6 +431,12 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
               </div>
             </section>
 
+            {submitError && (
+              <div className="rounded-xl border border-error/30 bg-error-container/20 p-4 text-sm text-error">
+                {submitError}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
@@ -357,7 +466,7 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
             {showSuccess && (
               <div className="inline-flex items-center gap-2 rounded-lg bg-primary-container px-4 py-2.5 text-sm font-semibold text-primary">
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
-                Update published
+                Update published successfully
               </div>
             )}
           </form>
@@ -370,16 +479,7 @@ export default function CreateUpdatePage({ businessId }: { businessId: string })
 
             <div className="mt-6">
               <BusinessUpdateCard
-                update={{
-                  id: "preview",
-                  businessId: Number(businessId),
-                  type: formData.type || "new_menu",
-                  title: formData.title || "Update title",
-                  description: formData.description || "Update description",
-                  createdAt: new Date().toISOString(),
-                  publishedAt: new Date().toISOString(),
-                  status: "published",
-                }}
+                update={previewUpdate}
                 business={business}
                 showBusinessName
               />

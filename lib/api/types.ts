@@ -498,3 +498,30 @@ export interface ReorderItemsInput {
   item_ids: string[];
 }
 
+// Business Updates Management DTOs
+
+export interface CreateUpdateInput {
+  update_type: UpdateType;
+  title: string;
+  description: string;
+  event_date?: string;
+  event_time?: string;
+  price_text?: string;
+  offer_details?: string;
+  valid_until?: string;
+  expires_at?: string;
+}
+
+export interface UpdateUpdateInput {
+  update_type?: UpdateType;
+  title?: string;
+  description?: string;
+  event_date?: string;
+  event_time?: string;
+  price_text?: string;
+  offer_details?: string;
+  valid_until?: string;
+  expires_at?: string;
+  status?: UpdateStatus;
+}
+

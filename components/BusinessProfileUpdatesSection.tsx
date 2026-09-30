@@ -3,20 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
-import { getUpdatesByBusiness, isUpdateExpired, type BusinessUpdate } from "@/data/businessUpdateStorage";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { MergedBusinessProfile } from "@/data/businessProfileData";
 import * as updatesApi from "@/lib/api/updates";
-import { apiUpdateToStorageUpdate } from "@/lib/api/adapters";
+import { apiUpdateToViewModel, type BusinessUpdateViewModel } from "@/lib/api/adapters";
 
 type BusinessProfileUpdatesSectionProps = {
   business: MockBusiness | MergedBusinessProfile;
 };
 
 export default function BusinessProfileUpdatesSection({ business }: BusinessProfileUpdatesSectionProps) {
-  const [updates, setUpdates] = useState<BusinessUpdate[]>(() => {
-    return getUpdatesByBusiness(business.id).filter((u) => u.status === "published" && !isUpdateExpired(u));
-  });
+  const [updates, setUpdates] = useState<BusinessUpdateViewModel[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,16 +21,15 @@ export default function BusinessProfileUpdatesSection({ business }: BusinessProf
     const loadUpdates = async () => {
       try {
         const apiUpdates = await updatesApi.listBusinessUpdates(business.id);
-        if (!cancelled && apiUpdates && apiUpdates.length > 0) {
-          setUpdates(apiUpdates.map(apiUpdateToStorageUpdate));
+        if (!cancelled && apiUpdates) {
+          setUpdates(apiUpdates.map(apiUpdateToViewModel));
           return;
         }
       } catch {
-        // Fall back to storage
+        // Fall back gracefully
       }
       if (!cancelled) {
-        const current = getUpdatesByBusiness(business.id).filter((u) => u.status === "published" && !isUpdateExpired(u));
-        setUpdates(current);
+        setUpdates([]);
       }
     };
 

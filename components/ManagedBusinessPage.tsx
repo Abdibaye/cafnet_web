@@ -6,6 +6,7 @@ import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
 import { getBusinessMenu } from "@/lib/api/menus";
+import { getBusinessUpdates } from "@/lib/api/updates";
 import {
   businessToViewModel,
   computeMenuSummary,
@@ -13,7 +14,6 @@ import {
   type MenuSummaryViewModel,
 } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
-import { getUpdatesByBusiness } from "@/data/businessUpdateStorage";
 import {
   getReservationsByBusiness,
   type MockReservation,
@@ -24,6 +24,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   const [businessData, setBusinessData] = useState<BusinessProfileViewModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [activeUpdatesCount, setActiveUpdatesCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,15 +32,23 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       setLoading(true);
       setErrorStatus(null);
       try {
-        const [b, hours, images, menuData] = await Promise.all([
+        const [b, hours, images, menuData, updatesData] = await Promise.all([
           getManagedBusiness(businessId),
           getBusinessHours(businessId).catch(() => []),
           getBusinessImages(businessId).catch(() => []),
           getBusinessMenu(businessId).catch(() => null),
+          getBusinessUpdates(businessId, true).catch(() => []),
         ]);
         if (!cancelled) {
           setBusinessData(businessToViewModel(b, hours, images));
           setMenuSummary(computeMenuSummary(menuData));
+          const now = new Date();
+          const activeCount = updatesData.filter((u) => {
+            if (u.status !== "PUBLISHED") return false;
+            if (u.expires_at && new Date(u.expires_at) <= now) return false;
+            return true;
+          }).length;
+          setActiveUpdatesCount(activeCount);
         }
       } catch (err) {
         if (!cancelled) {
@@ -147,8 +156,6 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       })
     : undefined;
 
-  const updates = getUpdatesByBusiness(Number(businessId));
-  const activeUpdatesCount = updates.filter((u) => u.status === "published").length;
 
   const isReservable = Boolean(business.reservationAvailable);
   const pendingReservations = isReservable ? businessReservations.filter((r) => r.status === "pending") : [];

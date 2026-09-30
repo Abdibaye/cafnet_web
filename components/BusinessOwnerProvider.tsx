@@ -16,12 +16,14 @@ import {
   updateUpdate as updateUpdateInStorage,
   deleteUpdate as deleteUpdateInStorage,
   getUpdateById as getUpdateByIdFromStorage,
-  getUpdateTypeLabel as getUpdateTypeLabelFromStorage,
-  getUpdateTypeIcon as getUpdateTypeIconFromStorage,
-  updateTypeOptions,
-  type BusinessUpdate,
-  type UpdateType,
 } from "@/data/businessUpdateStorage";
+import {
+  updateTypeOptions,
+  getUpdateTypeLabel as getUpdateTypeLabelAdapter,
+  getUpdateTypeIcon as getUpdateTypeIconAdapter,
+  type BusinessUpdateViewModel as BusinessUpdate,
+  type UpdateType,
+} from "@/lib/api/adapters";
 import type { Business, BusinessHours } from "@/lib/api/types";
 import {
   getManagedBusinesses,
@@ -322,11 +324,11 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const getUpdateTypeLabel = useCallback((type: UpdateType): string => {
-    return getUpdateTypeLabelFromStorage(type);
+    return getUpdateTypeLabelAdapter(type);
   }, []);
 
   const getUpdateTypeIcon = useCallback((type: UpdateType): string => {
-    return getUpdateTypeIconFromStorage(type);
+    return getUpdateTypeIconAdapter(type);
   }, []);
 
   return (

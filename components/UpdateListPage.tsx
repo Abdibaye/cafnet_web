@@ -1,50 +1,102 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBusinessOwner } from "./BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { formatUpdateDate, isUpdateExpired, type BusinessUpdate } from "@/data/businessUpdateStorage";
+import { getManagedBusiness } from "@/lib/api/businesses";
+import { listBusinessUpdates, deleteBusinessUpdate } from "@/lib/api/updates";
+import {
+  apiUpdateToViewModel,
+  formatUpdateDate,
+  getUpdateTypeLabel,
+  getUpdateTypeIcon,
+  isUpdateExpired,
+  type BusinessUpdateViewModel,
+} from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business } from "@/lib/api/types";
 
 export default function UpdateListPage({ businessId }: { businessId: string }) {
   const router = useRouter();
-  const { ready, getUpdatesByBusiness, getUpdateTypeLabel, getUpdateTypeIcon, deleteExistingUpdate, isBusinessManaged } = useBusinessOwner();
-  const business = getBusinessById(businessId);
-  
-  const [updates, setUpdates] = useState<BusinessUpdate[]>([]);
+
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [updates, setUpdates] = useState<BusinessUpdateViewModel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [updateToDelete, setUpdateToDelete] = useState<BusinessUpdate | null>(null);
+  const [updateToDelete, setUpdateToDelete] = useState<BusinessUpdateViewModel | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorStatus(null);
+    setErrorMessage(null);
+    try {
+      const [biz, rawUpdates] = await Promise.all([
+        getManagedBusiness(businessId),
+        listBusinessUpdates(businessId, true),
+      ]);
+      setBusiness(biz);
+      setUpdates(rawUpdates.map(apiUpdateToViewModel));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrorStatus(err.status);
+        setErrorMessage(err.message);
+      } else {
+        setErrorStatus(500);
+        setErrorMessage("Failed to load business updates");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId]);
 
   useEffect(() => {
-    if (!ready || !business) return;
-    
-    const businessUpdates = getUpdatesByBusiness(Number(businessId));
-    setUpdates(businessUpdates);
-    setLoading(false);
-  }, [ready, businessId, getUpdatesByBusiness, business]);
+    loadData();
 
-  const handleDeleteClick = (update: BusinessUpdate) => {
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener("cafnet:updates-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("cafnet:updates-updated", handleUpdate);
+    };
+  }, [loadData]);
+
+  const handleDeleteClick = (update: BusinessUpdateViewModel) => {
     setUpdateToDelete(update);
     setShowDeleteDialog(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (updateToDelete) {
-      deleteExistingUpdate(updateToDelete.id);
-      setUpdates(updates.filter((u) => u.id !== updateToDelete.id));
+  const handleConfirmDelete = async () => {
+    if (!updateToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteBusinessUpdate(businessId, updateToDelete.id);
+      setUpdates((prev) => prev.filter((u) => u.id !== updateToDelete.id));
       setShowDeleteDialog(false);
       setUpdateToDelete(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("cafnet:updates-updated"));
+      }
+    } catch (err) {
+      console.error("Failed to delete update:", err);
+      alert(err instanceof ApiError ? err.message : "Failed to delete update");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleCancelDelete = () => {
+    if (isDeleting) return;
     setShowDeleteDialog(false);
     setUpdateToDelete(null);
   };
 
-  if (!ready || !business) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Loading...</h1>
@@ -53,13 +105,33 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
     );
   }
 
-  const canManage = Boolean(isBusinessManaged?.(Number(businessId)) || business.claimStatus === "claimed");
-
-  if (!canManage) {
+  if (errorStatus === 403) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Access Denied</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">You do not have permission to manage updates for this business.</p>
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
+          <span className="material-symbols-outlined text-3xl">lock</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-on-surface">Access Denied</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          You do not have permission to manage updates for this business.
+        </p>
+        <Link
+          href="/business/dashboard"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-white hover:bg-[#0f46b8]"
+        >
+          Back to Business Center
+        </Link>
+      </div>
+    );
+  }
+
+  if (errorStatus === 404 || !business) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Business Not Found</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          {errorMessage || "The requested business could not be found."}
+        </p>
         <Link href="/business/dashboard" className="mt-6 inline-flex text-sm font-semibold text-primary">
           Back to Business Center
         </Link>
@@ -95,9 +167,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
         </Link>
       </div>
 
-      {loading ? (
-        <div className="mt-12 text-center text-sm text-on-surface-variant">Loading updates...</div>
-      ) : activeUpdates.length === 0 && expiredUpdates.length === 0 ? (
+      {activeUpdates.length === 0 && expiredUpdates.length === 0 ? (
         <div className="mt-12 border border-dashed border-outline-variant bg-white px-6 py-12 text-center">
           <span className="material-symbols-outlined text-3xl text-outline" aria-hidden="true">campaign</span>
           <h2 className="mt-4 text-lg font-bold text-on-surface">No updates yet</h2>
@@ -123,7 +193,6 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
                   <UpdateCard
                     key={update.id}
                     update={update}
-                    business={business}
                     onEdit={() => router.push(`/business/dashboard/business/${businessId}/updates/${update.id}/edit`)}
                     onDelete={() => handleDeleteClick(update)}
                   />
@@ -141,7 +210,6 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
                   <UpdateCard
                     key={update.id}
                     update={update}
-                    business={business}
                     onEdit={() => router.push(`/business/dashboard/business/${businessId}/updates/${update.id}/edit`)}
                     onDelete={() => handleDeleteClick(update)}
                     expired
@@ -158,7 +226,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
           className="fixed inset-0 z-[70] flex items-center justify-center bg-on-surface/30 p-4"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowDeleteDialog(false);
+            if (event.target === event.currentTarget && !isDeleting) setShowDeleteDialog(false);
           }}
         >
           <section
@@ -180,6 +248,7 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
                 type="button"
                 className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low"
                 aria-label="Close dialog"
+                disabled={isDeleting}
                 onClick={handleCancelDelete}
               >
                 <span className="material-symbols-outlined" aria-hidden="true">close</span>
@@ -188,17 +257,19 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={handleCancelDelete}
-                className="flex-1 h-11 rounded-xl border border-outline-variant bg-white text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+                className="flex-1 h-11 rounded-xl border border-outline-variant bg-white text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={handleConfirmDelete}
-                className="flex-1 h-11 rounded-xl bg-error-container text-sm font-semibold text-error hover:bg-error-container/90"
+                className="flex-1 h-11 rounded-xl bg-error-container text-sm font-semibold text-error hover:bg-error-container/90 disabled:opacity-50"
               >
-                Delete update
+                {isDeleting ? "Deleting..." : "Delete update"}
               </button>
             </div>
           </section>
@@ -210,25 +281,21 @@ export default function UpdateListPage({ businessId }: { businessId: string }) {
 
 function UpdateCard({
   update,
-  business,
   onEdit,
   onDelete,
   expired = false,
 }: {
-  update: BusinessUpdate;
-  business: any;
+  update: BusinessUpdateViewModel;
   onEdit: () => void;
   onDelete: () => void;
   expired?: boolean;
 }) {
-  const { getUpdateTypeLabel, getUpdateTypeIcon } = useBusinessOwner();
-
   return (
     <article className={`border border-outline-variant bg-white p-5 ${expired ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className={`material-symbols-outlined text-[18px] text-primary`} aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
               {getUpdateTypeIcon(update.type)}
             </span>
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
@@ -237,15 +304,33 @@ function UpdateCard({
           </div>
           <h3 className="mt-2 font-bold text-on-surface">{update.title}</h3>
           <p className="mt-2 text-sm leading-6 text-on-surface-variant">{update.description}</p>
-          <p className="mt-3 text-xs text-on-surface-variant">
-            Published {formatUpdateDate(update.publishedAt)}
-          </p>
+          <div className="mt-3 flex items-center gap-4 text-xs text-on-surface-variant">
+            <span>Published {formatUpdateDate(update.publishedAt)}</span>
+            {update.eventDate && (
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">event</span>
+                {update.eventDate} {update.eventTime ? `at ${update.eventTime}` : ""}
+              </span>
+            )}
+            {update.validUntil && (
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                Until {update.validUntil}
+              </span>
+            )}
+            {update.price && (
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">payments</span>
+                {update.price}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
             onClick={onEdit}
-            className="h-10 w-10 rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:border-primary/40 hover:text-primary"
+            className="h-10 w-10 rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:border-primary/40 hover:text-primary flex items-center justify-center"
             aria-label="Edit update"
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
@@ -253,7 +338,7 @@ function UpdateCard({
           <button
             type="button"
             onClick={onDelete}
-            className="h-10 w-10 rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:border-error/40 hover:text-error"
+            className="h-10 w-10 rounded-xl border border-outline-variant bg-white text-on-surface-variant hover:border-error/40 hover:text-error flex items-center justify-center"
             aria-label="Delete update"
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>

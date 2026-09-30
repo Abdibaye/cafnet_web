@@ -6,10 +6,9 @@ import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { useCustomer } from "@/components/CustomerProvider";
 import { getAllBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
-import { getActiveUpdates, type BusinessUpdate as StorageBusinessUpdate } from "@/data/businessUpdateStorage";
 import * as customerApi from "@/lib/api/customer";
 import * as updatesApi from "@/lib/api/updates";
-import { businessToCardItem, apiUpdateToStorageUpdate } from "@/lib/api/adapters";
+import { businessToCardItem, apiUpdateToViewModel, type BusinessUpdateViewModel } from "@/lib/api/adapters";
 import type { Business } from "@/lib/api/types";
 
 type CustomerCollectionPageProps = { kind: "saved" | "following" };
@@ -67,7 +66,7 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
     return [];
   })();
 
-  const [followedUpdates, setFollowedUpdates] = useState<StorageBusinessUpdate[]>([]);
+  const [followedUpdates, setFollowedUpdates] = useState<BusinessUpdateViewModel[]>([]);
 
   useEffect(() => {
     if (kind !== "following" || !isAuthenticated) {
@@ -80,14 +79,13 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
       try {
         const apiUpdates = await updatesApi.listFollowingUpdates();
         if (!cancelled && Array.isArray(apiUpdates)) {
-          const adapted = apiUpdates.map(apiUpdateToStorageUpdate);
+          const adapted = apiUpdates.map(apiUpdateToViewModel);
           setFollowedUpdates(adapted);
           return;
         }
       } catch {
-        // Fall back to local mock updates only if network/server is unreachable
         if (!cancelled) {
-          setFollowedUpdates(getActiveUpdates().filter((u) => ids.includes(u.businessId)));
+          setFollowedUpdates([]);
         }
       }
     };

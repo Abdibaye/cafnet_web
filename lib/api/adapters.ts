@@ -406,10 +406,101 @@ export function reviewSummaryToDistribution(
   };
 }
 
+export type UpdateType = "new_menu" | "offer" | "event" | "price_update" | "announcement";
+
+export interface BusinessUpdateViewModel {
+  id: string;
+  businessId: number;
+  type: UpdateType;
+  title: string;
+  description: string;
+  createdAt: string;
+  publishedAt: string;
+  expiresAt?: string;
+  eventDate?: string;
+  eventTime?: string;
+  price?: string;
+  offerDetails?: string;
+  validUntil?: string;
+  status: "draft" | "published" | "expired";
+}
+
+export function getUpdateTypeLabel(type: UpdateType): string {
+  const labels: Record<UpdateType, string> = {
+    new_menu: "New Menu",
+    offer: "Offer",
+    event: "Event",
+    price_update: "Price Update",
+    announcement: "Announcement",
+  };
+  return labels[type] || type;
+}
+
+export function getUpdateTypeIcon(type: UpdateType): string {
+  const icons: Record<UpdateType, string> = {
+    new_menu: "restaurant_menu",
+    offer: "local_offer",
+    event: "event",
+    price_update: "price_change",
+    announcement: "campaign",
+  };
+  return icons[type] || "info";
+}
+
+export const updateTypeOptions: { value: UpdateType; label: string; icon: string }[] = [
+  { value: "new_menu", label: "New Menu", icon: "restaurant_menu" },
+  { value: "offer", label: "Offer", icon: "local_offer" },
+  { value: "event", label: "Event", icon: "event" },
+  { value: "price_update", label: "Price Update", icon: "price_change" },
+  { value: "announcement", label: "Announcement", icon: "campaign" },
+];
+
+export function formatUpdateDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+
+  if (diffInHours < 1) {
+    return "Just now";
+  } else if (diffInHours < 24) {
+    return `${diffInHours} hour${diffInHours !== 1 ? "s" : ""} ago`;
+  } else if (diffInHours < 48) {
+    return "Yesterday";
+  } else if (diffInHours < 72) {
+    return "2 days ago";
+  } else {
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+}
+
+export function isUpdateExpired(update: BusinessUpdate | BusinessUpdateViewModel): boolean {
+  if ("status" in update && update.status) {
+    const s = String(update.status).toLowerCase();
+    if (s === "expired") return true;
+    if (s !== "published") return false;
+  }
+
+  const now = new Date().toISOString();
+  const expAt = "expires_at" in update ? (update as BusinessUpdate).expires_at : (update as BusinessUpdateViewModel).expiresAt;
+  if (expAt && new Date(expAt) <= new Date(now)) {
+    return true;
+  }
+
+  const validUntil = "valid_until" in update ? (update as BusinessUpdate).valid_until : (update as BusinessUpdateViewModel).validUntil;
+  if (validUntil && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(validUntil)) {
+    const endOfDay = new Date(`${validUntil}T23:59:59.999Z`);
+    if (endOfDay <= new Date(now)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function apiUpdateToStorageUpdate(
   u: BusinessUpdate,
-): import("@/data/businessUpdateStorage").BusinessUpdate {
-  let mappedType: import("@/data/businessUpdateStorage").UpdateType = "announcement";
+): BusinessUpdateViewModel {
+  let mappedType: UpdateType = "announcement";
   const rawType = (u.update_type || "").toLowerCase();
   if (rawType === "event") mappedType = "event";
   else if (rawType === "offer") mappedType = "offer";
@@ -440,6 +531,8 @@ export function apiUpdateToStorageUpdate(
     status: mappedStatus,
   };
 }
+
+export const apiUpdateToViewModel = apiUpdateToStorageUpdate;
 
 // ==========================================
 // Business Center Adapters (Backend 13)
