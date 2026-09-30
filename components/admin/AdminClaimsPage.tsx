@@ -1,36 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { loadBusinessOwnerState, type BusinessClaim } from "@/data/businessOwnerStorage";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { listClaims } from "@/lib/api/admin";
+import { listBusinesses } from "@/lib/api/businesses";
+import type { BusinessClaim, Business } from "@/lib/api/types";
 
 export default function AdminClaimsPage() {
-  const [claims, setClaims] = useState<BusinessClaim[]>(() => loadBusinessOwnerState().claims);
+  const [claims, setClaims] = useState<BusinessClaim[]>([]);
+  const [businesses, setBusinesses] = useState<Record<number, Business>>({});
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const reload = () => {
-    setClaims(loadBusinessOwnerState().claims);
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [claimsData, bizResult] = await Promise.all([
+        listClaims({
+          status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
+        }),
+        listBusinesses({ limit: 100 }),
+      ]);
+
+      setClaims(claimsData || []);
+      const bMap: Record<number, Business> = {};
+      for (const b of bizResult?.businesses || []) {
+        bMap[b.id] = b;
+      }
+      setBusinesses(bMap);
+    } catch {
+      setClaims([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
   useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:business-owner-updated", handleEvents);
+    loadData();
+  }, [loadData]);
 
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:business-owner-updated", handleEvents);
-    };
-  }, []);
-
-  const filtered = claims.filter((claim) => {
-    if (statusFilter === "all") return true;
-    return claim.status === statusFilter;
-  });
-
-  const pendingCount = claims.filter((c) => c.status === "pending").length;
+  const pendingCount = claims.filter((c) => c.status === "PENDING").length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -50,8 +59,16 @@ export default function AdminClaimsPage() {
         {[
           { key: "all", label: "All Claims", count: claims.length },
           { key: "pending", label: "Pending", count: pendingCount },
-          { key: "approved", label: "Approved", count: claims.filter((c) => c.status === "approved").length },
-          { key: "rejected", label: "Rejected", count: claims.filter((c) => c.status === "rejected").length },
+          {
+            key: "approved",
+            label: "Approved",
+            count: claims.filter((c) => c.status === "APPROVED").length,
+          },
+          {
+            key: "rejected",
+            label: "Rejected",
+            count: claims.filter((c) => c.status === "REJECTED").length,
+          },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -78,7 +95,16 @@ export default function AdminClaimsPage() {
       </div>
 
       {/* Claims List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-2xl border border-outline-variant/60 bg-white p-5"
+            />
+          ))}
+        </div>
+      ) : claims.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
           <span className="material-symbols-outlined text-4xl text-outline">assignment_ind</span>
           <h2 className="mt-3 text-base font-bold text-on-surface">No claims found</h2>
@@ -86,11 +112,11 @@ export default function AdminClaimsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((claim) => {
-            const business = getBusinessById(claim.businessId);
-            const isApproved = claim.status === "approved";
-            const isRejected = claim.status === "rejected";
-            const isPending = claim.status === "pending";
+          {claims.map((claim) => {
+            const business = businesses[claim.business_id];
+            const isApproved = claim.status === "APPROVED";
+            const isRejected = claim.status === "REJECTED";
+            const isPending = claim.status === "PENDING";
 
             return (
               <div
@@ -99,11 +125,13 @@ export default function AdminClaimsPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-bold text-on-surface">
-                      {business?.name || `Business #${claim.businessId}`}
-                    </h2>
+                    <span className="font-bold text-on-surface text-base">
+                      {business ? business.name : `Business #${claim.business_id}`}
+                    </span>
+
+                    {/* Status Badge */}
                     <span
-                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         isApproved
                           ? "bg-green-100 text-green-800"
                           : isRejected
@@ -114,33 +142,39 @@ export default function AdminClaimsPage() {
                       <span className="material-symbols-outlined text-[13px]">
                         {isApproved ? "check_circle" : isRejected ? "cancel" : "schedule"}
                       </span>
-                      {isApproved ? "Approved" : isRejected ? "Rejected" : "Pending review"}
+                      {isApproved ? "Approved" : isRejected ? "Rejected" : "Pending Review"}
                     </span>
                   </div>
 
                   <p className="mt-1 text-xs text-on-surface-variant">
-                    {business ? `${business.category} · ${business.location}` : "Listing detail"} ·
-                    Submitted{" "}
-                    {new Date(claim.submittedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {business ? (
+                      <>
+                        {business.category} · {business.cuisine} · {business.location_name || business.neighborhood}
+                      </>
+                    ) : (
+                      `ID #${claim.business_id}`
+                    )}
                   </p>
 
-                  {isRejected && claim.rejectionReason && (
-                    <p className="mt-2 text-xs italic text-red-700">
-                      Reason: &ldquo;{claim.rejectionReason}&rdquo;
-                    </p>
-                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-on-surface-variant">
+                    <span>
+                      Claimed{" "}
+                      {new Date(claim.submitted_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <span>Claimant: {claim.claimant_user_id}</span>
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="shrink-0 pt-2 sm:pt-0">
                   <Link
                     href={`/admin/claims/${claim.id}`}
-                    className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                    className="inline-flex h-9 items-center justify-center rounded-xl bg-primary-container px-4 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-white"
                   >
-                    {isPending ? "Review claim" : "View claim details"}
+                    Inspect claim
                   </Link>
                 </div>
               </div>

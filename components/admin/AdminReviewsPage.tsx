@@ -1,45 +1,77 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import {
-  loadReviewReports,
-  isReviewRemoved,
-  type ReviewReport,
-} from "@/data/reviewReportStorage";
+import { listReviewReports, getReview } from "@/lib/api/admin";
+import { listBusinesses } from "@/lib/api/businesses";
+import type { ReviewReport, Review, Business } from "@/lib/api/types";
 
 export default function AdminReviewsPage() {
-  const [reports, setReports] = useState<ReviewReport[]>(() => loadReviewReports());
+  const [reports, setReports] = useState<ReviewReport[]>([]);
+  const [reviewsMap, setReviewsMap] = useState<Record<string, Review>>({});
+  const [businessesMap, setBusinessesMap] = useState<Record<number, Business>>({});
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("pending");
 
-  const reload = () => {
-    setReports(loadReviewReports());
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const reportsData = await listReviewReports({
+        status: filter === "all" ? "ALL" : filter.toUpperCase(),
+      });
+      const list = reportsData || [];
+      setReports(list);
+
+      // Fetch reviews and businesses for these reports
+      const revMap: Record<string, Review> = {};
+      const uniqueReviewIds = Array.from(new Set(list.map((r) => r.review_id)));
+      await Promise.all(
+        uniqueReviewIds.map(async (revId) => {
+          try {
+            const rev = await getReview(revId);
+            if (rev) revMap[rev.id] = rev;
+          } catch {
+            // ignore individual review fetch failure
+          }
+        })
+      );
+      setReviewsMap(revMap);
+
+      const uniqueBizIds = Array.from(
+        new Set(Object.values(revMap).map((r) => r.business_id))
+      );
+      if (uniqueBizIds.length > 0) {
+        try {
+          const bizResult = await listBusinesses({ limit: 100 });
+          const bMap: Record<number, Business> = {};
+          for (const b of bizResult?.businesses || []) {
+            bMap[b.id] = b;
+          }
+          setBusinessesMap(bMap);
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
 
   useEffect(() => {
-    reload();
-    const handleUpdate = () => reload();
-    window.addEventListener("cafnet:review-moderation-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:review-moderation-updated", handleUpdate);
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const pendingReports = reports.filter((r) => r.status === "PENDING");
   const dismissedReports = reports.filter((r) => r.status === "DISMISSED");
   const actionedReports = reports.filter((r) => r.status === "ACTIONED");
 
-  const filtered = reports.filter((report) => {
-    if (filter === "all") return true;
-    if (filter === "pending") return report.status === "PENDING";
-    if (filter === "dismissed") return report.status === "DISMISSED";
-    if (filter === "actioned") return report.status === "ACTIONED";
-    return true;
-  });
-
   const getEmptyMessage = () => {
     if (filter === "pending") {
       return {
-        title: "No reported reviews.",
-        subtitle: "All caught up.",
+        title: "No pending reports.",
+        subtitle: "All reported reviews are reviewed and resolved.",
       };
     }
     if (filter === "dismissed") {
@@ -106,11 +138,18 @@ export default function AdminReviewsPage() {
       </div>
 
       {/* Reports List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-2xl border border-outline-variant/60 bg-white p-5"
+            />
+          ))}
+        </div>
+      ) : reports.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
-          <span className="material-symbols-outlined text-4xl text-secondary">
-            rate_review
-          </span>
+          <span className="material-symbols-outlined text-4xl text-secondary">rate_review</span>
           <h2 className="mt-3 text-base font-bold text-on-surface">
             {getEmptyMessage().title}
           </h2>
@@ -118,8 +157,10 @@ export default function AdminReviewsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((report) => {
-            const isRemoved = isReviewRemoved(report.reviewId);
+          {reports.map((report) => {
+            const review = reviewsMap[report.review_id];
+            const business = review ? businessesMap[review.business_id] : undefined;
+            const isRemoved = review?.status === "REMOVED_BY_ADMIN";
             const isPending = report.status === "PENDING";
             const isDismissed = report.status === "DISMISSED";
             const isActioned = report.status === "ACTIONED";
@@ -132,7 +173,7 @@ export default function AdminReviewsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-on-surface text-sm sm:text-base">
-                      {report.businessName}
+                      {business ? business.name : review ? `Business #${review.business_id}` : `Report #${report.id.slice(0, 8)}`}
                     </span>
 
                     {/* Status Badge */}
@@ -158,31 +199,35 @@ export default function AdminReviewsPage() {
                     </span>
                   </div>
 
-                  {/* Review snippet and reviewer */}
-                  <div className="mt-2 text-xs text-on-surface-variant">
-                    <span className="font-semibold text-on-surface">Reviewer:</span> {report.reviewerName}{" "}
-                    <span className="text-secondary tracking-widest ml-1">
-                      {"★".repeat(report.reviewRating)}
-                      {"☆".repeat(5 - report.reviewRating)}
-                    </span>
-                  </div>
+                  {/* Review snippet and reviewer if available */}
+                  {review && (
+                    <div className="mt-2 text-xs text-on-surface-variant">
+                      <span className="font-semibold text-on-surface">Reviewer:</span>{" "}
+                      {review.customer_user_id}{" "}
+                      <span className="text-secondary tracking-widest ml-1">
+                        {"★".repeat(review.rating)}
+                        {"☆".repeat(Math.max(0, 5 - review.rating))}
+                      </span>
+                    </div>
+                  )}
 
-                  <p className="mt-1 line-clamp-2 text-xs italic text-on-surface leading-5 bg-surface-container-low p-2 rounded-lg">
-                    &ldquo;{report.reviewText}&rdquo;
-                  </p>
+                  {review && review.review_text && (
+                    <p className="mt-1 line-clamp-2 text-xs italic text-on-surface leading-5 bg-surface-container-low p-2 rounded-lg">
+                      &ldquo;{review.review_text}&rdquo;
+                    </p>
+                  )}
 
                   <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-on-surface-variant">
                     <span>
-                      Reported {new Date(report.createdAt).toLocaleDateString("en-US", {
+                      Reported{" "}
+                      {new Date(report.created_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
                       })}
                     </span>
                     {report.explanation && (
-                      <span className="truncate max-w-xs">
-                        Note: {report.explanation}
-                      </span>
+                      <span className="truncate max-w-xs">Note: {report.explanation}</span>
                     )}
                     {isRemoved && (
                       <span className="font-semibold text-red-600">Review hidden publicly</span>
@@ -193,7 +238,7 @@ export default function AdminReviewsPage() {
                 {/* Review Detail Action Link */}
                 <div className="shrink-0 pt-2 sm:pt-0">
                   <Link
-                    href={`/admin/reviews/${report.reviewId}`}
+                    href={`/admin/reviews/${report.review_id}`}
                     className="inline-flex h-9 items-center justify-center rounded-xl bg-primary-container px-4 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-white"
                   >
                     Review

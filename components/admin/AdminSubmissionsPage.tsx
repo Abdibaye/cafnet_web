@@ -1,37 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { loadBusinessOwnerState, type BusinessSubmission } from "@/data/businessOwnerStorage";
+import { listSubmissions } from "@/lib/api/admin";
+import type { BusinessSubmission } from "@/lib/api/types";
 
 export default function AdminSubmissionsPage() {
-  const [submissions, setSubmissions] = useState<BusinessSubmission[]>(
-    () => loadBusinessOwnerState().submissions
-  );
+  const [submissions, setSubmissions] = useState<BusinessSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const reload = () => {
-    setSubmissions(loadBusinessOwnerState().submissions);
-  };
+  const loadSubmissions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await listSubmissions({
+        status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
+      });
+      setSubmissions(data || []);
+    } catch {
+      setSubmissions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
   useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:business-owner-updated", handleEvents);
+    loadSubmissions();
+  }, [loadSubmissions]);
 
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:business-owner-updated", handleEvents);
-    };
-  }, []);
-
-  const filtered = submissions.filter((sub) => {
-    if (statusFilter === "all") return true;
-    return sub.status === statusFilter;
-  });
-
-  const pendingCount = submissions.filter((s) => s.status === "pending").length;
+  const pendingCount = submissions.filter((s) => s.status === "PENDING").length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -51,8 +48,8 @@ export default function AdminSubmissionsPage() {
         {[
           { key: "all", label: "All Submissions", count: submissions.length },
           { key: "pending", label: "Pending", count: pendingCount },
-          { key: "approved", label: "Approved", count: submissions.filter((s) => s.status === "approved").length },
-          { key: "rejected", label: "Rejected", count: submissions.filter((s) => s.status === "rejected").length },
+          { key: "approved", label: "Approved", count: submissions.filter((s) => s.status === "APPROVED").length },
+          { key: "rejected", label: "Rejected", count: submissions.filter((s) => s.status === "REJECTED").length },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -79,7 +76,13 @@ export default function AdminSubmissionsPage() {
       </div>
 
       {/* Submissions List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl border border-outline-variant/60 bg-white p-5" />
+          ))}
+        </div>
+      ) : submissions.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
           <span className="material-symbols-outlined text-4xl text-outline">post_add</span>
           <h2 className="mt-3 text-base font-bold text-on-surface">No submissions found</h2>
@@ -87,10 +90,10 @@ export default function AdminSubmissionsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((sub) => {
-            const isApproved = sub.status === "approved";
-            const isRejected = sub.status === "rejected";
-            const isPending = sub.status === "pending";
+          {submissions.map((sub) => {
+            const isApproved = sub.status === "APPROVED";
+            const isRejected = sub.status === "REJECTED";
+            const isPending = sub.status === "PENDING";
 
             return (
               <div
@@ -99,7 +102,7 @@ export default function AdminSubmissionsPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-bold text-on-surface">{sub.businessName}</h2>
+                    <h2 className="text-base font-bold text-on-surface">{sub.business_name}</h2>
                     <span
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
                         isApproved
@@ -122,25 +125,23 @@ export default function AdminSubmissionsPage() {
                       : sub.category === "drinks"
                       ? "Drinks & More"
                       : "Restaurant"}{" "}
-                    · {sub.area} · Submitted{" "}
-                    {new Date(sub.submittedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    · {sub.area}
                   </p>
 
-                  {isRejected && sub.rejectionReason && (
-                    <p className="mt-2 text-xs italic text-red-700">
-                      Reason: &ldquo;{sub.rejectionReason}&rdquo;
-                    </p>
-                  )}
+                  <p className="mt-2 text-[11px] text-outline">
+                    Submitted on{" "}
+                    {new Date(sub.submitted_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-3">
                   <Link
                     href={`/admin/submissions/${sub.id}`}
-                    className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                    className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
                   >
                     {isPending ? "Review submission" : "View details"}
                   </Link>

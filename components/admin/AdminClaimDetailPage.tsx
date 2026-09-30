@@ -1,47 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { loadBusinessOwnerState, type BusinessClaim } from "@/data/businessOwnerStorage";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { getManagedBusiness } from "@/data/ownerManagedBusinessStorage";
-import { approveClaim, rejectClaim } from "@/data/adminStorage";
+import { getClaim, approveClaim, rejectClaim } from "@/lib/api/admin";
+import { getBusinessProfile } from "@/lib/api/businesses";
+import type { BusinessClaim, Business } from "@/lib/api/types";
 import { useCustomer } from "@/components/CustomerProvider";
 
 export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
-  const router = useRouter();
   const { showToast } = useCustomer();
-  const [claim, setClaim] = useState<BusinessClaim | undefined>(() =>
-    loadBusinessOwnerState().claims.find((c) => c.id === claimId)
-  );
-
+  const [claim, setClaim] = useState<BusinessClaim | null>(null);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [approvalNotesInput, setApprovalNotesInput] = useState("");
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [rejectionError, setRejectionError] = useState("");
 
-  const reload = () => {
-    setClaim(loadBusinessOwnerState().claims.find((c) => c.id === claimId));
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const claimData = await getClaim(claimId);
+      setClaim(claimData);
+      if (claimData?.business_id) {
+        try {
+          const bizData = await getBusinessProfile(claimData.business_id);
+          setBusiness(bizData.business);
+        } catch {
+          setBusiness(null);
+        }
+      }
+    } catch {
+      setClaim(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [claimId]);
 
   useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:business-owner-updated", handleEvents);
+    loadData();
+  }, [loadData]);
 
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:business-owner-updated", handleEvents);
-    };
-  }, [claimId]);
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="h-6 w-36 animate-pulse rounded bg-outline-variant/40" />
+        <div className="h-44 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+        <div className="h-60 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+      </div>
+    );
+  }
 
   if (!claim) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Claim not found</h1>
-        <p className="mt-2 text-sm text-on-surface-variant">No claim request found with ID #{claimId}.</p>
+        <p className="mt-2 text-sm text-on-surface-variant">
+          No claim request found with ID #{claimId}.
+        </p>
         <Link href="/admin/claims" className="mt-6 inline-flex text-sm font-semibold text-primary">
           ← Return to claims list
         </Link>
@@ -49,27 +67,27 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
     );
   }
 
-  const business = getBusinessById(claim.businessId);
-  const existingManaged = getManagedBusiness(claim.businessId);
-  const isAlreadyManaged = Boolean(existingManaged || business?.claimStatus === "claimed");
+  const isPending = claim.status === "PENDING";
+  const isApproved = claim.status === "APPROVED";
+  const isRejected = claim.status === "REJECTED";
 
-  const isPending = claim.status === "pending";
-  const isApproved = claim.status === "approved";
-  const isRejected = claim.status === "rejected";
-
-  const handleApprove = () => {
-    const success = approveClaim(claim.id);
-    if (success) {
-      showToast("Claim approved — business is now managed");
+  const handleApprove = async () => {
+    try {
+      setIsSubmitting(true);
+      await approveClaim(claim.id, approvalNotesInput.trim() || undefined);
+      showToast("Claim approved — manager rights granted");
       setIsApproving(false);
-      reload();
-    } else {
-      showToast("Could not approve claim — business is already managed");
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not approve claim";
+      showToast(msg);
       setIsApproving(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleReject = (e: React.FormEvent) => {
+  const handleReject = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = rejectionReasonInput.trim();
     if (!trimmed) {
@@ -77,13 +95,19 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
       return;
     }
 
-    const success = rejectClaim(claim.id, trimmed);
-    if (success) {
+    try {
+      setIsSubmitting(true);
+      await rejectClaim(claim.id, trimmed);
       showToast("Claim rejected");
       setIsRejecting(false);
       setRejectionReasonInput("");
       setRejectionError("");
-      reload();
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reject claim";
+      setRejectionError(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -105,14 +129,14 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-secondary">
-              Claim Review #{claim.id}
+              Ownership Claim Review #{claim.id}
             </p>
             <h1 className="mt-1 text-2xl font-bold text-on-surface">
-              {business?.name || `Business #${claim.businessId}`}
+              {business ? business.name : `Business #${claim.business_id}`}
             </h1>
             <p className="mt-1 text-xs text-on-surface-variant">
               Submitted{" "}
-              {new Date(claim.submittedAt).toLocaleDateString("en-US", {
+              {new Date(claim.submitted_at).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
@@ -132,85 +156,94 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
             <span className="material-symbols-outlined text-[16px]">
               {isApproved ? "check_circle" : isRejected ? "cancel" : "schedule"}
             </span>
-            {isApproved ? "Claim Approved" : isRejected ? "Claim Rejected" : "Pending Verification"}
+            {isApproved ? "Approved & Granted" : isRejected ? "Rejected" : "Pending Review"}
           </span>
         </div>
 
-        {/* Rejection explanation if rejected */}
-        {isRejected && claim.rejectionReason && (
+        {/* Rejection notice if rejected */}
+        {isRejected && claim.rejection_reason && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">
             <p className="font-bold">Rejection Reason:</p>
-            <p className="mt-1 italic">&ldquo;{claim.rejectionReason}&rdquo;</p>
-            {claim.reviewedAt && (
+            <p className="mt-1 italic">&ldquo;{claim.rejection_reason}&rdquo;</p>
+            {claim.reviewed_at && (
               <p className="mt-2 text-[11px] text-red-700">
-                Reviewed on {new Date(claim.reviewedAt).toLocaleDateString("en-US")} by {claim.reviewedBy || "Admin"}
+                Reviewed on {new Date(claim.reviewed_at).toLocaleDateString("en-US")} by{" "}
+                {claim.reviewed_by || "Admin"}
               </p>
             )}
           </div>
         )}
 
-        {/* Approval info if approved */}
+        {/* Approval notice if approved */}
         {isApproved && (
           <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-xs text-green-800">
-            <p className="font-bold">Approved & Managed:</p>
+            <p className="font-bold">Access Granted:</p>
             <p className="mt-1">
-              Management access was granted to this business on{" "}
-              {claim.reviewedAt ? new Date(claim.reviewedAt).toLocaleDateString("en-US") : "recently"}.
+              User {claim.claimant_user_id} now manages this business profile, menu, and updates.
             </p>
+            {claim.reviewed_at && (
+              <p className="mt-2 text-[11px] text-green-700">
+                Reviewed on {new Date(claim.reviewed_at).toLocaleDateString("en-US")} by{" "}
+                {claim.reviewed_by || "Admin"}
+              </p>
+            )}
           </div>
         )}
       </div>
 
-      {/* Competing Claim / Already Managed Warning */}
-      {isPending && isAlreadyManaged && (
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
-          <span className="material-symbols-outlined text-2xl text-amber-700">warning</span>
-          <div className="text-xs leading-5">
-            <h3 className="font-bold">Already Managed Business</h3>
-            <p className="mt-1">
-              This business is already managed on Cafnet. To protect ownership integrity, you cannot
-              approve a second competing claim for this business without resolving the existing manager.
-            </p>
+      {/* Claim & Business Information */}
+      <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
+        <h2 className="text-base font-bold text-on-surface">Target business details</h2>
+        <div className="mt-4 space-y-3 divide-y divide-outline-variant/60 text-xs">
+          <div className="flex justify-between pt-2">
+            <span className="text-on-surface-variant">Business ID</span>
+            <span className="font-semibold text-on-surface">#{claim.business_id}</span>
+          </div>
+          {business && (
+            <>
+              <div className="flex justify-between pt-3">
+                <span className="text-on-surface-variant">Business Name</span>
+                <span className="font-bold text-on-surface">{business.name}</span>
+              </div>
+              <div className="flex justify-between pt-3">
+                <span className="text-on-surface-variant">Category / Cuisine</span>
+                <span className="font-semibold text-on-surface">
+                  {business.category} · {business.cuisine}
+                </span>
+              </div>
+              <div className="flex justify-between pt-3">
+                <span className="text-on-surface-variant">Location</span>
+                <span className="font-semibold text-on-surface">
+                  {business.location_name || business.neighborhood}
+                </span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between pt-3">
+            <span className="text-on-surface-variant">Claimant User ID</span>
+            <span className="font-mono font-semibold text-on-surface">
+              {claim.claimant_user_id}
+            </span>
           </div>
         </div>
-      )}
 
-      {/* Business Profile Preview Box */}
-      <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between border-b border-outline-variant pb-4">
-          <h2 className="text-base font-bold text-on-surface">Target business listing</h2>
-          {business && (
+        {business && (
+          <div className="mt-5 flex gap-3 border-t border-outline-variant/60 pt-4">
             <Link
               href={`/business/${business.id}`}
               target="_blank"
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-[#0f46b8]"
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
             >
               <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-              View public profile
+              View public listing
             </Link>
-          )}
-        </div>
-
-        {business ? (
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-            {business.images && business.images.length > 0 && (
-              <img
-                src={business.images[0]}
-                alt=""
-                className="size-20 shrink-0 rounded-xl object-cover"
-              />
-            )}
-            <div className="min-w-0 flex-1 space-y-1 text-xs text-on-surface-variant">
-              <p className="text-sm font-bold text-on-surface">{business.name}</p>
-              <p>{business.category} · {business.cuisine} · {business.location}</p>
-              <p>Phone: {business.phone || "Not set"}</p>
-              <p>Rating: {business.rating} ({business.reviewCount} reviews)</p>
-            </div>
+            <Link
+              href={`/admin/businesses/${business.id}`}
+              className="inline-flex items-center gap-1 text-xs font-bold text-on-surface hover:underline"
+            >
+              Inspect in Admin
+            </Link>
           </div>
-        ) : (
-          <p className="mt-4 text-xs text-on-surface-variant">
-            Target business details could not be loaded.
-          </p>
         )}
       </section>
 
@@ -228,9 +261,8 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
 
           <button
             type="button"
-            disabled={isAlreadyManaged}
             onClick={() => setIsApproving(true)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
           >
             <span className="material-symbols-outlined text-[18px]">check</span>
             Approve claim
@@ -238,9 +270,7 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
         </section>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* APPROVE CONFIRMATION MODAL */}
-      {/* ------------------------------------------------------------- */}
       {isApproving && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -249,20 +279,37 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-green-100 text-green-700">
-              <span className="material-symbols-outlined text-2xl">verified</span>
+              <span className="material-symbols-outlined text-2xl">check_circle</span>
             </div>
             <h3 className="mt-4 text-lg font-bold text-on-surface">
-              Approve claim for {business?.name}?
+              Approve claim for &ldquo;{business?.name || `Business #${claim.business_id}`}&rdquo;?
             </h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              The claimant will immediately receive full management access to edit listings, manage
-              menus, and post updates. The business will also automatically receive a basic verified
-              status.
+              This will grant management rights to claimant <strong>{claim.claimant_user_id}</strong>.
+              They will be able to edit business details, manage menus, and publish updates.
             </p>
+
+            <div className="mt-4">
+              <label
+                htmlFor="approval-notes"
+                className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+              >
+                Approval Notes (optional)
+              </label>
+              <textarea
+                id="approval-notes"
+                rows={2}
+                placeholder="e.g. Identity verified via trade license or phone call."
+                value={approvalNotesInput}
+                onChange={(e) => setApprovalNotesInput(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-outline-variant p-3 text-xs outline-none transition-colors focus:border-primary"
+              />
+            </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setIsApproving(false)}
                 className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
               >
@@ -270,19 +317,18 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={handleApprove}
-                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:opacity-50"
               >
-                Approve claim
+                {isSubmitting ? "Approving..." : "Approve & grant"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* REJECT CONFIRMATION MODAL WITH REASON */}
-      {/* ------------------------------------------------------------- */}
       {isRejecting && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -290,24 +336,24 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
           aria-modal="true"
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-on-surface">Reject claim request</h3>
+            <h3 className="text-lg font-bold text-on-surface">Reject ownership claim</h3>
             <p className="mt-1 text-xs text-on-surface-variant">
-              Please provide a clear reason for the owner explaining why this claim was rejected.
+              Please specify why this ownership claim was rejected.
             </p>
 
             <form onSubmit={handleReject} className="mt-4 space-y-4">
               <div>
                 <label
-                  htmlFor="rejection-reason"
+                  htmlFor="claim-rejection-reason"
                   className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
                 >
                   Reason for rejection *
                 </label>
                 <textarea
-                  id="rejection-reason"
+                  id="claim-rejection-reason"
                   rows={3}
                   autoFocus
-                  placeholder="e.g. Could not verify business ownership documents or phone number."
+                  placeholder="e.g. Business ownership could not be verified, or documentation invalid."
                   value={rejectionReasonInput}
                   onChange={(e) => {
                     setRejectionReasonInput(e.target.value);
@@ -327,6 +373,7 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => {
                     setIsRejecting(false);
                     setRejectionReasonInput("");
@@ -338,9 +385,10 @@ export default function AdminClaimDetailPage({ claimId }: { claimId: string }) {
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+                  disabled={isSubmitting}
+                  className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
-                  Reject claim
+                  {isSubmitting ? "Rejecting..." : "Reject claim"}
                 </button>
               </div>
             </form>

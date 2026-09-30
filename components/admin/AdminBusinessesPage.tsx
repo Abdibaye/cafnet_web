@@ -1,54 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getAllBusinesses, type MockBusiness } from "@/data/mockBusinesses";
-import { getManagedBusiness } from "@/data/ownerManagedBusinessStorage";
+import { listBusinesses } from "@/lib/api/businesses";
+import type { Business } from "@/lib/api/types";
 
 export default function AdminBusinessesPage() {
-  const [businesses, setBusinesses] = useState<MockBusiness[]>(() => getAllBusinesses());
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [claimFilter, setClaimFilter] = useState<string>("all");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("all");
 
-  const reload = () => {
-    setBusinesses(getAllBusinesses());
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await listBusinesses({ limit: 100 });
+      setBusinesses(res.businesses || []);
+    } catch {
+      setBusinesses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:managed-businesses-updated", handleEvents);
-
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:managed-businesses-updated", handleEvents);
-    };
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const filtered = businesses.filter((b) => {
     // Search query
     const q = searchQuery.toLowerCase().trim();
     if (q) {
       const matchName = b.name.toLowerCase().includes(q);
-      const matchLocation = b.location.toLowerCase().includes(q);
+      const matchLocation = (b.location_name || "").toLowerCase().includes(q) || (b.neighborhood || "").toLowerCase().includes(q);
       const matchCuisine = b.cuisine.toLowerCase().includes(q);
       if (!matchName && !matchLocation && !matchCuisine) return false;
     }
 
     // Category
-    if (categoryFilter !== "all" && b.category !== categoryFilter) return false;
+    if (categoryFilter !== "all" && b.category.toLowerCase() !== categoryFilter.toLowerCase()) {
+      return false;
+    }
 
     // Claim
-    const isManaged = Boolean(getManagedBusiness(b.id) || b.claimStatus === "claimed");
-    if (claimFilter === "claimed" && !isManaged) return false;
-    if (claimFilter === "unclaimed" && isManaged) return false;
+    const isClaimed = b.claim_status === "CLAIMED";
+    if (claimFilter === "claimed" && !isClaimed) return false;
+    if (claimFilter === "unclaimed" && isClaimed) return false;
 
     // Verified
-    if (verifiedFilter === "verified" && !b.verified) return false;
-    if (verifiedFilter === "unverified" && b.verified) return false;
+    const isVerified = b.verification_status === "VERIFIED";
+    if (verifiedFilter === "verified" && !isVerified) return false;
+    if (verifiedFilter === "unverified" && isVerified) return false;
 
     return true;
   });
@@ -125,7 +129,16 @@ export default function AdminBusinessesPage() {
       </div>
 
       {/* Business Cards List */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="h-48 animate-pulse rounded-2xl border border-outline-variant/60 bg-white p-5"
+            />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
           <span className="material-symbols-outlined text-4xl text-outline">storefront</span>
           <h2 className="mt-3 text-base font-bold text-on-surface">No businesses found</h2>
@@ -134,9 +147,9 @@ export default function AdminBusinessesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((business) => {
-            const isManaged = Boolean(
-              getManagedBusiness(business.id) || business.claimStatus === "claimed"
-            );
+            const isManaged = business.claim_status === "CLAIMED";
+            const isVerified = business.verification_status === "VERIFIED";
+
             return (
               <div
                 key={business.id}
@@ -152,16 +165,12 @@ export default function AdminBusinessesPage() {
                         </h2>
                       </div>
                       <p className="mt-0.5 text-xs text-on-surface-variant">
-                        {business.category} · {business.location}
+                        {business.category} · {business.location_name || business.neighborhood}
                       </p>
                     </div>
-                    {business.images && business.images.length > 0 && (
-                      <img
-                        src={business.images[0]}
-                        alt=""
-                        className="size-12 shrink-0 rounded-xl object-cover"
-                      />
-                    )}
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
+                      <span className="material-symbols-outlined text-2xl">storefront</span>
+                    </div>
                   </div>
 
                   {/* Badges */}
@@ -183,20 +192,20 @@ export default function AdminBusinessesPage() {
                     {/* Verified badge */}
                     <span
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                        business.verified
+                        isVerified
                           ? "bg-green-100 text-green-800"
                           : "bg-surface-container text-on-surface-variant"
                       }`}
                     >
                       <span className="material-symbols-outlined text-[14px]">
-                        {business.verified ? "verified" : "shield"}
+                        {isVerified ? "verified" : "shield"}
                       </span>
-                      {business.verified ? "Verified" : "Unverified"}
+                      {isVerified ? "Verified" : "Unverified"}
                     </span>
 
-                    {business.priceRange && (
+                    {business.price_range && (
                       <span className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">
-                        {business.priceRange}
+                        {business.price_range}
                       </span>
                     )}
                   </div>

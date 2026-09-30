@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { isAdminAuthenticated, loginAdmin, logoutAdmin } from "@/data/adminStorage";
 import { useCustomer } from "@/components/CustomerProvider";
 
 type AdminLayoutClientProps = {
@@ -13,17 +12,8 @@ type AdminLayoutClientProps = {
 export default function AdminLayoutClient({ children }: AdminLayoutClientProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { showToast } = useCustomer();
-  const [authenticated, setAuthenticated] = useState<boolean>(() => isAdminAuthenticated());
+  const { currentUser, isAuthenticated, requestAuth, logout, showToast } = useCustomer();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const handleAuthChange = () => {
-      setAuthenticated(isAdminAuthenticated());
-    };
-    window.addEventListener("cafnet:admin-auth-updated", handleAuthChange);
-    return () => window.removeEventListener("cafnet:admin-auth-updated", handleAuthChange);
-  }, []);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -31,21 +21,23 @@ export default function AdminLayoutClient({ children }: AdminLayoutClientProps) 
   }, [pathname]);
 
   const handleLogin = () => {
-    loginAdmin();
-    setAuthenticated(true);
-    showToast("Signed in as Cafnet Administrator");
+    requestAuth();
   };
 
-  const handleLogout = () => {
-    logoutAdmin();
-    setAuthenticated(false);
-    showToast("Signed out of Admin Center");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      showToast("Signed out of Admin Center");
+      router.push("/");
+    } catch {
+      showToast("Error signing out");
+    }
   };
 
   // -------------------------------------------------------------
-  // Unauthorized Barrier
+  // Unauthorized Barrier (Not signed in)
   // -------------------------------------------------------------
-  if (!authenticated) {
+  if (!isAuthenticated || !currentUser) {
     return (
       <div className="flex min-h-[85vh] w-full flex-col items-center justify-center bg-background px-5 py-16">
         <div className="mx-auto w-full max-w-md rounded-2xl border border-outline-variant bg-white p-8 text-center shadow-sm">
@@ -58,7 +50,7 @@ export default function AdminLayoutClient({ children }: AdminLayoutClientProps) 
           </p>
           <h1 className="mt-2 text-2xl font-bold text-on-surface">Admin access required</h1>
           <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-            This area is restricted to Cafnet staff and platform administrators.
+            This area is restricted to Cafnet platform administrators. Please sign in with an authorized admin account.
           </p>
 
           <div className="mt-8 flex flex-col gap-3">
@@ -69,6 +61,46 @@ export default function AdminLayoutClient({ children }: AdminLayoutClientProps) 
             >
               <span className="material-symbols-outlined text-[19px]">lock_open</span>
               Sign in as Admin
+            </button>
+            <Link
+              href="/"
+              className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-outline-variant bg-white px-5 text-sm font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              Back to Cafnet
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Forbidden Barrier (Signed in as normal customer)
+  // -------------------------------------------------------------
+  if (currentUser.role !== "ADMIN") {
+    return (
+      <div className="flex min-h-[85vh] w-full flex-col items-center justify-center bg-background px-5 py-16">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-error/20 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-error-container/30 text-error">
+            <span className="material-symbols-outlined text-3xl">gpp_maybe</span>
+          </div>
+
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-error">
+            Access Denied
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-on-surface">Administrator role required</h1>
+          <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+            You are signed in as <strong className="text-on-surface">{currentUser.phone}</strong>, but this account does not have platform administrator privileges.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-error px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-error/90"
+            >
+              <span className="material-symbols-outlined text-[19px]">logout</span>
+              Sign out / Switch account
             </button>
             <Link
               href="/"

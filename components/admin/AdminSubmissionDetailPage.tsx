@@ -1,38 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { loadBusinessOwnerState, type BusinessSubmission } from "@/data/businessOwnerStorage";
-import { approveSubmission, rejectSubmission } from "@/data/adminStorage";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { getSubmission, approveSubmission, rejectSubmission } from "@/lib/api/admin";
+import type { BusinessSubmission } from "@/lib/api/types";
 import { useCustomer } from "@/components/CustomerProvider";
 
 export default function AdminSubmissionDetailPage({ submissionId }: { submissionId: string }) {
   const { showToast } = useCustomer();
-  const [submission, setSubmission] = useState<BusinessSubmission | undefined>(() =>
-    loadBusinessOwnerState().submissions.find((s) => s.id === submissionId)
-  );
-
+  const [submission, setSubmission] = useState<BusinessSubmission | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [rejectionError, setRejectionError] = useState("");
 
-  const reload = () => {
-    setSubmission(loadBusinessOwnerState().submissions.find((s) => s.id === submissionId));
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getSubmission(submissionId);
+      setSubmission(data);
+    } catch {
+      setSubmission(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [submissionId]);
 
   useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:business-owner-updated", handleEvents);
+    loadData();
+  }, [loadData]);
 
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:business-owner-updated", handleEvents);
-    };
-  }, [submissionId]);
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="h-6 w-36 animate-pulse rounded bg-outline-variant/40" />
+        <div className="h-44 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+        <div className="h-60 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+      </div>
+    );
+  }
 
   if (!submission) {
     return (
@@ -51,27 +59,27 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
     );
   }
 
-  const isPending = submission.status === "pending";
-  const isApproved = submission.status === "approved";
-  const isRejected = submission.status === "rejected";
+  const isPending = submission.status === "PENDING";
+  const isApproved = submission.status === "APPROVED";
+  const isRejected = submission.status === "REJECTED";
 
-  const createdBusiness = submission.createdBusinessId
-    ? getBusinessById(submission.createdBusinessId)
-    : undefined;
-
-  const handleApprove = () => {
-    const res = approveSubmission(submission.id);
-    if (res.success) {
+  const handleApprove = async () => {
+    try {
+      setIsSubmitting(true);
+      await approveSubmission(submission.id);
       showToast("Business approved and published.");
       setIsApproving(false);
-      reload();
-    } else {
-      showToast("Failed to approve submission");
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to approve submission";
+      showToast(msg);
       setIsApproving(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleReject = (e: React.FormEvent) => {
+  const handleReject = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = rejectionReasonInput.trim();
     if (!trimmed) {
@@ -79,13 +87,19 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
       return;
     }
 
-    const success = rejectSubmission(submission.id, trimmed);
-    if (success) {
+    try {
+      setIsSubmitting(true);
+      await rejectSubmission(submission.id, trimmed);
       showToast("Business submission rejected");
       setIsRejecting(false);
       setRejectionReasonInput("");
       setRejectionError("");
-      reload();
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reject submission";
+      setRejectionError(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -109,10 +123,10 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
             <p className="text-xs font-semibold uppercase tracking-wider text-secondary">
               Submission Review #{submission.id}
             </p>
-            <h1 className="mt-1 text-2xl font-bold text-on-surface">{submission.businessName}</h1>
+            <h1 className="mt-1 text-2xl font-bold text-on-surface">{submission.business_name}</h1>
             <p className="mt-1 text-xs text-on-surface-variant">
               Submitted{" "}
-              {new Date(submission.submittedAt).toLocaleDateString("en-US", {
+              {new Date(submission.submitted_at).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
@@ -137,14 +151,14 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
         </div>
 
         {/* Rejection notice if rejected */}
-        {isRejected && submission.rejectionReason && (
+        {isRejected && submission.rejection_reason && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">
             <p className="font-bold">Rejection Reason:</p>
-            <p className="mt-1 italic">&ldquo;{submission.rejectionReason}&rdquo;</p>
-            {submission.reviewedAt && (
+            <p className="mt-1 italic">&ldquo;{submission.rejection_reason}&rdquo;</p>
+            {submission.reviewed_at && (
               <p className="mt-2 text-[11px] text-red-700">
-                Reviewed on {new Date(submission.reviewedAt).toLocaleDateString("en-US")} by{" "}
-                {submission.reviewedBy || "Admin"}
+                Reviewed on {new Date(submission.reviewed_at).toLocaleDateString("en-US")} by{" "}
+                {submission.reviewed_by || "Admin"}
               </p>
             )}
           </div>
@@ -155,12 +169,12 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
           <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-xs text-green-800">
             <p className="font-bold">Approved & Published:</p>
             <p className="mt-1">
-              This business is now live on Cafnet as ID #{submission.createdBusinessId}.
+              This business is now live on Cafnet as ID #{submission.created_business_id}.
             </p>
-            {submission.createdBusinessId && (
+            {submission.created_business_id && (
               <div className="mt-3 flex gap-3">
                 <Link
-                  href={`/business/${submission.createdBusinessId}`}
+                  href={`/business/${submission.created_business_id}`}
                   target="_blank"
                   className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
                 >
@@ -168,7 +182,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
                   View live public listing
                 </Link>
                 <Link
-                  href={`/admin/businesses/${submission.createdBusinessId}`}
+                  href={`/admin/businesses/${submission.created_business_id}`}
                   className="inline-flex items-center gap-1 font-bold text-on-surface hover:underline"
                 >
                   Inspect in Admin
@@ -185,7 +199,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
         <div className="mt-4 space-y-3 divide-y divide-outline-variant/60 text-xs">
           <div className="flex justify-between pt-2">
             <span className="text-on-surface-variant">Business Name</span>
-            <span className="font-bold text-on-surface">{submission.businessName}</span>
+            <span className="font-bold text-on-surface">{submission.business_name}</span>
           </div>
           <div className="flex justify-between pt-3">
             <span className="text-on-surface-variant">Category</span>
@@ -231,9 +245,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
         </section>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* APPROVE CONFIRMATION MODAL */}
-      {/* ------------------------------------------------------------- */}
       {isApproving && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -245,7 +257,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
               <span className="material-symbols-outlined text-2xl">publish</span>
             </div>
             <h3 className="mt-4 text-lg font-bold text-on-surface">
-              Publish &ldquo;{submission.businessName}&rdquo; to Cafnet?
+              Publish &ldquo;{submission.business_name}&rdquo; to Cafnet?
             </h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
               This will create a new live business record discoverable in Explore, Search, and
@@ -256,6 +268,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setIsApproving(false)}
                 className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
               >
@@ -263,19 +276,18 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={handleApprove}
-                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:opacity-50"
               >
-                Approve & publish
+                {isSubmitting ? "Approving..." : "Approve & publish"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
       {/* REJECT CONFIRMATION MODAL WITH REASON */}
-      {/* ------------------------------------------------------------- */}
       {isRejecting && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -320,6 +332,7 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => {
                     setIsRejecting(false);
                     setRejectionReasonInput("");
@@ -331,9 +344,10 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+                  disabled={isSubmitting}
+                  className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
-                  Reject submission
+                  {isSubmitting ? "Rejecting..." : "Reject submission"}
                 </button>
               </div>
             </form>

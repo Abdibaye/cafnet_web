@@ -11,3 +11,6 @@ export * as updatesApi from "./updates";
 export * as reportsApi from "./reports";
 export * as menusApi from "./menus";
 export * from "./menus";
+export * as adminApi from "./admin";
+export * from "./admin";
+

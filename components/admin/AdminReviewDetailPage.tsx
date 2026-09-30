@@ -1,57 +1,75 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  loadReviewReports,
-  isReviewRemoved,
-  dismissReport,
-  removeReviewByAdmin,
-  type ReviewReport,
-} from "@/data/reviewReportStorage";
-import { getMockReviewById, type MockReview } from "@/data/mockReviews";
-import { loadCustomerReviews, type CustomerReview } from "@/data/customerReviewStorage";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { getHelpfulVotesCount } from "@/data/reviewHelpfulStorage";
+  getReview,
+  listReviewReports,
+  moderateReview,
+  resolveReviewReport,
+} from "@/lib/api/admin";
+import { getBusinessProfile } from "@/lib/api/businesses";
+import type { Review, ReviewReport, Business } from "@/lib/api/types";
 import { useCustomer } from "@/components/CustomerProvider";
 
 export default function AdminReviewDetailPage({ reviewId }: { reviewId: string }) {
-  const router = useRouter();
   const { showToast } = useCustomer();
 
-  const [reports, setReports] = useState<ReviewReport[]>(() => loadReviewReports());
-  const [removed, setRemoved] = useState<boolean>(() => isReviewRemoved(reviewId));
+  const [review, setReview] = useState<Review | null>(null);
+  const [report, setReport] = useState<ReviewReport | null>(null);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const [isDismissModalOpen, setIsDismissModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [moderationReason, setModerationReason] = useState("");
+  const [moderationError, setModerationError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const reload = () => {
-    setReports(loadReviewReports());
-    setRemoved(isReviewRemoved(reviewId));
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [revData, reportsData] = await Promise.all([
+        getReview(reviewId).catch(() => null),
+        listReviewReports({ status: "ALL" }).catch(() => []),
+      ]);
 
-  useEffect(() => {
-    reload();
-    const handleUpdate = () => reload();
-    window.addEventListener("cafnet:review-moderation-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:review-moderation-updated", handleUpdate);
+      setReview(revData);
+      const matchedReport = (reportsData || []).find((r) => r.review_id === reviewId) || null;
+      setReport(matchedReport);
+
+      const targetBizId = revData?.business_id;
+      if (targetBizId) {
+        try {
+          const bizData = await getBusinessProfile(targetBizId);
+          setBusiness(bizData.business);
+        } catch {
+          setBusiness(null);
+        }
+      }
+    } catch {
+      setReview(null);
+      setReport(null);
+    } finally {
+      setLoading(false);
+    }
   }, [reviewId]);
 
-  // Find report for this review
-  const report = reports.find((r) => r.reviewId === reviewId);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  // Find the actual review (could be mock seed or customer submitted)
-  const mockReview: MockReview | undefined = getMockReviewById(reviewId);
-  const customerReview: CustomerReview | undefined = loadCustomerReviews().find((r) => r.id === reviewId);
-  const review = customerReview || mockReview;
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="h-6 w-36 animate-pulse rounded bg-outline-variant/40" />
+        <div className="h-44 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+        <div className="h-60 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+      </div>
+    );
+  }
 
-  // Resolve business
-  const businessId = review?.businessId || report?.businessId;
-  const business = businessId ? getBusinessById(businessId) : undefined;
-  const businessName = business?.name || report?.businessName || `Business #${businessId}`;
-
-  // If review is neither in reports nor in review storage, show not found
   if (!review && !report) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
@@ -69,44 +87,67 @@ export default function AdminReviewDetailPage({ reviewId }: { reviewId: string }
     );
   }
 
-  const reviewerName = review?.userName || report?.reviewerName || "Customer";
-  const reviewerAvatar = review?.userAvatar || reviewerName[0] || "C";
-  const rating = review?.rating ?? report?.reviewRating ?? 5;
-  const reviewText = review?.text ?? report?.reviewText ?? "";
-  const verifiedVisit = review?.verifiedVisit ?? report?.verifiedVisit ?? false;
-  const baseHelpful = review?.helpfulCount ?? 0;
-  const helpfulCount = getHelpfulVotesCount(reviewId, baseHelpful);
-
+  const businessName = business?.name || (review ? `Business #${review.business_id}` : "Business");
+  const businessId = review?.business_id;
+  const removed = review?.status === "REMOVED_BY_ADMIN";
   const isPending = report ? report.status === "PENDING" : false;
   const isDismissed = report ? report.status === "DISMISSED" : false;
-  const isActioned = report ? report.status === "ACTIONED" : false;
 
-  const handleDismissReport = () => {
+  const handleDismissReport = async () => {
     if (!report) return;
-    setSubmitting(true);
-    const result = dismissReport(report.id);
-    setSubmitting(false);
-    setIsDismissModalOpen(false);
-
-    if (result.success) {
+    try {
+      setSubmitting(true);
+      await resolveReviewReport(report.id, "DISMISSED", "Report dismissed by admin review");
       showToast("Report dismissed — review remains visible");
-      reload();
-    } else {
-      showToast(result.error || "Could not dismiss report.");
+      setIsDismissModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not dismiss report.";
+      showToast(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleRemoveReview = () => {
-    setSubmitting(true);
-    const result = removeReviewByAdmin(reviewId, report?.id);
-    setSubmitting(false);
-    setIsRemoveModalOpen(false);
+  const handleRemoveReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = moderationReason.trim();
+    if (!trimmed) {
+      setModerationError("Please provide a reason for removing this review.");
+      return;
+    }
 
-    if (result.success) {
+    try {
+      setSubmitting(true);
+      await moderateReview(reviewId, "REMOVED_BY_ADMIN", trimmed);
+      if (report && report.status === "PENDING") {
+        await resolveReviewReport(report.id, "ACTIONED", trimmed);
+      }
       showToast("Review removed from public listings");
-      reload();
-    } else {
-      showToast(result.error || "Could not remove review.");
+      setIsRemoveModalOpen(false);
+      setModerationReason("");
+      setModerationError("");
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not remove review.";
+      setModerationError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRestoreReview = async () => {
+    try {
+      setSubmitting(true);
+      await moderateReview(reviewId, "VISIBLE", "Restored to visible by admin");
+      showToast("Review restored to public listings");
+      setIsRestoreModalOpen(false);
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not restore review.";
+      showToast(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -194,120 +235,70 @@ export default function AdminReviewDetailPage({ reviewId }: { reviewId: string }
       )}
 
       {/* Review Content Card */}
-      <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between border-b border-outline-variant pb-4">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex size-10 items-center justify-center rounded-full bg-primary-container font-semibold text-primary"
-              aria-hidden="true"
-            >
-              {reviewerAvatar}
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-on-surface">{reviewerName}</h2>
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-sm tracking-[0.12em] text-secondary"
-                  aria-label={`${rating} out of 5 stars`}
-                >
-                  {"★".repeat(rating)}
-                  {"☆".repeat(5 - rating)}
-                </span>
-                <span className="text-xs text-on-surface-variant font-semibold">
-                  {rating} / 5 stars
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-right">
-            {verifiedVisit && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                <span className="material-symbols-outlined text-[16px]">verified</span>
-                Verified visit
-              </span>
-            )}
-            <p className="text-xs text-on-surface-variant mt-0.5">
-              Helpful votes: <span className="font-bold text-on-surface">{helpfulCount}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-secondary">
-            Review text
-          </h3>
-          <p className="mt-2 text-sm leading-7 text-on-surface whitespace-pre-wrap rounded-xl bg-surface-container-low p-4">
-            {reviewText}
-          </p>
-        </div>
-      </section>
-
-      {/* Report Context Card (if reported) */}
-      {report && (
+      {review && (
         <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-outline-variant pb-4">
-            <div>
-              <h2 className="text-base font-bold text-on-surface">Report context</h2>
-              <p className="text-xs text-on-surface-variant">
-                Submitted by {report.reporterName || "Customer"}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                {review.customer_user_id.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-on-surface">User {review.customer_user_id}</p>
+                <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                  <span className="text-secondary tracking-widest">
+                    {"★".repeat(review.rating)}
+                    {"☆".repeat(Math.max(0, 5 - review.rating))}
+                  </span>
+                  <span>·</span>
+                  <span>{new Date(review.created_at).toLocaleDateString("en-US")}</span>
+                  {review.is_verified_visit && (
+                    <>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600">
+                        <span className="material-symbols-outlined text-[13px]">verified</span>
+                        Verified Visit
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-            <div>
-              {isPending && (
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 border border-amber-200">
-                  Pending review
-                </span>
-              )}
-              {isDismissed && (
-                <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">
-                  Report dismissed
-                </span>
-              )}
-              {isActioned && (
-                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700 border border-red-200">
-                  Review removed
-                </span>
-              )}
-            </div>
+
+            <span className="text-xs text-on-surface-variant">
+              {review.helpful_count} helpful votes
+            </span>
           </div>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 text-xs">
-            <div>
-              <p className="font-bold uppercase tracking-wider text-secondary">Reported reason</p>
-              <p className="mt-1 font-semibold text-on-surface text-sm capitalize">
-                {report.reason}
-              </p>
-            </div>
+          <div className="mt-4">
+            <p className="text-sm leading-6 text-on-surface whitespace-pre-wrap">
+              {review.review_text}
+            </p>
+          </div>
+        </section>
+      )}
 
-            <div>
-              <p className="font-bold uppercase tracking-wider text-secondary">Date reported</p>
-              <p className="mt-1 text-on-surface">
-                {new Date(report.createdAt).toLocaleString("en-US", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-              </p>
-            </div>
-
+      {/* Report Context Card if present */}
+      {report && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-amber-900">
+              Report context
+            </h2>
+            <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+              Reason: {report.reason}
+            </span>
+          </div>
+          <div className="mt-3 space-y-2 text-xs text-amber-950">
+            <p>
+              <span className="font-semibold">Reporter ID:</span> {report.reporter_user_id}
+            </p>
+            <p>
+              <span className="font-semibold">Reported At:</span>{" "}
+              {new Date(report.created_at).toLocaleString("en-US")}
+            </p>
             {report.explanation && (
-              <div className="sm:col-span-2">
-                <p className="font-bold uppercase tracking-wider text-secondary">
-                  Reporter explanation
-                </p>
-                <p className="mt-1 leading-5 text-on-surface bg-surface-container-low p-3 rounded-xl">
-                  {report.explanation}
-                </p>
-              </div>
-            )}
-
-            {report.reviewedAt && (
-              <div className="sm:col-span-2 border-t border-outline-variant/60 pt-3 text-on-surface-variant">
-                Reviewed by <span className="font-semibold text-on-surface">{report.reviewedBy}</span> on{" "}
-                {new Date(report.reviewedAt).toLocaleString("en-US", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
+              <div className="mt-2 rounded-xl bg-white/70 p-3 text-xs italic text-on-surface">
+                &ldquo;{report.explanation}&rdquo;
               </div>
             )}
           </div>
@@ -315,71 +306,66 @@ export default function AdminReviewDetailPage({ reviewId }: { reviewId: string }
       )}
 
       {/* Moderation Actions Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-outline-variant bg-white p-5 shadow-sm">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-secondary">
-            Moderation decision
-          </p>
-          <p className="text-xs text-on-surface-variant mt-0.5">
-            Decisions take effect immediately across all customer views.
-          </p>
-        </div>
+      <section className="flex flex-col gap-3 rounded-2xl border border-outline-variant bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-end">
+        {isPending && (
+          <button
+            type="button"
+            onClick={() => setIsDismissModalOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+            Dismiss report
+          </button>
+        )}
 
-        <div className="flex w-full sm:w-auto items-center gap-3">
-          {/* Dismiss report button */}
-          {report && isPending && (
-            <button
-              type="button"
-              onClick={() => setIsDismissModalOpen(true)}
-              className="flex-1 sm:flex-initial h-11 items-center justify-center rounded-xl border border-outline-variant px-5 text-xs font-bold text-on-surface transition-colors hover:bg-surface-container"
-            >
-              Dismiss report
-            </button>
-          )}
+        {!removed ? (
+          <button
+            type="button"
+            onClick={() => setIsRemoveModalOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+          >
+            <span className="material-symbols-outlined text-[18px]">gavel</span>
+            Remove review
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsRestoreModalOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            <span className="material-symbols-outlined text-[18px]">visibility</span>
+            Restore review
+          </button>
+        )}
+      </section>
 
-          {/* Remove review button */}
-          {!removed ? (
-            <button
-              type="button"
-              onClick={() => setIsRemoveModalOpen(true)}
-              className="flex-1 sm:flex-initial h-11 items-center justify-center rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700"
-            >
-              Remove review
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="flex-1 sm:flex-initial h-11 items-center justify-center rounded-xl bg-surface-container px-5 text-xs font-bold text-on-surface-variant opacity-60 cursor-not-allowed"
-            >
-              Review already removed
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Dismiss Confirmation Modal */}
+      {/* DISMISS CONFIRMATION MODAL */}
       {isDismissModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-on-surface">Dismiss this report?</h3>
+            <h3 className="text-lg font-bold text-on-surface">Dismiss report</h3>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              The review will remain visible to customers.
+              This report will be marked as dismissed. The review will remain visible to the public.
             </p>
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsDismissModalOpen(false)}
                 disabled={submitting}
-                className="h-10 rounded-xl border border-outline-variant px-4 text-xs font-semibold text-on-surface hover:bg-surface-container"
+                onClick={() => setIsDismissModalOpen(false)}
+                className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleDismissReport}
                 disabled={submitting}
-                className="h-10 rounded-xl bg-primary px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#0f46b8] disabled:opacity-50"
+                onClick={handleDismissReport}
+                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:opacity-50"
               >
                 {submitting ? "Dismissing..." : "Dismiss report"}
               </button>
@@ -388,30 +374,104 @@ export default function AdminReviewDetailPage({ reviewId }: { reviewId: string }
         </div>
       )}
 
-      {/* Remove Confirmation Modal */}
+      {/* REMOVE REVIEW CONFIRMATION MODAL */}
       {isRemoveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-on-surface">Remove this review?</h3>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              The review will no longer be visible to customers.
+            <h3 className="text-lg font-bold text-on-surface">Remove review from public</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Removing this review will hide it from the business profile and recalculate the
+              business rating dynamically.
             </p>
+
+            <form onSubmit={handleRemoveReview} className="mt-4 space-y-4">
+              <div>
+                <label
+                  htmlFor="remove-reason"
+                  className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
+                >
+                  Removal reason *
+                </label>
+                <textarea
+                  id="remove-reason"
+                  rows={3}
+                  autoFocus
+                  placeholder="e.g. Violates community policy against offensive language or conflict of interest."
+                  value={moderationReason}
+                  onChange={(e) => {
+                    setModerationReason(e.target.value);
+                    if (moderationError) setModerationError("");
+                  }}
+                  className={`mt-1.5 w-full rounded-xl border p-3 text-sm outline-none transition-colors ${
+                    moderationError
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-outline-variant focus:border-primary"
+                  }`}
+                />
+                {moderationError && (
+                  <p className="mt-1 text-xs font-semibold text-red-600">{moderationError}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => {
+                    setIsRemoveModalOpen(false);
+                    setModerationReason("");
+                    setModerationError("");
+                  }}
+                  className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                  {submitting ? "Removing..." : "Remove review"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RESTORE REVIEW CONFIRMATION MODAL */}
+      {isRestoreModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-on-surface">Restore review to public</h3>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              This will restore the review back to visible status and recalculate business review ratings.
+            </p>
+
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsRemoveModalOpen(false)}
                 disabled={submitting}
-                className="h-10 rounded-xl border border-outline-variant px-4 text-xs font-semibold text-on-surface hover:bg-surface-container"
+                onClick={() => setIsRestoreModalOpen(false)}
+                className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleRemoveReview}
                 disabled={submitting}
-                className="h-10 rounded-xl bg-red-600 px-5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                onClick={handleRestoreReview}
+                className="h-10 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
               >
-                {submitting ? "Removing..." : "Remove review"}
+                {submitting ? "Restoring..." : "Restore review"}
               </button>
             </div>
           </div>

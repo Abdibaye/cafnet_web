@@ -1918,4 +1918,118 @@ test("Business Updates API & adapters integration (Backend 15)", async () => {
   }
 });
 
+test("Admin Center API integration (Backend 17)", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; method: string; body?: any }[] = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(input);
+    const method = init?.method || "GET";
+    const body = init?.body ? JSON.parse(init.body as string) : undefined;
+    requests.push({ url: strUrl, method, body });
+
+    if (strUrl.includes("/api/v1/admin/stats")) {
+      return new Response(
+        JSON.stringify({
+          data: {
+            total_businesses: 42,
+            published_businesses: 38,
+            verified_businesses: 25,
+            claimed_businesses: 18,
+            total_submissions: 10,
+            pending_submissions: 2,
+            total_claims: 8,
+            pending_claims: 1,
+            total_reviews: 150,
+            removed_reviews: 3,
+            total_review_reports: 5,
+            pending_review_reports: 1,
+            total_business_reports: 4,
+            pending_business_reports: 1,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (strUrl.includes("/api/v1/admin/submissions/sub-1/approve") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: { id: 101, name: "New Approved Cafe", slug: "new-approved-cafe" },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (strUrl.includes("/api/v1/admin/claims/claim-1/approve") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: { approved: true },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (strUrl.includes("/api/v1/admin/reviews/rev-1/moderate") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: { moderated: true },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (strUrl.includes("/api/v1/admin/businesses/101/verification") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: { updated: true },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (strUrl.includes("/api/v1/admin/businesses/101/publication") && method === "POST") {
+      return new Response(
+        JSON.stringify({
+          data: { updated: true },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const { adminApi } = await import("@/lib/api");
+
+    // 1. Get stats
+    const stats = await adminApi.getAdminStats();
+    assert.equal(stats.total_submissions, 10);
+    assert.equal(stats.pending_submissions, 2);
+
+    // 2. Approve submission
+    const createdBiz = await adminApi.approveSubmission("sub-1");
+    assert.equal(createdBiz.id, 101);
+
+    // 3. Approve claim
+    const claimRes = await adminApi.approveClaim("claim-1", "Verified business license");
+    assert.equal(claimRes.approved, true);
+
+    // 4. Moderate review
+    const modRes = await adminApi.moderateReview("rev-1", "REMOVED_BY_ADMIN", "Inappropriate content");
+    assert.equal(modRes.moderated, true);
+
+    // 5. Toggle verification
+    const verRes = await adminApi.setBusinessVerification(101, "VERIFIED");
+    assert.equal(verRes.updated, true);
+
+    // 6. Toggle publication
+    const pubRes = await adminApi.setBusinessPublication(101, "PUBLISHED");
+    assert.equal(pubRes.updated, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 

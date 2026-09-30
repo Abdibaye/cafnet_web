@@ -1,25 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { getBusinessById } from "@/data/mockBusinesses";
-import {
-  getBusinessReportById,
-  dismissBusinessReport,
-  actionBusinessReport,
-  getReportReasonLabel,
-  getReportReasonIcon,
-  type BusinessReport,
-} from "@/data/businessReportStorage";
+import { getBusinessReport, resolveBusinessReport } from "@/lib/api/admin";
+import { getBusinessProfile } from "@/lib/api/businesses";
+import type { BusinessReport, Business, BusinessReportReason } from "@/lib/api/types";
 import { useCustomer } from "@/components/CustomerProvider";
 
+const REASON_LABELS: Record<string, { label: string; icon: string }> = {
+  WRONG_HOURS: { label: "Wrong opening hours", icon: "schedule" },
+  WRONG_PHONE: { label: "Wrong phone number", icon: "phone" },
+  WRONG_LOCATION: { label: "Wrong location", icon: "location_on" },
+  WRONG_INFORMATION: { label: "Wrong business information", icon: "info" },
+  CLOSED: { label: "Business appears permanently closed", icon: "storefront" },
+  DUPLICATE: { label: "Duplicate business", icon: "content_copy" },
+  OTHER: { label: "Other", icon: "help_outline" },
+};
+
+function getReasonInfo(reason: BusinessReportReason) {
+  return REASON_LABELS[reason] || { label: reason, icon: "flag" };
+}
+
 export default function AdminReportDetailPage({ reportId }: { reportId: string }) {
-  const router = useRouter();
   const { showToast } = useCustomer();
-  const [report, setReport] = useState<BusinessReport | undefined>(() =>
-    getBusinessReportById(reportId)
-  );
+  const [report, setReport] = useState<BusinessReport | null>(null);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [isDismissing, setIsDismissing] = useState(false);
   const [isActioning, setIsActioning] = useState(false);
@@ -27,16 +33,39 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const reload = () => {
-    setReport(getBusinessReportById(reportId));
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rep = await getBusinessReport(reportId);
+      setReport(rep);
+      if (rep?.business_id) {
+        try {
+          const bizData = await getBusinessProfile(rep.business_id);
+          setBusiness(bizData.business);
+        } catch {
+          setBusiness(null);
+        }
+      }
+    } catch {
+      setReport(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [reportId]);
 
   useEffect(() => {
-    reload();
-    const handleUpdate = () => reload();
-    window.addEventListener("cafnet:business-reports-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:business-reports-updated", handleUpdate);
-  }, [reportId]);
+    loadData();
+  }, [loadData]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div className="h-6 w-36 animate-pulse rounded bg-outline-variant/40" />
+        <div className="h-44 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+        <div className="h-60 animate-pulse rounded-2xl bg-white p-6 shadow-sm border border-outline-variant/60" />
+      </div>
+    );
+  }
 
   if (!report) {
     return (
@@ -55,38 +84,43 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
     );
   }
 
-  const business = getBusinessById(report.businessId);
-  const reasonLabel = getReportReasonLabel(report.reason);
-  const reasonIcon = getReportReasonIcon(report.reason);
+  const { label: reasonLabel, icon: reasonIcon } = getReasonInfo(report.reason);
+  const businessName = business?.name || `Business #${report.business_id}`;
 
-  const handleDismissSubmit = () => {
-    setIsProcessing(true);
-    setErrorMessage(null);
-    const result = dismissBusinessReport(report.id, "Cafnet Administrator");
-    setIsProcessing(false);
-
-    if (result.success) {
+  const handleDismissSubmit = async () => {
+    try {
+      setIsProcessing(true);
+      setErrorMessage(null);
+      await resolveBusinessReport(report.id, "DISMISSED", "Report dismissed by administrator");
       showToast("Report dismissed");
       setIsDismissing(false);
-      reload();
-    } else {
-      setErrorMessage(result.error || "Failed to dismiss report.");
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to dismiss report.";
+      setErrorMessage(msg);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleActionSubmit = () => {
-    setIsProcessing(true);
-    setErrorMessage(null);
-    const result = actionBusinessReport(report.id, "Cafnet Administrator", adminNotes);
-    setIsProcessing(false);
-
-    if (result.success) {
+  const handleActionSubmit = async () => {
+    try {
+      setIsProcessing(true);
+      setErrorMessage(null);
+      await resolveBusinessReport(
+        report.id,
+        "ACTIONED",
+        adminNotes.trim() || "Report actioned by administrator"
+      );
       showToast("Report marked as actioned");
       setIsActioning(false);
       setAdminNotes("");
-      reload();
-    } else {
-      setErrorMessage(result.error || "Failed to mark report as actioned.");
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to mark report as actioned.";
+      setErrorMessage(msg);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -114,15 +148,13 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
               <span className="text-outline-variant">·</span>
               <span className="text-xs text-on-surface-variant font-medium">
                 Submitted{" "}
-                {new Date(report.createdAt).toLocaleString("en-US", {
+                {new Date(report.created_at).toLocaleString("en-US", {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-bold text-on-surface">
-              {report.businessName}
-            </h1>
+            <h1 className="mt-1 text-2xl font-bold text-on-surface">{businessName}</h1>
           </div>
 
           <div>
@@ -171,27 +203,25 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
         {/* Reporter info */}
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-outline-variant/60 pt-4 text-xs">
           <div>
-            <span className="text-on-surface-variant font-medium">Reporter</span>
-            <p className="font-semibold text-on-surface mt-0.5">
-              {report.reporterName || report.reporterId}
+            <span className="text-on-surface-variant font-medium">Reporter ID</span>
+            <p className="font-mono font-semibold text-on-surface mt-0.5">
+              {report.reporter_user_id}
             </p>
           </div>
           <div>
-            <span className="text-on-surface-variant font-medium">Reporter ID</span>
-            <p className="font-mono font-semibold text-on-surface mt-0.5">
-              {report.reporterId}
-            </p>
+            <span className="text-on-surface-variant font-medium">Report Status</span>
+            <p className="font-semibold text-on-surface mt-0.5">{report.status}</p>
           </div>
         </div>
 
         {/* Audit info if reviewed */}
-        {report.reviewedAt && (
+        {report.reviewed_at && (
           <div className="mt-4 rounded-xl bg-surface-container-low p-3.5 text-xs text-on-surface-variant border border-outline-variant/60 space-y-1">
             <p className="font-bold text-on-surface">Review Resolution</p>
-            <p>Reviewed on: {new Date(report.reviewedAt).toLocaleString("en-US")}</p>
-            {report.reviewedBy && <p>Reviewed by: {report.reviewedBy}</p>}
-            {report.adminNotes && (
-              <p className="font-medium text-on-surface mt-1">Admin Notes: {report.adminNotes}</p>
+            <p>Reviewed on: {new Date(report.reviewed_at).toLocaleString("en-US")}</p>
+            {report.reviewed_by && <p>Reviewed by: {report.reviewed_by}</p>}
+            {report.admin_notes && (
+              <p className="font-medium text-on-surface mt-1">Admin Notes: {report.admin_notes}</p>
             )}
           </div>
         )}
@@ -222,7 +252,7 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
 
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
-              href={`/business/${report.businessId}`}
+              href={`/business/${report.business_id}`}
               target="_blank"
               className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-outline-variant px-3.5 text-xs font-semibold text-on-surface hover:border-primary/40 hover:text-primary transition-colors"
             >
@@ -231,11 +261,11 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
             </Link>
 
             <Link
-              href={`/business/dashboard/business/${report.businessId}/edit`}
+              href={`/admin/businesses/${report.business_id}`}
               className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-outline-variant px-3.5 text-xs font-semibold text-on-surface hover:border-primary/40 hover:text-primary transition-colors"
             >
-              <span className="material-symbols-outlined text-[16px]">edit</span>
-              Edit listing
+              <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+              Admin inspect
             </Link>
           </div>
         </div>
@@ -249,7 +279,9 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
 
             <div className="rounded-xl border border-outline-variant/60 p-3.5">
               <span className="text-on-surface-variant font-medium">Location</span>
-              <p className="font-semibold text-on-surface text-sm mt-0.5">{business.location}</p>
+              <p className="font-semibold text-on-surface text-sm mt-0.5">
+                {business.location_name || business.neighborhood}
+              </p>
             </div>
 
             <div className="rounded-xl border border-outline-variant/60 p-3.5">
@@ -260,9 +292,9 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
             </div>
 
             <div className="rounded-xl border border-outline-variant/60 p-3.5">
-              <span className="text-on-surface-variant font-medium">Opening Hours</span>
+              <span className="text-on-surface-variant font-medium">Price Range</span>
               <p className="font-semibold text-on-surface text-sm mt-0.5">
-                {business.openingHours || "Hours not set"}
+                {business.price_range || "Not set"}
               </p>
             </div>
 
@@ -276,14 +308,14 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
             <div className="rounded-xl border border-outline-variant/60 p-3.5">
               <span className="text-on-surface-variant font-medium">Status & Verification</span>
               <p className="font-semibold text-on-surface text-sm mt-0.5">
-                {business.verified ? "Verified badge active" : "Unverified"} ·{" "}
-                {business.claimStatus === "claimed" ? "Claimed by owner" : "Unclaimed"}
+                {business.verification_status === "VERIFIED" ? "Verified badge active" : "Unverified"} ·{" "}
+                {business.claim_status === "CLAIMED" ? "Claimed by owner" : "Unclaimed"}
               </p>
             </div>
           </div>
         ) : (
           <p className="mt-4 text-xs text-on-surface-variant italic">
-            Business listing #{report.businessId} could not be loaded.
+            Business listing #{report.business_id} could not be loaded.
           </p>
         )}
       </section>
@@ -324,9 +356,7 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
         </section>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* 1. DISMISS CONFIRMATION MODAL */}
-      {/* ------------------------------------------------------------- */}
+      {/* DISMISS CONFIRMATION MODAL */}
       {isDismissing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -363,9 +393,7 @@ export default function AdminReportDetailPage({ reportId }: { reportId: string }
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* 2. ACTION CONFIRMATION MODAL */}
-      {/* ------------------------------------------------------------- */}
+      {/* ACTION CONFIRMATION MODAL */}
       {isActioning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">

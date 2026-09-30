@@ -525,3 +525,68 @@ export interface UpdateUpdateInput {
   status?: UpdateStatus;
 }
 
+// Platform Admin DTOs & Models
+
+export interface AdminStats {
+  pending_submissions: number;
+  approved_submissions: number;
+  rejected_submissions: number;
+  total_submissions: number;
+  pending_claims: number;
+  approved_claims: number;
+  rejected_claims: number;
+  total_claims: number;
+  pending_review_reports: number;
+  resolved_review_reports: number;
+  total_review_reports: number;
+  pending_business_reports: number;
+  resolved_business_reports: number;
+  total_business_reports: number;
+}
+
+export interface AdminAction {
+  id: string;
+  admin_user_id: string;
+  action_type: string;
+  target_entity_type: string;
+  target_entity_id: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface RejectSubmissionInput {
+  reason: string;
+}
+
+export interface ApproveClaimInput {
+  notes?: string;
+}
+
+export interface RejectClaimInput {
+  reason: string;
+}
+
+export interface ResolveReviewReportInput {
+  status: ReportStatus; // DISMISSED or ACTIONED
+  action?: string;
+}
+
+export interface ModerateReviewInput {
+  status: ReviewStatus; // VISIBLE or REMOVED_BY_ADMIN
+  reason: string;
+}
+
+export interface ResolveBusinessReportInput {
+  status: ReportStatus; // DISMISSED or ACTIONED
+  notes?: string;
+}
+
+export interface SetPublicationInput {
+  status: PublicationStatus; // PUBLISHED or UNPUBLISHED
+}
+
+export interface SetVerificationInput {
+  status: VerificationStatus; // VERIFIED or UNVERIFIED
+}
+
+

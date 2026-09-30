@@ -1,49 +1,68 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getAllBusinesses, type MockBusiness } from "@/data/mockBusinesses";
-import { loadBusinessOwnerState } from "@/data/businessOwnerStorage";
-import { getAdminStats, type AdminStats } from "@/data/adminStorage";
-import { loadReviewReports, type ReviewReport } from "@/data/reviewReportStorage";
-import { loadBusinessReports, type BusinessReport } from "@/data/businessReportStorage";
+import {
+  getAdminStats,
+  listClaims,
+  listSubmissions,
+  listReviewReports,
+  listBusinessReports,
+} from "@/lib/api/admin";
+import { listBusinesses } from "@/lib/api/businesses";
+import type {
+  AdminStats,
+  Business,
+  BusinessClaim,
+  BusinessReport,
+  BusinessSubmission,
+  ReviewReport,
+} from "@/lib/api/types";
 
 export default function AdminDashboardOverview() {
-  const [businesses, setBusinesses] = useState<MockBusiness[]>(() => getAllBusinesses());
-  const [ownerState, setOwnerState] = useState(() => loadBusinessOwnerState());
-  const [reports, setReports] = useState<ReviewReport[]>(() => loadReviewReports());
-  const [businessReports, setBusinessReports] = useState<BusinessReport[]>(() => loadBusinessReports());
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [pendingClaims, setPendingClaims] = useState<BusinessClaim[]>([]);
+  const [pendingSubmissions, setPendingSubmissions] = useState<BusinessSubmission[]>([]);
+  const [pendingReports, setPendingReports] = useState<ReviewReport[]>([]);
+  const [pendingBusinessReports, setPendingBusinessReports] = useState<BusinessReport[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const reload = () => {
-    setBusinesses(getAllBusinesses());
-    setOwnerState(loadBusinessOwnerState());
-    setReports(loadReviewReports());
-    setBusinessReports(loadBusinessReports());
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [
+        statsData,
+        claimsData,
+        subsData,
+        reportsData,
+        bizReportsData,
+        bizData,
+      ] = await Promise.all([
+        getAdminStats().catch(() => null),
+        listClaims({ status: "PENDING", limit: 5 }).catch(() => []),
+        listSubmissions({ status: "PENDING", limit: 5 }).catch(() => []),
+        listReviewReports({ status: "PENDING", limit: 5 }).catch(() => []),
+        listBusinessReports({ status: "PENDING", limit: 5 }).catch(() => []),
+        listBusinesses({ limit: 100 })
+          .then((r) => r.businesses)
+          .catch(() => []),
+      ]);
 
-  useEffect(() => {
-    reload();
-    const handleEvents = () => reload();
-    window.addEventListener("cafnet:admin-updated", handleEvents);
-    window.addEventListener("cafnet:business-owner-updated", handleEvents);
-    window.addEventListener("cafnet:managed-businesses-updated", handleEvents);
-    window.addEventListener("cafnet:review-moderation-updated", handleEvents);
-    window.addEventListener("cafnet:business-reports-updated", handleEvents);
-
-    return () => {
-      window.removeEventListener("cafnet:admin-updated", handleEvents);
-      window.removeEventListener("cafnet:business-owner-updated", handleEvents);
-      window.removeEventListener("cafnet:managed-businesses-updated", handleEvents);
-      window.removeEventListener("cafnet:review-moderation-updated", handleEvents);
-      window.removeEventListener("cafnet:business-reports-updated", handleEvents);
-    };
+      if (statsData) setStats(statsData);
+      setPendingClaims(claimsData);
+      setPendingSubmissions(subsData);
+      setPendingReports(reportsData);
+      setPendingBusinessReports(bizReportsData);
+      setBusinesses(bizData);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const stats: AdminStats = getAdminStats(businesses);
-  const pendingClaims = ownerState.claims.filter((c) => c.status === "pending");
-  const pendingSubmissions = ownerState.submissions.filter((s) => s.status === "pending");
-  const pendingReports = reports.filter((r) => r.status === "PENDING");
-  const pendingBusinessReports = businessReports.filter((r) => r.status === "PENDING");
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-10">
@@ -72,12 +91,12 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">
-              {stats.pendingClaimsCount}
+              {stats?.pending_claims ?? 0}
             </span>
             <span className="text-xs font-semibold text-on-surface-variant">pending</span>
           </div>
           <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            {stats.approvedClaimsCount} approved · {stats.rejectedClaimsCount} rejected
+            {stats?.approved_claims ?? 0} approved · {stats?.rejected_claims ?? 0} rejected
           </p>
           <div className="mt-5 border-t border-outline-variant/60 pt-4">
             <Link
@@ -102,12 +121,12 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">
-              {stats.pendingSubmissionsCount}
+              {stats?.pending_submissions ?? 0}
             </span>
             <span className="text-xs font-semibold text-on-surface-variant">pending</span>
           </div>
           <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            {stats.approvedSubmissionsCount} approved · {stats.rejectedSubmissionsCount} rejected
+            {stats?.approved_submissions ?? 0} approved · {stats?.rejected_submissions ?? 0} rejected
           </p>
           <div className="mt-5 border-t border-outline-variant/60 pt-4">
             <Link
@@ -132,12 +151,12 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">
-              {stats.pendingReportsCount}
+              {stats?.pending_review_reports ?? 0}
             </span>
             <span className="text-xs font-semibold text-on-surface-variant">pending</span>
           </div>
           <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            {stats.actionedReportsCount} removed · {stats.dismissedReportsCount} dismissed
+            {stats?.resolved_review_reports ?? 0} resolved · {stats?.total_review_reports ?? 0} total
           </p>
           <div className="mt-5 border-t border-outline-variant/60 pt-4">
             <Link
@@ -162,12 +181,12 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">
-              {stats.totalBusinessesCount}
+              {businesses.length}
             </span>
             <span className="text-xs font-semibold text-on-surface-variant">places</span>
           </div>
           <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            {stats.verifiedBusinessesCount} verified businesses
+            {businesses.filter((b) => b.verification_status === "VERIFIED").length} verified businesses
           </p>
           <div className="mt-5 border-t border-outline-variant/60 pt-4">
             <Link
@@ -192,13 +211,12 @@ export default function AdminDashboardOverview() {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">
-              {pendingBusinessReports.length}
+              {stats?.pending_business_reports ?? 0}
             </span>
             <span className="text-xs font-semibold text-on-surface-variant">pending</span>
           </div>
           <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            {businessReports.filter((r) => r.status === "ACTIONED").length} actioned ·{" "}
-            {businessReports.filter((r) => r.status === "DISMISSED").length} dismissed
+            {stats?.resolved_business_reports ?? 0} resolved · {stats?.total_business_reports ?? 0} total
           </p>
           <div className="mt-5 border-t border-outline-variant/60 pt-4">
             <Link
@@ -225,7 +243,7 @@ export default function AdminDashboardOverview() {
               href="/admin/claims"
               className="text-xs font-bold text-primary hover:text-[#0f46b8]"
             >
-              All ({pendingClaims.length})
+              All ({stats?.pending_claims ?? pendingClaims.length})
             </Link>
           </div>
 
@@ -240,15 +258,15 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="divide-y divide-outline-variant/60">
                 {pendingClaims.slice(0, 3).map((claim) => {
-                  const b = businesses.find((item) => item.id === claim.businessId);
+                  const b = businesses.find((item) => item.id === claim.business_id);
                   return (
                     <div key={claim.id} className="flex items-center justify-between py-3">
                       <div className="min-w-0 flex-1 pr-3">
                         <p className="truncate text-xs font-semibold text-on-surface">
-                          {b?.name || `Business #${claim.businessId}`}
+                          {b?.name || `Business #${claim.business_id}`}
                         </p>
                         <p className="text-[11px] text-on-surface-variant">
-                          {new Date(claim.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {new Date(claim.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
                       <Link
@@ -276,7 +294,7 @@ export default function AdminDashboardOverview() {
               href="/admin/submissions"
               className="text-xs font-bold text-primary hover:text-[#0f46b8]"
             >
-              All ({pendingSubmissions.length})
+              All ({stats?.pending_submissions ?? pendingSubmissions.length})
             </Link>
           </div>
 
@@ -294,7 +312,7 @@ export default function AdminDashboardOverview() {
                   <div key={sub.id} className="flex items-center justify-between py-3">
                     <div className="min-w-0 flex-1 pr-3">
                       <p className="truncate text-xs font-semibold text-on-surface">
-                        {sub.businessName}
+                        {sub.business_name}
                       </p>
                       <p className="text-[11px] text-on-surface-variant">
                         {sub.category} · {sub.area}
@@ -324,7 +342,7 @@ export default function AdminDashboardOverview() {
               href="/admin/reviews"
               className="text-xs font-bold text-primary hover:text-[#0f46b8]"
             >
-              All ({pendingReports.length})
+              All ({stats?.pending_review_reports ?? pendingReports.length})
             </Link>
           </div>
 
@@ -342,14 +360,14 @@ export default function AdminDashboardOverview() {
                   <div key={report.id} className="flex items-center justify-between py-3">
                     <div className="min-w-0 flex-1 pr-3">
                       <p className="truncate text-xs font-semibold text-on-surface">
-                        {report.businessName}
+                        Report #{report.id.slice(0, 8)}
                       </p>
                       <p className="truncate text-[11px] text-on-surface-variant">
                         Reported for <span className="font-semibold">{report.reason}</span>
                       </p>
                     </div>
                     <Link
-                      href={`/admin/reviews/${report.reviewId}`}
+                      href={`/admin/reviews/${report.review_id}`}
                       className="inline-flex h-7 items-center rounded-lg bg-primary-container px-2.5 text-[11px] font-bold text-primary transition-colors hover:bg-primary hover:text-white"
                     >
                       Review

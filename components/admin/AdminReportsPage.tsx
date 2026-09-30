@@ -1,46 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import {
-  loadBusinessReports,
-  getReportReasonLabel,
-  getReportReasonIcon,
-  type BusinessReport,
-  type BusinessReportStatus,
-} from "@/data/businessReportStorage";
+import { listBusinessReports } from "@/lib/api/admin";
+import { listBusinesses } from "@/lib/api/businesses";
+import type { BusinessReport, ReportStatus, BusinessReportReason, Business } from "@/lib/api/types";
 
 type FilterTab = "PENDING" | "DISMISSED" | "ACTIONED" | "ALL";
 
+const REASON_LABELS: Record<string, { label: string; icon: string }> = {
+  WRONG_HOURS: { label: "Wrong opening hours", icon: "schedule" },
+  WRONG_PHONE: { label: "Wrong phone number", icon: "phone" },
+  WRONG_LOCATION: { label: "Wrong location", icon: "location_on" },
+  WRONG_INFORMATION: { label: "Wrong business information", icon: "info" },
+  CLOSED: { label: "Business appears permanently closed", icon: "storefront" },
+  DUPLICATE: { label: "Duplicate business", icon: "content_copy" },
+  OTHER: { label: "Other", icon: "help_outline" },
+};
+
+function getReasonInfo(reason: BusinessReportReason) {
+  return REASON_LABELS[reason] || { label: reason, icon: "flag" };
+}
+
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<BusinessReport[]>(() => loadBusinessReports());
+  const [reports, setReports] = useState<BusinessReport[]>([]);
+  const [businesses, setBusinesses] = useState<Record<number, Business>>({});
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("PENDING");
 
-  const reload = () => {
-    setReports(loadBusinessReports());
-  };
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [reportsData, bizResult] = await Promise.all([
+        listBusinessReports({
+          status: activeTab === "ALL" ? "ALL" : activeTab,
+        }),
+        listBusinesses({ limit: 100 }).catch(() => ({ businesses: [] })),
+      ]);
+
+      setReports(reportsData || []);
+      const bMap: Record<number, Business> = {};
+      for (const b of bizResult?.businesses || []) {
+        bMap[b.id] = b;
+      }
+      setBusinesses(bMap);
+    } catch {
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
-    reload();
-    const handleUpdate = () => reload();
-    window.addEventListener("cafnet:business-reports-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:business-reports-updated", handleUpdate);
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const pending = reports.filter((r) => r.status === "PENDING");
   const dismissed = reports.filter((r) => r.status === "DISMISSED");
   const actioned = reports.filter((r) => r.status === "ACTIONED");
 
-  const displayedReports =
-    activeTab === "PENDING"
-      ? pending
-      : activeTab === "DISMISSED"
-      ? dismissed
-      : activeTab === "ACTIONED"
-      ? actioned
-      : reports;
-
-  const renderStatusBadge = (status: BusinessReportStatus) => {
+  const renderStatusBadge = (status: ReportStatus) => {
     switch (status) {
       case "PENDING":
         return (
@@ -156,7 +175,16 @@ export default function AdminReportsPage() {
 
       {/* Reports List */}
       <div>
-        {displayedReports.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-28 animate-pulse rounded-2xl border border-outline-variant/60 bg-white p-5"
+              />
+            ))}
+          </div>
+        ) : reports.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center text-on-surface-variant">
             <span className="material-symbols-outlined text-4xl text-outline">
               {activeTab === "PENDING"
@@ -182,9 +210,9 @@ export default function AdminReportsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {displayedReports.map((report) => {
-              const reasonLabel = getReportReasonLabel(report.reason);
-              const reasonIcon = getReportReasonIcon(report.reason);
+            {reports.map((report) => {
+              const { label: reasonLabel, icon: reasonIcon } = getReasonInfo(report.reason);
+              const business = businesses[report.business_id];
 
               return (
                 <div
@@ -195,10 +223,10 @@ export default function AdminReportsPage() {
                     {/* Header info */}
                     <div className="flex flex-wrap items-center gap-2.5">
                       <h2 className="font-bold text-base text-on-surface">
-                        {report.businessName}
+                        {business ? business.name : `Business #${report.business_id}`}
                       </h2>
                       <span className="rounded-md bg-surface-container-low px-2 py-0.5 text-[11px] font-semibold text-secondary">
-                        ID: #{report.businessId}
+                        ID: #{report.business_id}
                       </span>
                       <div className="ml-auto sm:ml-2">{renderStatusBadge(report.status)}</div>
                     </div>
@@ -221,23 +249,23 @@ export default function AdminReportsPage() {
                       <span>
                         Reported by:{" "}
                         <strong className="font-semibold text-on-surface">
-                          {report.reporterName || report.reporterId}
+                          {report.reporter_user_id}
                         </strong>
                       </span>
                       <span>·</span>
                       <span>
                         Submitted on{" "}
-                        {new Date(report.createdAt).toLocaleString("en-US", {
+                        {new Date(report.created_at).toLocaleString("en-US", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
                       </span>
-                      {report.reviewedAt && (
+                      {report.reviewed_at && (
                         <>
                           <span>·</span>
                           <span>
                             Reviewed on{" "}
-                            {new Date(report.reviewedAt).toLocaleDateString("en-US", {
+                            {new Date(report.reviewed_at).toLocaleDateString("en-US", {
                               dateStyle: "medium",
                             })}
                           </span>
