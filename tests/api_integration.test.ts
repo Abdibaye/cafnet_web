@@ -10,6 +10,7 @@ import * as reservationsApi from "../lib/api/reservations";
 import * as reviewsApi from "../lib/api/reviews";
 import * as updatesApi from "../lib/api/updates";
 import * as reportsApi from "../lib/api/reports";
+import * as menusApi from "../lib/api/menus";
 import {
   formatPriceEtb,
   formatHours,
@@ -29,6 +30,9 @@ import {
   apiClaimToViewModel,
   apiSubmissionToViewModel,
   businessToOwnerManaged,
+  parsePriceToMinorSantims,
+  apiMenuToViewModel,
+  computeMenuSummary,
 } from "../lib/api/adapters";
 import type {
   Business,
@@ -1085,9 +1089,11 @@ test("apiClaimToViewModel and apiSubmissionToViewModel normalize backend status"
   const claim = apiClaimToViewModel({
     id: "claim-1",
     business_id: 5,
-    user_id: "user-1",
+    claimant_user_id: "user-1",
     status: "PENDING",
     submitted_at: "2026-09-20T10:00:00Z",
+    created_at: "2026-09-20T10:00:00Z",
+    updated_at: "2026-09-20T10:00:00Z",
   });
   assert.equal(claim.id, "claim-1");
   assert.equal(claim.businessId, 5);
@@ -1095,7 +1101,7 @@ test("apiClaimToViewModel and apiSubmissionToViewModel normalize backend status"
 
   const sub = apiSubmissionToViewModel({
     id: "sub-1",
-    user_id: "user-1",
+    submitter_user_id: "user-1",
     business_name: "New Rooftop Bar",
     category: "drinks",
     area: "Kazanchis",
@@ -1103,6 +1109,8 @@ test("apiClaimToViewModel and apiSubmissionToViewModel normalize backend status"
     submitted_at: "2026-09-20T10:00:00Z",
     reviewed_at: "2026-09-21T10:00:00Z",
     created_business_id: 99,
+    created_at: "2026-09-20T10:00:00Z",
+    updated_at: "2026-09-20T10:00:00Z",
   });
   assert.equal(sub.id, "sub-1");
   assert.equal(sub.businessName, "New Rooftop Bar");
@@ -1324,6 +1332,302 @@ test("businessesApi and customerApi handle management and submission endpoints",
     });
     assert.equal(newSub.business_name, "Piassa Pastry");
     assert.equal(newSub.status, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ==========================================
+// 18. Business Menu Management & Money Adapters
+// ==========================================
+
+test("parsePriceToMinorSantims safely parses ETB amounts into santims", () => {
+  // Integer string
+  assert.equal(parsePriceToMinorSantims("125"), 12500);
+  assert.equal(parsePriceToMinorSantims("0"), 0);
+
+  // String with ETB suffix / case insensitive / whitespace
+  assert.equal(parsePriceToMinorSantims("125 ETB"), 12500);
+  assert.equal(parsePriceToMinorSantims("  125.50 etb  "), 12550);
+  assert.equal(parsePriceToMinorSantims("250.75"), 25075);
+  assert.equal(parsePriceToMinorSantims("1,500 ETB"), 150000);
+
+  // Number input
+  assert.equal(parsePriceToMinorSantims(125), 12500);
+  assert.equal(parsePriceToMinorSantims(125.5), 12550);
+  assert.equal(parsePriceToMinorSantims(0), 0);
+
+  // Error cases
+  assert.throws(() => parsePriceToMinorSantims(""), /Price cannot be empty/);
+  assert.throws(() => parsePriceToMinorSantims("   "), /Price cannot be empty/);
+  assert.throws(() => parsePriceToMinorSantims("abc"), /Invalid price number format/);
+  assert.throws(() => parsePriceToMinorSantims("-50"), /Invalid price number format/);
+  assert.throws(() => parsePriceToMinorSantims(-10), /Invalid price value/);
+  assert.throws(() => parsePriceToMinorSantims(NaN), /Invalid price value/);
+});
+
+test("apiMenuToViewModel and computeMenuSummary correctly transform menu models", () => {
+  const apiMenu = {
+    business_id: 10,
+    categories: [
+      {
+        category: {
+          id: "cat-1",
+          business_id: 10,
+          name: "Hot Drinks",
+          sort_order: 0,
+          created_at: "2026-09-20T10:00:00Z",
+          updated_at: "2026-09-20T10:00:00Z",
+        },
+        items: [
+          {
+            id: "item-1",
+            category_id: "cat-1",
+            business_id: 10,
+            name: "Buna",
+            description: "Traditional coffee",
+            price_etb_minor: 4500,
+            sort_order: 0,
+            is_available: true,
+            created_at: "2026-09-20T10:00:00Z",
+            updated_at: "2026-09-20T10:00:00Z",
+          },
+          {
+            id: "item-2",
+            category_id: "cat-1",
+            business_id: 10,
+            name: "Macchiato",
+            description: "Double shot",
+            price_etb_minor: 6550,
+            sort_order: 1,
+            is_available: true,
+            created_at: "2026-09-20T10:00:00Z",
+            updated_at: "2026-09-20T10:00:00Z",
+          },
+        ],
+      },
+      {
+        category: {
+          id: "cat-2",
+          business_id: 10,
+          name: "Pastries",
+          sort_order: 1,
+          created_at: "2026-09-20T10:00:00Z",
+          updated_at: "2026-09-20T10:00:00Z",
+        },
+        items: [],
+      },
+    ],
+  };
+
+  const vm = apiMenuToViewModel(apiMenu);
+  assert.equal(vm.businessId, 10);
+  assert.equal(vm.categories.length, 2);
+  assert.equal(vm.categories[0].name, "Hot Drinks");
+  assert.equal(vm.categories[0].items.length, 2);
+  assert.equal(vm.categories[0].items[0].name, "Buna");
+  assert.equal(vm.categories[0].items[0].price, "45 ETB");
+  assert.equal(vm.categories[0].items[0].priceEtbMinor, 4500);
+  assert.equal(vm.categories[0].items[1].price, "65.50 ETB");
+  assert.equal(vm.categories[0].items[1].priceEtbMinor, 6550);
+  assert.equal(vm.categories[1].name, "Pastries");
+  assert.equal(vm.categories[1].items.length, 0);
+
+  const summary = computeMenuSummary(vm);
+  assert.equal(summary.categoryCount, 2);
+  assert.equal(summary.itemCount, 2);
+  assert.equal(summary.hasMenu, true);
+
+  const emptySummary = computeMenuSummary(null);
+  assert.equal(emptySummary.categoryCount, 0);
+  assert.equal(emptySummary.itemCount, 0);
+  assert.equal(emptySummary.hasMenu, false);
+});
+
+test("menusApi executes full CRUD and reordering calls with canonical payloads", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; method: string; body?: any }[] = [];
+
+  try {
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method || "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      requests.push({ url, method, body });
+
+      if (url.includes("/api/v1/businesses/10/menu") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              business_id: 10,
+              categories: [],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/categories/reorder") && method === "PUT") {
+        return new Response(JSON.stringify({ data: { reordered: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/categories/cat-1/items/reorder") && method === "PUT") {
+        return new Response(JSON.stringify({ data: { reordered: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/categories/cat-1") && method === "PATCH") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "cat-1",
+              business_id: 10,
+              name: body.name,
+              sort_order: 0,
+              created_at: "2026-09-20T10:00:00Z",
+              updated_at: "2026-09-20T10:05:00Z",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/categories/cat-1") && method === "DELETE") {
+        return new Response(JSON.stringify({ data: { deleted: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/categories") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "cat-1",
+              business_id: 10,
+              name: body.name,
+              sort_order: body.sort_order,
+              created_at: "2026-09-20T10:00:00Z",
+              updated_at: "2026-09-20T10:00:00Z",
+            },
+          }),
+          { status: 201, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/items/item-1") && method === "PATCH") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "item-1",
+              category_id: "cat-1",
+              business_id: 10,
+              name: body.name,
+              price_etb_minor: body.price_etb_minor,
+              sort_order: 0,
+              is_available: true,
+              created_at: "2026-09-20T10:00:00Z",
+              updated_at: "2026-09-20T10:05:00Z",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/items/item-1") && method === "DELETE") {
+        return new Response(JSON.stringify({ data: { deleted: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (url.includes("/api/v1/businesses/10/menu/items") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: "item-1",
+              category_id: body.category_id,
+              business_id: 10,
+              name: body.name,
+              price_etb_minor: body.price_etb_minor,
+              sort_order: body.sort_order,
+              is_available: true,
+              created_at: "2026-09-20T10:00:00Z",
+              updated_at: "2026-09-20T10:00:00Z",
+            },
+          }),
+          { status: 201, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "Not found" } }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    // 1. Get menu
+    const menu = await menusApi.getBusinessMenu(10);
+    assert.equal(menu.business_id, 10);
+    assert.equal(requests[0].method, "GET");
+
+    // 2. Create category
+    const cat = await menusApi.createMenuCategory(10, { name: "Breakfast", sort_order: 0 });
+    assert.equal(cat.name, "Breakfast");
+    assert.equal(requests[1].method, "POST");
+    assert.equal(requests[1].body.name, "Breakfast");
+
+    // 3. Update category
+    const updatedCat = await menusApi.updateMenuCategory(10, "cat-1", { name: "All-Day Breakfast" });
+    assert.equal(updatedCat.name, "All-Day Breakfast");
+    assert.equal(requests[2].method, "PATCH");
+
+    // 4. Reorder categories
+    const reorderCatRes = await menusApi.reorderMenuCategories(10, ["cat-2", "cat-1"]);
+    assert.equal(reorderCatRes.reordered, true);
+    assert.equal(requests[3].method, "PUT");
+    assert.deepEqual(requests[3].body.category_ids, ["cat-2", "cat-1"]);
+
+    // 5. Create item
+    const item = await menusApi.createMenuItem(10, {
+      category_id: "cat-1",
+      name: "Eggs & Toast",
+      description: "Organic eggs with toasted sourdough",
+      price_etb_minor: 18000,
+      sort_order: 0,
+    });
+    assert.equal(item.name, "Eggs & Toast");
+    assert.equal(item.price_etb_minor, 18000);
+    assert.equal(requests[4].method, "POST");
+
+    // 6. Update item
+    const updatedItem = await menusApi.updateMenuItem(10, "item-1", {
+      name: "Eggs, Toast & Avocado",
+      price_etb_minor: 22000,
+    });
+    assert.equal(updatedItem.name, "Eggs, Toast & Avocado");
+    assert.equal(requests[5].method, "PATCH");
+
+    // 7. Reorder items
+    const reorderItemRes = await menusApi.reorderMenuItems(10, "cat-1", ["item-2", "item-1"]);
+    assert.equal(reorderItemRes.reordered, true);
+    assert.equal(requests[6].method, "PUT");
+    assert.deepEqual(requests[6].body.item_ids, ["item-2", "item-1"]);
+
+    // 8. Delete item
+    const delItemRes = await menusApi.deleteMenuItem(10, "item-1");
+    assert.equal(delItemRes.deleted, true);
+    assert.equal(requests[7].method, "DELETE");
+
+    // 9. Delete category
+    const delCatRes = await menusApi.deleteMenuCategory(10, "cat-1");
+    assert.equal(delCatRes.deleted, true);
+    assert.equal(requests[8].method, "DELETE");
   } finally {
     globalThis.fetch = originalFetch;
   }

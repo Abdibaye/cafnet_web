@@ -460,3 +460,41 @@ export interface CreateSubmissionInput {
   payload?: Record<string, unknown>;
 }
 
+// Menu Management DTOs
+
+export interface CreateMenuCategoryInput {
+  name: string;
+  sort_order: number;
+}
+
+export interface UpdateMenuCategoryInput {
+  name?: string;
+  sort_order?: number;
+}
+
+export interface ReorderCategoriesInput {
+  category_ids: string[];
+}
+
+export interface CreateMenuItemInput {
+  category_id: string;
+  name: string;
+  description?: string;
+  price_etb_minor: number;
+  is_available?: boolean;
+  sort_order: number;
+}
+
+export interface UpdateMenuItemInput {
+  category_id?: string;
+  name?: string;
+  description?: string;
+  price_etb_minor?: number;
+  is_available?: boolean;
+  sort_order?: number;
+}
+
+export interface ReorderItemsInput {
+  item_ids: string[];
+}
+

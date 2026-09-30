@@ -5,10 +5,15 @@ import Link from "next/link";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { getBusinessById } from "@/data/mockBusinesses";
 import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
-import { businessToViewModel, type BusinessProfileViewModel } from "@/lib/api/adapters";
+import { getBusinessMenu } from "@/lib/api/menus";
+import {
+  businessToViewModel,
+  computeMenuSummary,
+  type BusinessProfileViewModel,
+  type MenuSummaryViewModel,
+} from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
 import { getUpdatesByBusiness } from "@/data/businessUpdateStorage";
-import { getMenuSummary, type MenuSummary } from "@/data/menuStorage";
 import {
   getReservationsByBusiness,
   type MockReservation,
@@ -26,13 +31,15 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       setLoading(true);
       setErrorStatus(null);
       try {
-        const [b, hours, images] = await Promise.all([
+        const [b, hours, images, menuData] = await Promise.all([
           getManagedBusiness(businessId),
           getBusinessHours(businessId).catch(() => []),
           getBusinessImages(businessId).catch(() => []),
+          getBusinessMenu(businessId).catch(() => null),
         ]);
         if (!cancelled) {
           setBusinessData(businessToViewModel(b, hours, images));
+          setMenuSummary(computeMenuSummary(menuData));
         }
       } catch (err) {
         if (!cancelled) {
@@ -59,7 +66,11 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
     };
   }, [businessId]);
 
-  const [menuSummary, setMenuSummary] = useState<MenuSummary>(() => getMenuSummary(Number(businessId)));
+  const [menuSummary, setMenuSummary] = useState<MenuSummaryViewModel>({
+    categoryCount: 0,
+    itemCount: 0,
+    hasMenu: false,
+  });
   const [businessReservations, setBusinessReservations] = useState<MockReservation[]>(() =>
     getReservationsByBusiness(Number(businessId))
   );
@@ -68,7 +79,9 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
     const handleMenuUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ businessId?: number }>;
       if (!customEvent.detail?.businessId || customEvent.detail.businessId === Number(businessId)) {
-        setMenuSummary(getMenuSummary(Number(businessId)));
+        getBusinessMenu(businessId)
+          .then((raw) => setMenuSummary(computeMenuSummary(raw)))
+          .catch(() => {});
       }
     };
 

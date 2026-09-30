@@ -1,26 +1,31 @@
 "use client";
 
-import { useState, useEffect, useId } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { getManagedBusiness } from "@/lib/api/businesses";
 import {
   getBusinessMenu,
-  addCategory,
-  updateCategory,
-  deleteCategory,
-  reorderCategories,
-  addItem,
-  updateItem,
-  deleteItem,
-  reorderItems,
-  type BusinessMenu,
-  type MenuCategory,
-  type MenuItem,
-  type ItemInput,
-} from "@/data/menuStorage";
+  createMenuCategory,
+  updateMenuCategory,
+  deleteMenuCategory,
+  reorderMenuCategories,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  reorderMenuItems,
+} from "@/lib/api/menus";
+import {
+  apiMenuToViewModel,
+  parsePriceToMinorSantims,
+  type BusinessMenuViewModel,
+  type MenuCategoryViewModel,
+  type MenuItemViewModel,
+} from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business } from "@/lib/api/types";
 
 type ManageMenuPageProps = {
   businessId: string;
@@ -32,42 +37,30 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
   const { showToast } = useCustomer();
   const { ready, isBusinessManaged } = useBusinessOwner();
 
-  const business = getBusinessById(numId);
-  const isManaged = isBusinessManaged(numId) || business?.claimStatus === "claimed";
+  // Business state
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loadingBusiness, setLoadingBusiness] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
   // Menu state
-  const [menu, setMenu] = useState<BusinessMenu | undefined>(() => getBusinessMenu(numId));
-
-  // Reload menu helper
-  const reloadMenu = () => {
-    setMenu(getBusinessMenu(numId));
-  };
-
-  useEffect(() => {
-    reloadMenu();
-    const handleUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ businessId?: number }>;
-      if (!customEvent.detail?.businessId || customEvent.detail.businessId === numId) {
-        reloadMenu();
-      }
-    };
-    window.addEventListener("cafnet:menu-updated", handleUpdate);
-    return () => window.removeEventListener("cafnet:menu-updated", handleUpdate);
-  }, [numId]);
+  const [menu, setMenu] = useState<BusinessMenuViewModel | null>(null);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal states
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
-  const [deletingCategory, setDeletingCategory] = useState<MenuCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<MenuCategoryViewModel | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<MenuCategoryViewModel | null>(null);
 
   const [activeCategoryIdForItem, setActiveCategoryIdForItem] = useState<string | null>(null);
   const [editingItemInfo, setEditingItemInfo] = useState<{
-    category: MenuCategory;
-    item: MenuItem;
+    category: MenuCategoryViewModel;
+    item: MenuItemViewModel;
   } | null>(null);
   const [deletingItemInfo, setDeletingItemInfo] = useState<{
-    category: MenuCategory;
-    item: MenuItem;
+    category: MenuCategoryViewModel;
+    item: MenuItemViewModel;
   } | null>(null);
 
   // Form input states
@@ -78,6 +71,76 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
   const [itemPriceInput, setItemPriceInput] = useState("");
   const [itemDescInput, setItemDescInput] = useState("");
   const [itemErrors, setItemErrors] = useState<{ name?: string; price?: string }>({});
+
+  // Load business metadata with ReBAC verification
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBusiness() {
+      setLoadingBusiness(true);
+      setErrorStatus(null);
+      try {
+        const b = await getManagedBusiness(businessId);
+        if (!cancelled) {
+          setBusiness(b);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof ApiError) {
+            setErrorStatus(err.status);
+          } else {
+            setErrorStatus(500);
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingBusiness(false);
+        }
+      }
+    }
+
+    loadBusiness();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
+
+  // Reload menu helper from canonical API
+  const reloadMenu = async () => {
+    try {
+      setLoadingMenu(true);
+      setMenuError(null);
+      const raw = await getBusinessMenu(businessId);
+      setMenu(apiMenuToViewModel(raw));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          setErrorStatus(403);
+        } else if (err.status === 404) {
+          setMenu({ businessId: numId, categories: [] });
+        } else {
+          setMenuError(err.message || "Failed to load menu");
+        }
+      } else {
+        setMenuError("An unexpected error occurred while loading the menu");
+      }
+    } finally {
+      setLoadingMenu(false);
+    }
+  };
+
+  useEffect(() => {
+    reloadMenu();
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ businessId?: number }>;
+      if (!customEvent.detail?.businessId || customEvent.detail.businessId === numId) {
+        reloadMenu();
+      }
+    };
+
+    window.addEventListener("cafnet:menu-updated", handleUpdate);
+    return () => window.removeEventListener("cafnet:menu-updated", handleUpdate);
+  }, [numId]);
 
   // Escape key handler for modals
   useEffect(() => {
@@ -95,7 +158,17 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (!ready) {
+  const notifyMenuUpdated = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("cafnet:menu-updated", {
+          detail: { businessId: numId },
+        })
+      );
+    }
+  };
+
+  if (!ready || loadingBusiness) {
     return (
       <div className="mx-auto max-w-4xl px-5 py-20 text-sm text-on-surface-variant">
         Loading menu management...
@@ -103,24 +176,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     );
   }
 
-  if (!business) {
-    return (
-      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
-        <h1 className="text-2xl font-bold text-on-surface">Business not found</h1>
-        <p className="mt-3 text-sm text-on-surface-variant">
-          This business may no longer be available.
-        </p>
-        <Link
-          href="/business/dashboard"
-          className="mt-6 inline-flex text-sm font-semibold text-primary"
-        >
-          Return to Business Center
-        </Link>
-      </div>
-    );
-  }
-
-  if (!isManaged) {
+  if (errorStatus === 403) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
@@ -140,6 +196,23 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     );
   }
 
+  if (!business || errorStatus === 404) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <h1 className="text-2xl font-bold text-on-surface">Business not found</h1>
+        <p className="mt-3 text-sm text-on-surface-variant">
+          This business may no longer be available.
+        </p>
+        <Link
+          href="/business/dashboard"
+          className="mt-6 inline-flex text-sm font-semibold text-primary"
+        >
+          Return to Business Center
+        </Link>
+      </div>
+    );
+  }
+
   const categories = menu?.categories || [];
   const totalItems = categories.reduce((sum, c) => sum + c.items.length, 0);
 
@@ -153,57 +226,90 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     setIsAddCategoryOpen(true);
   };
 
-  const handleOpenEditCategory = (category: MenuCategory) => {
+  const handleOpenEditCategory = (category: MenuCategoryViewModel) => {
     setCategoryNameInput(category.name);
     setCategoryError("");
     setEditingCategory(category);
   };
 
-  const handleSubmitCategory = (e: React.FormEvent) => {
+  const handleSubmitCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = categoryNameInput.trim();
     if (!trimmed) {
       setCategoryError("Category name is required");
       return;
     }
-    if (trimmed.length > 50) {
-      setCategoryError("Category name must be under 50 characters");
+    if (trimmed.length > 80) {
+      setCategoryError("Category name must be under 80 characters");
       return;
     }
 
-    if (editingCategory) {
-      const success = updateCategory(numId, editingCategory.id, trimmed);
-      if (!success) {
-        setCategoryError("A category with this name already exists");
-        return;
+    setIsSubmitting(true);
+    try {
+      if (editingCategory) {
+        await updateMenuCategory(numId, editingCategory.id, { name: trimmed });
+        showToast("Category renamed");
+        setEditingCategory(null);
+      } else {
+        const nextOrder = categories.length;
+        await createMenuCategory(numId, { name: trimmed, sort_order: nextOrder });
+        showToast("Category added");
+        setIsAddCategoryOpen(false);
       }
-      showToast("Category renamed");
-      setEditingCategory(null);
-    } else {
-      const added = addCategory(numId, trimmed);
-      if (!added) {
+      setCategoryNameInput("");
+      setCategoryError("");
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
         setCategoryError("A category with this name already exists");
-        return;
+      } else if (err instanceof ApiError) {
+        setCategoryError(err.message || "Failed to save category");
+      } else {
+        setCategoryError("Failed to save category. Please try again.");
       }
-      showToast("Category added");
-      setIsAddCategoryOpen(false);
+    } finally {
+      setIsSubmitting(false);
     }
-    setCategoryNameInput("");
-    setCategoryError("");
-    reloadMenu();
   };
 
-  const handleConfirmDeleteCategory = () => {
+  const handleConfirmDeleteCategory = async () => {
     if (!deletingCategory) return;
-    deleteCategory(numId, deletingCategory.id);
-    showToast("Category deleted");
-    setDeletingCategory(null);
-    reloadMenu();
+    setIsSubmitting(true);
+    try {
+      await deleteMenuCategory(numId, deletingCategory.id);
+      showToast("Category deleted");
+      setDeletingCategory(null);
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to delete category";
+      showToast(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleMoveCategory = (categoryId: string, direction: "up" | "down") => {
-    reorderCategories(numId, categoryId, direction);
-    reloadMenu();
+  const handleMoveCategory = async (categoryId: string, direction: "up" | "down") => {
+    if (!menu) return;
+    const cats = [...menu.categories];
+    const idx = cats.findIndex((c) => c.id === categoryId);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= cats.length) return;
+
+    const [moved] = cats.splice(idx, 1);
+    cats.splice(targetIdx, 0, moved);
+    const reorderedIds = cats.map((c) => c.id);
+
+    try {
+      await reorderMenuCategories(numId, reorderedIds);
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to reorder categories";
+      showToast(msg);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -218,7 +324,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     setActiveCategoryIdForItem(categoryId);
   };
 
-  const handleOpenEditItem = (category: MenuCategory, item: MenuItem) => {
+  const handleOpenEditItem = (category: MenuCategoryViewModel, item: MenuItemViewModel) => {
     setItemNameInput(item.name);
     setItemPriceInput(item.price);
     setItemDescInput(item.description || "");
@@ -226,19 +332,27 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
     setEditingItemInfo({ category, item });
   };
 
-  const handleSubmitItem = (e: React.FormEvent) => {
+  const handleSubmitItem = async (e: React.FormEvent) => {
     e.preventDefault();
     const nameTrimmed = itemNameInput.trim();
-    let priceTrimmed = itemPriceInput.trim();
+    const priceTrimmed = itemPriceInput.trim();
     const descTrimmed = itemDescInput.trim();
 
     const errors: { name?: string; price?: string } = {};
     if (!nameTrimmed) errors.name = "Item name is required";
+    if (nameTrimmed.length > 100) errors.name = "Item name must be under 100 characters";
     if (!priceTrimmed) errors.price = "Price is required";
 
-    // Auto-append ETB if only a number was entered
-    if (priceTrimmed && !isNaN(Number(priceTrimmed))) {
-      priceTrimmed = `${priceTrimmed} ETB`;
+    let priceMinor = 0;
+    if (priceTrimmed) {
+      try {
+        priceMinor = parsePriceToMinorSantims(priceTrimmed);
+        if (priceMinor > 100000000) {
+          errors.price = "Price is above maximum allowed";
+        }
+      } catch {
+        errors.price = "Enter a valid price in ETB (e.g. 150 or 150.50)";
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -246,40 +360,84 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
       return;
     }
 
-    const input: ItemInput = {
-      name: nameTrimmed,
-      price: priceTrimmed,
-      description: descTrimmed,
-    };
+    setIsSubmitting(true);
+    try {
+      if (editingItemInfo) {
+        await updateMenuItem(numId, editingItemInfo.item.id, {
+          name: nameTrimmed,
+          description: descTrimmed,
+          price_etb_minor: priceMinor,
+        });
+        showToast("Menu item updated");
+        setEditingItemInfo(null);
+      } else if (activeCategoryIdForItem) {
+        const targetCat = categories.find((c) => c.id === activeCategoryIdForItem);
+        const nextOrder = targetCat ? targetCat.items.length : 0;
+        await createMenuItem(numId, {
+          category_id: activeCategoryIdForItem,
+          name: nameTrimmed,
+          description: descTrimmed,
+          price_etb_minor: priceMinor,
+          sort_order: nextOrder,
+        });
+        showToast("Menu item added");
+        setActiveCategoryIdForItem(null);
+      }
 
-    if (editingItemInfo) {
-      updateItem(numId, editingItemInfo.category.id, editingItemInfo.item.id, input);
-      showToast("Menu item updated");
-      setEditingItemInfo(null);
-    } else if (activeCategoryIdForItem) {
-      addItem(numId, activeCategoryIdForItem, input);
-      showToast("Menu item added");
-      setActiveCategoryIdForItem(null);
+      setItemNameInput("");
+      setItemPriceInput("");
+      setItemDescInput("");
+      setItemErrors({});
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to save menu item";
+      showToast(msg);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setItemNameInput("");
-    setItemPriceInput("");
-    setItemDescInput("");
-    setItemErrors({});
-    reloadMenu();
   };
 
-  const handleConfirmDeleteItem = () => {
+  const handleConfirmDeleteItem = async () => {
     if (!deletingItemInfo) return;
-    deleteItem(numId, deletingItemInfo.category.id, deletingItemInfo.item.id);
-    showToast("Menu item deleted");
-    setDeletingItemInfo(null);
-    reloadMenu();
+    setIsSubmitting(true);
+    try {
+      await deleteMenuItem(numId, deletingItemInfo.item.id);
+      showToast("Menu item deleted");
+      setDeletingItemInfo(null);
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to delete item";
+      showToast(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleMoveItem = (categoryId: string, itemId: string, direction: "up" | "down") => {
-    reorderItems(numId, categoryId, itemId, direction);
-    reloadMenu();
+  const handleMoveItem = async (categoryId: string, itemId: string, direction: "up" | "down") => {
+    if (!menu) return;
+    const cat = menu.categories.find((c) => c.id === categoryId);
+    if (!cat) return;
+
+    const items = [...cat.items];
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+
+    const [moved] = items.splice(idx, 1);
+    items.splice(targetIdx, 0, moved);
+    const reorderedIds = items.map((i) => i.id);
+
+    try {
+      await reorderMenuItems(numId, categoryId, reorderedIds);
+      notifyMenuUpdated();
+      await reloadMenu();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to reorder items";
+      showToast(msg);
+    }
   };
 
   return (
@@ -329,7 +487,22 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
 
       {/* Main Content Area */}
       <div className="mt-8">
-        {categories.length === 0 ? (
+        {loadingMenu && !menu ? (
+          <div className="rounded-2xl border border-outline-variant bg-white p-12 text-center text-sm text-on-surface-variant">
+            Loading menu items...
+          </div>
+        ) : menuError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+            <p className="text-sm font-medium text-red-800">{menuError}</p>
+            <button
+              type="button"
+              onClick={reloadMenu}
+              className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        ) : categories.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-outline-variant bg-white p-12 text-center">
             <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-surface-container-low text-secondary">
               <span className="material-symbols-outlined text-3xl">restaurant_menu</span>
@@ -379,7 +552,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                     {/* Move Category Up */}
                     <button
                       type="button"
-                      disabled={catIdx === 0}
+                      disabled={catIdx === 0 || isSubmitting}
                       onClick={() => handleMoveCategory(category.id, "up")}
                       className="inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant/70 text-on-surface-variant transition-colors hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                       title="Move category up"
@@ -390,7 +563,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                     {/* Move Category Down */}
                     <button
                       type="button"
-                      disabled={catIdx === categories.length - 1}
+                      disabled={catIdx === categories.length - 1 || isSubmitting}
                       onClick={() => handleMoveCategory(category.id, "down")}
                       className="inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant/70 text-on-surface-variant transition-colors hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
                       title="Move category down"
@@ -401,8 +574,9 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                     {/* Rename Category */}
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => handleOpenEditCategory(category)}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-outline-variant/70 px-3 text-xs font-semibold text-on-surface transition-colors hover:bg-white hover:text-primary"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-outline-variant/70 px-3 text-xs font-semibold text-on-surface transition-colors hover:bg-white hover:text-primary disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
@@ -410,8 +584,9 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                     {/* Delete Category */}
                     <button
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => setDeletingCategory(category)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant/70 text-secondary transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="inline-flex size-9 items-center justify-center rounded-lg border border-outline-variant/70 text-secondary transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                       title="Delete category"
                       aria-label={`Delete ${category.name} category`}
                     >
@@ -463,7 +638,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                             {/* Move Item Up */}
                             <button
                               type="button"
-                              disabled={itemIdx === 0}
+                              disabled={itemIdx === 0 || isSubmitting}
                               onClick={() => handleMoveItem(category.id, item.id, "up")}
                               className="inline-flex size-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary disabled:cursor-not-allowed disabled:opacity-25"
                               title="Move item up"
@@ -476,7 +651,7 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                             {/* Move Item Down */}
                             <button
                               type="button"
-                              disabled={itemIdx === category.items.length - 1}
+                              disabled={itemIdx === category.items.length - 1 || isSubmitting}
                               onClick={() => handleMoveItem(category.id, item.id, "down")}
                               className="inline-flex size-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary disabled:cursor-not-allowed disabled:opacity-25"
                               title="Move item down"
@@ -489,8 +664,9 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                             {/* Edit Item */}
                             <button
                               type="button"
+                              disabled={isSubmitting}
                               onClick={() => handleOpenEditItem(category, item)}
-                              className="inline-flex h-8 items-center gap-1 rounded-md border border-outline-variant/70 px-2.5 text-xs font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-primary"
+                              className="inline-flex h-8 items-center gap-1 rounded-md border border-outline-variant/70 px-2.5 text-xs font-semibold text-on-surface transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-50"
                             >
                               <span className="material-symbols-outlined text-[15px]">edit</span>
                               Edit
@@ -498,8 +674,9 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                             {/* Delete Item */}
                             <button
                               type="button"
+                              disabled={isSubmitting}
                               onClick={() => setDeletingItemInfo({ category, item })}
-                              className="inline-flex size-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-red-50 hover:text-red-600"
+                              className="inline-flex size-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                               title="Delete item"
                               aria-label={`Delete ${item.name}`}
                             >
@@ -598,9 +775,14 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                  disabled={isSubmitting}
+                  className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:opacity-50"
                 >
-                  {editingCategory ? "Save changes" : "Add category"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingCategory
+                    ? "Save changes"
+                    : "Add category"}
                 </button>
               </div>
             </form>
@@ -643,10 +825,11 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={handleConfirmDeleteCategory}
-                className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+                className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
               >
-                Delete category
+                {isSubmitting ? "Deleting..." : "Delete category"}
               </button>
             </div>
           </div>
@@ -766,9 +949,10 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                 </button>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                  disabled={isSubmitting}
+                  className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0f46b8] disabled:opacity-50"
                 >
-                  {editingItemInfo ? "Save changes" : "Add item"}
+                  {isSubmitting ? "Saving..." : editingItemInfo ? "Save changes" : "Add item"}
                 </button>
               </div>
             </form>
@@ -808,10 +992,11 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={handleConfirmDeleteItem}
-                className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+                className="h-10 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
               >
-                Delete item
+                {isSubmitting ? "Deleting..." : "Delete item"}
               </button>
             </div>
           </div>

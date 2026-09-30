@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getBusinessMenu, type BusinessMenu } from "@/data/menuStorage";
+import { getBusinessMenu } from "@/lib/api/menus";
+import { apiMenuToViewModel, type BusinessMenuViewModel } from "@/lib/api/adapters";
 
 type BusinessProfileMenuSectionProps = {
   businessId: number;
@@ -21,19 +22,39 @@ export default function BusinessProfileMenuSection({
   images,
   initialMenu,
 }: BusinessProfileMenuSectionProps) {
-  const [menu, setMenu] = useState<BusinessMenu | undefined>(() => getBusinessMenu(businessId));
+  const [menu, setMenu] = useState<BusinessMenuViewModel | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchMenu() {
+      try {
+        const raw = await getBusinessMenu(businessId);
+        if (!cancelled) {
+          setMenu(apiMenuToViewModel(raw));
+        }
+      } catch {
+        // Fallback gracefully without breaking public profile
+      }
+    }
+
+    if (!initialMenu || initialMenu.length === 0) {
+      fetchMenu();
+    }
+
     const handleMenuUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ businessId?: number }>;
       if (!customEvent.detail?.businessId || customEvent.detail.businessId === businessId) {
-        setMenu(getBusinessMenu(businessId));
+        fetchMenu();
       }
     };
 
     window.addEventListener("cafnet:menu-updated", handleMenuUpdate);
-    return () => window.removeEventListener("cafnet:menu-updated", handleMenuUpdate);
-  }, [businessId]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cafnet:menu-updated", handleMenuUpdate);
+    };
+  }, [businessId, initialMenu]);
 
   const activeCategories = (initialMenu && initialMenu.length > 0)
     ? initialMenu.map((c, i) => ({

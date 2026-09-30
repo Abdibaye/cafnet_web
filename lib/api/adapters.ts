@@ -12,6 +12,7 @@ import type {
   BusinessUpdate,
   UpdateBusinessInput,
   PriceRange,
+  BusinessMenu,
 } from "./types";
 import type { MockReservation } from "@/data/reservationStorage";
 import type { CustomerReview } from "@/data/customerReviewStorage";
@@ -617,6 +618,119 @@ export function businessToOwnerManaged(
     status: "managed",
     editableData: businessToEditableData(business, hours),
     createdAt: business.created_at || new Date().toISOString(),
+  };
+}
+
+// ==========================================
+// Menu Management ViewModels & Helpers
+// ==========================================
+
+export interface MenuItemViewModel {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string;
+  price: string;
+  priceEtbMinor: number;
+  isAvailable: boolean;
+  sortOrder: number;
+}
+
+export interface MenuCategoryViewModel {
+  id: string;
+  name: string;
+  sortOrder: number;
+  items: MenuItemViewModel[];
+}
+
+export interface BusinessMenuViewModel {
+  businessId: number;
+  categories: MenuCategoryViewModel[];
+}
+
+export interface MenuSummaryViewModel {
+  categoryCount: number;
+  itemCount: number;
+  hasMenu: boolean;
+}
+
+/**
+ * Parses a price string or number into canonical integer minor units (Santims).
+ * 1 ETB = 100 Santims.
+ * Handles inputs like "125", "125 ETB", "125.50", "125.50 ETB", 125, 125.5.
+ * Throws an Error if invalid or negative.
+ */
+export function parsePriceToMinorSantims(price: string | number): number {
+  if (typeof price === "number") {
+    if (isNaN(price) || !isFinite(price) || price < 0) {
+      throw new Error("Invalid price value");
+    }
+    return Math.round(price * 100);
+  }
+
+  if (typeof price !== "string") {
+    throw new Error("Price must be a string or number");
+  }
+
+  const sanitized = price.replace(/etb/gi, "").replace(/,/g, "").trim();
+  if (!sanitized) {
+    throw new Error("Price cannot be empty");
+  }
+
+  const num = Number(sanitized);
+  if (isNaN(num) || !isFinite(num) || num < 0) {
+    throw new Error("Invalid price number format");
+  }
+
+  return Math.round(num * 100);
+}
+
+/**
+ * Converts a backend BusinessMenu entity to the frontend UI view model.
+ */
+export function apiMenuToViewModel(menu: BusinessMenu): BusinessMenuViewModel {
+  return {
+    businessId: menu.business_id,
+    categories: (menu.categories || []).map((catWithItems) => ({
+      id: catWithItems.category.id,
+      name: catWithItems.category.name,
+      sortOrder: catWithItems.category.sort_order,
+      items: (catWithItems.items || []).map((item) => ({
+        id: item.id,
+        categoryId: item.category_id,
+        name: item.name,
+        description: item.description || "",
+        price: formatPriceEtb(item.price_etb_minor),
+        priceEtbMinor: item.price_etb_minor,
+        isAvailable: item.is_available,
+        sortOrder: item.sort_order,
+      })),
+    })),
+  };
+}
+
+/**
+ * Computes menu summary counts (categories and items) from API or ViewModel menu.
+ */
+export function computeMenuSummary(
+  menu: BusinessMenu | BusinessMenuViewModel | null | undefined,
+): MenuSummaryViewModel {
+  if (!menu || !menu.categories || menu.categories.length === 0) {
+    return { categoryCount: 0, itemCount: 0, hasMenu: false };
+  }
+
+  const categoryCount = menu.categories.length;
+  let itemCount = 0;
+  for (const cat of menu.categories) {
+    if ("items" in cat && Array.isArray(cat.items)) {
+      itemCount += cat.items.length;
+    }
+  }
+
+  return {
+    categoryCount,
+    itemCount,
+    hasMenu: categoryCount > 0,
   };
 }
 
