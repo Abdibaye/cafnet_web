@@ -64,7 +64,7 @@ export async function cancelReservation(
  * Lists reservations for a business (manager authorized endpoint).
  */
 export async function listBusinessReservations(
-  businessId: number,
+  businessId: number | string,
   params?: ReservationFilterParams,
 ): Promise<Reservation[]> {
   const res = await api.get<Reservation[]>(
@@ -75,10 +75,23 @@ export async function listBusinessReservations(
 }
 
 /**
+ * Retrieves a single reservation for a business (manager authorized endpoint).
+ */
+export async function getBusinessReservation(
+  businessId: number | string,
+  resId: string,
+): Promise<Reservation> {
+  const res = await api.get<Reservation>(
+    `/api/v1/businesses/${businessId}/reservations/${resId}`,
+  );
+  return res.data;
+}
+
+/**
  * Confirms a pending reservation (manager authorized endpoint).
  */
 export async function confirmReservation(
-  businessId: number,
+  businessId: number | string,
   resId: string,
 ): Promise<{ confirmed: boolean }> {
   const res = await api.post<{ confirmed: boolean }>(
@@ -91,7 +104,7 @@ export async function confirmReservation(
  * Declines a pending reservation with a reason (manager authorized endpoint).
  */
 export async function declineReservation(
-  businessId: number,
+  businessId: number | string,
   resId: string,
   reason: string,
 ): Promise<{ declined: boolean }> {
@@ -106,7 +119,7 @@ export async function declineReservation(
  * Marks a confirmed reservation as completed, unlocking verified reviews (manager authorized endpoint).
  */
 export async function completeReservation(
-  businessId: number,
+  businessId: number | string,
   resId: string,
 ): Promise<{ completed: boolean }> {
   const res = await api.post<{ completed: boolean }>(
@@ -114,3 +127,4 @@ export async function completeReservation(
   );
   return res.data;
 }
+

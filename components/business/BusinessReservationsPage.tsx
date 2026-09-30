@@ -1,31 +1,241 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useReservations } from "@/components/ReservationProvider";
-import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
+import { getManagedBusiness } from "@/lib/api/businesses";
+import {
+  listBusinessReservations,
+  confirmReservation,
+  declineReservation,
+  completeReservation,
+} from "@/lib/api/reservations";
+import {
+  reservationToViewModel,
+  type BusinessReservationViewModel,
+  type UiReservationStatus,
+} from "@/lib/api/adapters";
+import { ApiError } from "@/lib/api/errors";
+import type { Business } from "@/lib/api/types";
 import { getBusinessById } from "@/data/mockBusinesses";
-import type { MockReservation, ReservationStatus } from "@/data/reservationStorage";
 
 type TabType = "pending" | "confirmed" | "completed" | "declined" | "cancelled" | "all";
 
 export default function BusinessReservationsPage({ businessId }: { businessId: string }) {
-  const business = getBusinessById(businessId);
-  const { ready: ownerReady, isBusinessManaged } = useBusinessOwner();
-  const { ready, getReservationsForBusiness, confirmBooking, declineBooking, completeBooking } = useReservations();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [businessReservations, setBusinessReservations] = useState<BusinessReservationViewModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<TabType>("pending");
-  const [viewingReservation, setViewingReservation] = useState<MockReservation | null>(null);
-  const [confirmingReservation, setConfirmingReservation] = useState<MockReservation | null>(null);
-  const [decliningReservation, setDecliningReservation] = useState<MockReservation | null>(null);
-  const [completingReservation, setCompletingReservation] = useState<MockReservation | null>(null);
+  const [viewingReservation, setViewingReservation] = useState<BusinessReservationViewModel | null>(null);
+  const [confirmingReservation, setConfirmingReservation] = useState<BusinessReservationViewModel | null>(null);
+  const [decliningReservation, setDecliningReservation] = useState<BusinessReservationViewModel | null>(null);
+  const [completingReservation, setCompletingReservation] = useState<BusinessReservationViewModel | null>(null);
 
   const [declineReason, setDeclineReason] = useState("Fully booked at this hour");
   const [customReason, setCustomReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!business) {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorStatus(null);
+    setErrorMessage(null);
+    try {
+      const [biz, rawReservations] = await Promise.all([
+        getManagedBusiness(businessId),
+        listBusinessReservations(businessId),
+      ]);
+      setBusiness(biz);
+      setBusinessReservations(rawReservations.map(reservationToViewModel));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrorStatus(err.status);
+        setErrorMessage(err.message);
+      } else {
+        const mock = getBusinessById(businessId);
+        if (mock) {
+          setBusiness({
+            id: Number(businessId),
+            name: mock.name,
+            category: mock.category as any,
+            description: mock.description,
+            reservation_available: mock.reservationAvailable,
+            claim_status: mock.claimStatus === "claimed" ? "CLAIMED" : "UNCLAIMED",
+            verification_status: mock.verified ? "VERIFIED" : "UNVERIFIED",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as Business);
+          setBusinessReservations([]);
+        } else {
+          setErrorStatus(404);
+          setErrorMessage("Business not found");
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId]);
+
+  useEffect(() => {
+    loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener("cafnet:reservations-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("cafnet:reservations-updated", handleUpdate);
+    };
+  }, [loadData]);
+
+  // Lifecycle Action Handlers
+  const handleConfirmSubmit = async () => {
+    if (!confirmingReservation || isProcessing) return;
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await confirmReservation(businessId, confirmingReservation.id);
+      const now = new Date().toISOString();
+      setBusinessReservations((prev) =>
+        prev.map((r) =>
+          r.id === confirmingReservation.id
+            ? { ...r, status: "confirmed", confirmedAt: now }
+            : r
+        )
+      );
+      if (viewingReservation?.id === confirmingReservation.id) {
+        setViewingReservation((prev) =>
+          prev ? { ...prev, status: "confirmed", confirmedAt: now } : null
+        );
+      }
+      setConfirmingReservation(null);
+      window.dispatchEvent(
+        new CustomEvent("cafnet:reservations-updated", {
+          detail: { businessId: Number(businessId) },
+        })
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setActionError(err.message);
+      } else {
+        setActionError("Failed to confirm reservation. Please try again.");
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeclineSubmit = async () => {
+    if (!decliningReservation || isProcessing) return;
+    const finalReason = declineReason === "Other" ? customReason.trim() : declineReason.trim();
+    if (!finalReason) {
+      setActionError("Please provide a reason for declining this reservation.");
+      return;
+    }
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await declineReservation(businessId, decliningReservation.id, finalReason);
+      const now = new Date().toISOString();
+      setBusinessReservations((prev) =>
+        prev.map((r) =>
+          r.id === decliningReservation.id
+            ? { ...r, status: "declined", declinedAt: now, declineReason: finalReason }
+            : r
+        )
+      );
+      if (viewingReservation?.id === decliningReservation.id) {
+        setViewingReservation((prev) =>
+          prev ? { ...prev, status: "declined", declinedAt: now, declineReason: finalReason } : null
+        );
+      }
+      setDecliningReservation(null);
+      setCustomReason("");
+      setDeclineReason("Fully booked at this hour");
+      window.dispatchEvent(
+        new CustomEvent("cafnet:reservations-updated", {
+          detail: { businessId: Number(businessId) },
+        })
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setActionError(err.message);
+      } else {
+        setActionError("Failed to decline reservation. Please try again.");
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCompleteSubmit = async () => {
+    if (!completingReservation || isProcessing) return;
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await completeReservation(businessId, completingReservation.id);
+      const now = new Date().toISOString();
+      setBusinessReservations((prev) =>
+        prev.map((r) =>
+          r.id === completingReservation.id
+            ? { ...r, status: "completed", completedAt: now }
+            : r
+        )
+      );
+      if (viewingReservation?.id === completingReservation.id) {
+        setViewingReservation((prev) =>
+          prev ? { ...prev, status: "completed", completedAt: now } : null
+        );
+      }
+      setCompletingReservation(null);
+      window.dispatchEvent(
+        new CustomEvent("cafnet:reservations-updated", {
+          detail: { businessId: Number(businessId) },
+        })
+      );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setActionError(err.message);
+      } else {
+        setActionError("Failed to mark reservation as completed. Please try again.");
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl px-5 py-20 text-center text-sm text-on-surface-variant">
+        Loading reservations...
+      </div>
+    );
+  }
+
+  if (errorStatus === 403) {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-20 text-center">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-800">
+          <span className="material-symbols-outlined text-3xl">lock</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-on-surface">Not Managed</h1>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
+          You do not have management access for this business on Cafnet.
+        </p>
+        <Link
+          href="/business/dashboard"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#0f46b8]"
+        >
+          Back to Business Center
+        </Link>
+      </div>
+    );
+  }
+
+  if (errorStatus === 404 || !business) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <h1 className="text-2xl font-bold text-on-surface">Business not found</h1>
@@ -37,11 +247,8 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
     );
   }
 
-  // Permission & feature gate: Only managed businesses with reservationAvailable === true can manage reservations
-  const isManaged = ownerReady ? isBusinessManaged(business.id) : true;
-  const isReservable = Boolean(business.reservationAvailable);
-
-  if (ownerReady && (!isManaged || !isReservable)) {
+  // Feature gate: table reservations enabled for business
+  if (!business.reservation_available) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-800">
@@ -49,9 +256,7 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
         </div>
         <h1 className="mt-4 text-2xl font-bold text-on-surface">Reservations not available</h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
-          {!isReservable
-            ? `${business.name} does not have table reservations enabled.`
-            : "You do not have management access for this business."}
+          {business.name} does not have table reservations enabled.
         </p>
         <Link
           href={`/business/dashboard/business/${business.id}`}
@@ -63,15 +268,13 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
     );
   }
 
-  const businessReservations = ready ? getReservationsForBusiness(Number(businessId)) : [];
-
   const pending = businessReservations.filter((r) => r.status === "pending");
   const confirmed = businessReservations.filter((r) => r.status === "confirmed");
   const completed = businessReservations.filter((r) => r.status === "completed");
   const declined = businessReservations.filter((r) => r.status === "declined");
   const cancelled = businessReservations.filter((r) => r.status === "cancelled");
 
-  const tabItems: Record<TabType, MockReservation[]> = {
+  const tabItems: Record<TabType, BusinessReservationViewModel[]> = {
     pending,
     confirmed,
     completed,
@@ -82,62 +285,6 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
 
   const displayedReservations = tabItems[activeTab];
 
-  // Lifecycle Action Handlers
-  const handleConfirmSubmit = () => {
-    if (!confirmingReservation) return;
-    setIsProcessing(true);
-    setActionError(null);
-    const result = confirmBooking(confirmingReservation.id, business.name);
-    setIsProcessing(false);
-    if (result.success) {
-      setConfirmingReservation(null);
-      if (viewingReservation?.id === confirmingReservation.id) {
-        setViewingReservation(null);
-      }
-    } else {
-      setActionError(result.error || "Failed to confirm reservation.");
-    }
-  };
-
-  const handleDeclineSubmit = () => {
-    if (!decliningReservation) return;
-    const finalReason = declineReason === "Other" ? customReason.trim() : declineReason.trim();
-    if (!finalReason) {
-      setActionError("Please provide a reason for declining this reservation.");
-      return;
-    }
-    setIsProcessing(true);
-    setActionError(null);
-    const result = declineBooking(decliningReservation.id, finalReason, business.name);
-    setIsProcessing(false);
-    if (result.success) {
-      setDecliningReservation(null);
-      setCustomReason("");
-      setDeclineReason("Fully booked at this hour");
-      if (viewingReservation?.id === decliningReservation.id) {
-        setViewingReservation(null);
-      }
-    } else {
-      setActionError(result.error || "Failed to decline reservation.");
-    }
-  };
-
-  const handleCompleteSubmit = () => {
-    if (!completingReservation) return;
-    setIsProcessing(true);
-    setActionError(null);
-    const result = completeBooking(completingReservation.id, business.name);
-    setIsProcessing(false);
-    if (result.success) {
-      setCompletingReservation(null);
-      if (viewingReservation?.id === completingReservation.id) {
-        setViewingReservation(null);
-      }
-    } else {
-      setActionError(result.error || "Failed to mark reservation as completed.");
-    }
-  };
-
   const DECLINE_OPTIONS = [
     "Fully booked at this hour",
     "Closed for private event",
@@ -146,7 +293,7 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
     "Other",
   ];
 
-  const renderBadge = (status: ReservationStatus) => {
+  const renderBadge = (status: UiReservationStatus) => {
     switch (status) {
       case "pending":
         return (

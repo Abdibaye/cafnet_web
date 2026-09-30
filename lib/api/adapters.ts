@@ -339,9 +339,12 @@ export function formatReservationTimeForApi(timeStr: string): string {
   return `${hh}:${minutes}:00`;
 }
 
-export function reservationToViewModel(r: Reservation): MockReservation {
+export type UiReservationStatus = "pending" | "confirmed" | "declined" | "cancelled" | "completed";
+export type BusinessReservationViewModel = MockReservation;
+
+export function reservationToViewModel(r: Reservation): BusinessReservationViewModel {
   const dateStr = typeof r.reservation_date === "string" ? r.reservation_date.slice(0, 10) : "";
-  const statusStr = (r.status ? r.status.toLowerCase() : "pending") as MockReservation["status"];
+  const statusStr = (r.status ? r.status.toLowerCase() : "pending") as BusinessReservationViewModel["status"];
 
   return {
     id: r.id,

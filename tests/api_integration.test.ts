@@ -617,6 +617,115 @@ test("reservationsApi handles create, list, get, and cancel", async () => {
   }
 });
 
+test("reservationsApi handles manager business reservations: list, get, confirm, decline, complete", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(input);
+    const method = init?.method || "GET";
+
+    if (strUrl.includes("/api/v1/businesses/42/reservations/res-mgr-1/confirm") && method === "POST") {
+      return new Response(JSON.stringify({ data: { confirmed: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/businesses/42/reservations/res-mgr-1/decline") && method === "POST") {
+      const parsedBody = JSON.parse(init?.body as string);
+      assert.equal(parsedBody.reason, "Fully booked at this hour");
+      return new Response(JSON.stringify({ data: { declined: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/businesses/42/reservations/res-mgr-1/complete") && method === "POST") {
+      return new Response(JSON.stringify({ data: { completed: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (strUrl.includes("/api/v1/businesses/42/reservations/res-mgr-1") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "res-mgr-1",
+            reservation_code: "CAF-4201",
+            business_id: 42,
+            customer_user_id: "user-999",
+            customer_name: "Yonas",
+            customer_phone: "+251911999888",
+            reservation_date: "2026-11-15",
+            reservation_time: "18:30:00",
+            party_size: 4,
+            special_request: "Quiet booth please",
+            status: "PENDING",
+            created_at: "2026-10-01T00:00:00Z",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (strUrl.includes("/api/v1/businesses/42/reservations") && method === "GET") {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "res-mgr-1",
+              reservation_code: "CAF-4201",
+              business_id: 42,
+              customer_user_id: "user-999",
+              customer_name: "Yonas",
+              customer_phone: "+251911999888",
+              reservation_date: "2026-11-15",
+              reservation_time: "18:30:00",
+              party_size: 4,
+              special_request: "Quiet booth please",
+              status: "PENDING",
+              created_at: "2026-10-01T00:00:00Z",
+              updated_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    // 1. List business reservations
+    const list = await reservationsApi.listBusinessReservations(42);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].id, "res-mgr-1");
+    assert.equal(list[0].business_id, 42);
+
+    // 2. Get single business reservation
+    const item = await reservationsApi.getBusinessReservation(42, "res-mgr-1");
+    assert.equal(item.id, "res-mgr-1");
+    assert.equal(item.customer_name, "Yonas");
+
+    // 3. Confirm reservation
+    const confirmRes = await reservationsApi.confirmReservation(42, "res-mgr-1");
+    assert.equal(confirmRes.confirmed, true);
+
+    // 4. Decline reservation
+    const declineRes = await reservationsApi.declineReservation(42, "res-mgr-1", "Fully booked at this hour");
+    assert.equal(declineRes.declined, true);
+
+    // 5. Complete reservation
+    const completeRes = await reservationsApi.completeReservation(42, "res-mgr-1");
+    assert.equal(completeRes.completed, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 // ==========================================
 // 9. Reviews API Endpoints
 // ==========================================

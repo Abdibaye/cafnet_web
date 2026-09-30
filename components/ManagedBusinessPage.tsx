@@ -7,17 +7,16 @@ import { getBusinessById } from "@/data/mockBusinesses";
 import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
 import { getBusinessMenu } from "@/lib/api/menus";
 import { getBusinessUpdates } from "@/lib/api/updates";
+import { listBusinessReservations } from "@/lib/api/reservations";
 import {
   businessToViewModel,
   computeMenuSummary,
+  reservationToViewModel,
   type BusinessProfileViewModel,
   type MenuSummaryViewModel,
+  type BusinessReservationViewModel,
 } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
-import {
-  getReservationsByBusiness,
-  type MockReservation,
-} from "@/data/reservationStorage";
 
 export default function ManagedBusinessPage({ businessId }: { businessId: string }) {
   const { ready, getManagedBusiness: getManagedFromContext } = useBusinessOwner();
@@ -25,6 +24,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [activeUpdatesCount, setActiveUpdatesCount] = useState(0);
+  const [businessReservations, setBusinessReservations] = useState<BusinessReservationViewModel[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,16 +32,18 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       setLoading(true);
       setErrorStatus(null);
       try {
-        const [b, hours, images, menuData, updatesData] = await Promise.all([
+        const [b, hours, images, menuData, updatesData, reservationsData] = await Promise.all([
           getManagedBusiness(businessId),
           getBusinessHours(businessId).catch(() => []),
           getBusinessImages(businessId).catch(() => []),
           getBusinessMenu(businessId).catch(() => null),
           getBusinessUpdates(businessId, true).catch(() => []),
+          listBusinessReservations(businessId).catch(() => []),
         ]);
         if (!cancelled) {
           setBusinessData(businessToViewModel(b, hours, images));
           setMenuSummary(computeMenuSummary(menuData));
+          setBusinessReservations(reservationsData.map(reservationToViewModel));
           const now = new Date();
           const activeCount = updatesData.filter((u) => {
             if (u.status !== "PUBLISHED") return false;
@@ -80,9 +82,6 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
     itemCount: 0,
     hasMenu: false,
   });
-  const [businessReservations, setBusinessReservations] = useState<MockReservation[]>(() =>
-    getReservationsByBusiness(Number(businessId))
-  );
 
   useEffect(() => {
     const handleMenuUpdate = (e: Event) => {
@@ -94,8 +93,13 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       }
     };
 
-    const handleReservationUpdate = () => {
-      setBusinessReservations(getReservationsByBusiness(Number(businessId)));
+    const handleReservationUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ businessId?: number }>;
+      if (!customEvent.detail?.businessId || customEvent.detail.businessId === Number(businessId)) {
+        listBusinessReservations(businessId)
+          .then((res) => setBusinessReservations(res.map(reservationToViewModel)))
+          .catch(() => {});
+      }
     };
 
     window.addEventListener("cafnet:menu-updated", handleMenuUpdate);
