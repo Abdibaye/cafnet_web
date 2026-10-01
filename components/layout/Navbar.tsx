@@ -19,7 +19,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
-  const { authReady, isAuthenticated, currentUser, startSignIn, logout } = useCustomer();
+  const { authReady, isAuthenticated, currentUser, startSignIn, startSignUp, logout } = useCustomer();
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -213,13 +213,22 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <button
-                type="button"
-                className="hidden min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary sm:inline-flex cursor-pointer"
-                onClick={startSignIn}
-              >
-                Sign in
-              </button>
+              <div className="hidden sm:flex items-center gap-2">
+                <button
+                  type="button"
+                  className="min-h-10 items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer transition-colors"
+                  onClick={startSignIn}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  className="min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer shadow-xs transition-colors"
+                  onClick={startSignUp}
+                >
+                  Create account
+                </button>
+              </div>
             )
           )}
 
@@ -294,16 +303,28 @@ export default function Navbar() {
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-white cursor-pointer"
-                  onClick={() => {
-                    startSignIn();
-                    closeMobileMenu();
-                  }}
-                >
-                  Sign in
-                </button>
+                <div className="mt-4 flex flex-col gap-2.5">
+                  <button
+                    type="button"
+                    className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-white cursor-pointer"
+                    onClick={() => {
+                      startSignIn();
+                      closeMobileMenu();
+                    }}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-11 w-full items-center justify-center rounded-xl border border-outline-variant bg-white text-sm font-semibold text-on-surface hover:bg-surface-container-low cursor-pointer"
+                    onClick={() => {
+                      startSignUp();
+                      closeMobileMenu();
+                    }}
+                  >
+                    Create account
+                  </button>
+                </div>
               )}
             </div>
 

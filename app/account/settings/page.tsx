@@ -26,7 +26,7 @@ export default function AccountSettingsPage() {
           className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]"
           onClick={startSignIn}
         >
-          Continue with phone
+          Sign in
         </button>
       </div>
     );
@@ -44,11 +44,19 @@ export default function AccountSettingsPage() {
 
       <div className="mt-8 divide-y divide-outline-variant border border-outline-variant bg-white">
         <div className="p-5">
-          <h2 className="font-semibold text-on-surface">Phone Number</h2>
+          <h2 className="font-semibold text-on-surface">Email Address</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            {currentUser?.phone || "No phone number attached"}
+            {currentUser?.email || "No email address attached"}
           </p>
         </div>
+        {currentUser?.phone && (
+          <div className="p-5">
+            <h2 className="font-semibold text-on-surface">Phone Number</h2>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {currentUser.phone}
+            </p>
+          </div>
+        )}
         <div className="p-5">
           <h2 className="font-semibold text-on-surface">Authentication Status</h2>
           <div className="mt-1 flex items-center gap-2">
@@ -65,13 +73,13 @@ export default function AccountSettingsPage() {
         <div className="p-5">
           <h2 className="font-semibold text-on-surface">Notifications</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            SMS notifications for reservation updates are enabled.
+            Email and SMS notifications for reservation updates are enabled.
           </p>
         </div>
         <div className="p-5">
           <h2 className="font-semibold text-on-surface">Account Security</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Your Cafnet account is secured with one-time phone verification and HTTP-only session cookies.
+            Your Cafnet account is secured with email and password authentication and HTTP-only session cookies.
           </p>
         </div>
         <div className="p-5">

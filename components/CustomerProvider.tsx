@@ -18,7 +18,8 @@ import type { User } from "@/lib/api/types";
 export type MockCustomer = {
   id: string;
   name: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   avatar: string;
   role?: string;
   profileCompleted: boolean;
@@ -29,7 +30,7 @@ export type MockCustomer = {
 export type CustomerUser = MockCustomer;
 
 export type CustomerAction = "save" | "follow";
-export type AuthStep = "prompt" | "phone" | "otp" | "onboarding" | null;
+export type AuthStep = "prompt" | "signin" | "signup" | "phone" | "otp" | "onboarding" | null;
 
 export type AuthIntent =
   | { type: CustomerAction; businessId: number }
@@ -53,12 +54,15 @@ type CustomerContextValue = {
     intent?: AuthIntent;
     callback?: () => void;
     redirectUrl?: string;
+    mode?: "signin" | "signup";
   }) => void;
   closeAuth: () => void;
   continueToPhone: () => void;
   setAuthPhone: (phone: string) => void;
   submitPhone: () => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
   updateProfile: (fullName: string, avatarUrl?: string) => Promise<User>;
   skipOnboarding: () => void;
   saveBusiness: (businessId: number) => Promise<void>;
@@ -67,28 +71,13 @@ type CustomerContextValue = {
   unfollowBusiness: (businessId: number) => Promise<void>;
   logout: () => Promise<void>;
   startSignIn: () => void;
+  startSignUp: () => void;
+  setAuthStep: (step: AuthStep) => void;
   toast: string;
   showToast: (message: string) => void;
 };
 
 const CustomerContext = createContext<CustomerContextValue | null>(null);
-
-function normalizePhone(raw: string): string {
-  const digits = raw.replace(/[\s()\-.]/g, "");
-  if (digits.startsWith("+251")) {
-    return digits;
-  }
-  if (digits.startsWith("251")) {
-    return `+${digits}`;
-  }
-  if (digits.startsWith("0")) {
-    return `+251${digits.slice(1)}`;
-  }
-  if ((digits.startsWith("9") || digits.startsWith("7")) && digits.length === 9) {
-    return `+251${digits}`;
-  }
-  return digits;
-}
 
 function mapUserToCustomer(
   user: User,
@@ -103,6 +92,7 @@ function mapUserToCustomer(
   return {
     id: user.id,
     name,
+    email: user.email,
     phone: user.phone,
     avatar,
     role: user.role,
@@ -189,7 +179,6 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       try {
         await customerApi.saveBusiness(businessId);
       } catch (err) {
-        // Rollback
         setSavedIds(prev);
         setCurrentUser((u) => (u ? { ...u, savedBusinessIds: prev } : null));
         const msg = err instanceof ApiError ? err.message : "Failed to save place";
@@ -211,10 +200,9 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       try {
         await customerApi.unsaveBusiness(businessId);
       } catch (err) {
-        // Rollback
         setSavedIds(prev);
         setCurrentUser((u) => (u ? { ...u, savedBusinessIds: prev } : null));
-        const msg = err instanceof ApiError ? err.message : "Failed to remove place";
+        const msg = err instanceof ApiError ? err.message : "Failed to unsave place";
         showToast(msg);
       }
     },
@@ -233,7 +221,6 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       try {
         await customerApi.followBusiness(businessId);
       } catch (err) {
-        // Rollback
         setFollowedIds(prev);
         setCurrentUser((u) => (u ? { ...u, followedBusinessIds: prev } : null));
         const msg = err instanceof ApiError ? err.message : "Failed to follow place";
@@ -255,7 +242,6 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       try {
         await customerApi.unfollowBusiness(businessId);
       } catch (err) {
-        // Rollback
         setFollowedIds(prev);
         setCurrentUser((u) => (u ? { ...u, followedBusinessIds: prev } : null));
         const msg = err instanceof ApiError ? err.message : "Failed to unfollow place";
@@ -291,6 +277,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       intent?: AuthIntent;
       callback?: () => void;
       redirectUrl?: string;
+      mode?: "signin" | "signup";
     }) => {
       if (currentUser) {
         if (options?.callback) options.callback();
@@ -307,40 +294,10 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         setPendingIntent(null);
       }
       setAuthError("");
-      setAuthStep("phone");
+      setAuthStep(options?.mode || "signin");
     },
     [currentUser, router],
   );
-
-  const continueToPhone = useCallback(() => {
-    setAuthError("");
-    setAuthStep("phone");
-  }, []);
-
-  const submitPhone = useCallback(async () => {
-    const formattedPhone = normalizePhone(authPhone);
-    if (!/^\+251[97]\d{8}$/.test(formattedPhone)) {
-      setAuthError("Enter a valid Ethiopian phone number (e.g. +251 9XX XXX XXX, +251 7XX XXX XXX or 09/07XX XXX XXX).");
-      return;
-    }
-
-    setAuthError("");
-    setIsSubmitting(true);
-    try {
-      const res = await authApi.requestOtp(formattedPhone);
-      setChallengeId(res.challenge_id);
-      setDevOtp(res.dev_otp || "");
-      setAuthStep("otp");
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setAuthError(err.message);
-      } else {
-        setAuthError("Failed to send verification code. Please check your connection.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [authPhone]);
 
   const finalizeAuthSuccess = useCallback(
     async (userDisplayName: string) => {
@@ -374,6 +331,81 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       }
     },
     [pendingIntent, router, showToast],
+  );
+
+  const signUp = useCallback(
+    async (name: string, email: string, password: string) => {
+      setAuthError("");
+      setIsSubmitting(true);
+      try {
+        const res = await authApi.signup({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        });
+
+        const [savedList, followedList] = await Promise.all([
+          customerApi.getSavedBusinesses().catch(() => []),
+          customerApi.getFollowedBusinesses().catch(() => []),
+        ]);
+        const s = savedList.map((b) => b.id);
+        const f = followedList.map((b) => b.id);
+        setSavedIds(s);
+        setFollowedIds(f);
+
+        const customer = mapUserToCustomer(res.user, s, f);
+        setCurrentUser(customer);
+
+        await finalizeAuthSuccess(customer.name);
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setAuthError(err.message);
+        } else {
+          setAuthError("Failed to create account. Please check your information.");
+        }
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [finalizeAuthSuccess],
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      setAuthError("");
+      setIsSubmitting(true);
+      try {
+        const res = await authApi.signin({
+          email: email.trim(),
+          password,
+        });
+
+        const [savedList, followedList] = await Promise.all([
+          customerApi.getSavedBusinesses().catch(() => []),
+          customerApi.getFollowedBusinesses().catch(() => []),
+        ]);
+        const s = savedList.map((b) => b.id);
+        const f = followedList.map((b) => b.id);
+        setSavedIds(s);
+        setFollowedIds(f);
+
+        const customer = mapUserToCustomer(res.user, s, f);
+        setCurrentUser(customer);
+
+        await finalizeAuthSuccess(customer.name);
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          setAuthError(err.message);
+        } else {
+          setAuthError("Invalid email or password.");
+        }
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [finalizeAuthSuccess],
   );
 
   const updateProfile = useCallback(
@@ -424,80 +456,6 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     finalizeAuthSuccess(currentUser?.name || "Customer");
   }, [currentUser?.name, finalizeAuthSuccess]);
 
-  const verifyOtp = useCallback(
-    async (code: string) => {
-      const formattedPhone = normalizePhone(authPhone);
-      setAuthError("");
-      setIsSubmitting(true);
-
-      try {
-        const res = await authApi.verifyOtp(challengeId, formattedPhone, code);
-        const [savedList, followedList] = await Promise.all([
-          customerApi.getSavedBusinesses().catch(() => []),
-          customerApi.getFollowedBusinesses().catch(() => []),
-        ]);
-        const s = savedList.map((b) => b.id);
-        const f = followedList.map((b) => b.id);
-        setSavedIds(s);
-        setFollowedIds(f);
-
-        const customer = mapUserToCustomer(res.user, s, f);
-        setCurrentUser(customer);
-
-        // Transition new users or users with incomplete profiles to onboarding
-        if (res.is_new_user || !customer.profileCompleted) {
-          setAuthStep("onboarding");
-          setDevOtp("");
-          return;
-        }
-
-        // Existing complete user enters app
-        if (pendingIntent) {
-          if (pendingIntent.type === "save") {
-            try {
-              await customerApi.saveBusiness(pendingIntent.businessId);
-              const nextSaved = Array.from(new Set([...s, pendingIntent.businessId]));
-              setSavedIds(nextSaved);
-              setCurrentUser((u) => (u ? { ...u, savedBusinessIds: nextSaved } : null));
-              showToast("Saved to your places");
-            } catch {
-              showToast("Signed in, but failed to save place");
-            }
-          } else if (pendingIntent.type === "follow") {
-            try {
-              await customerApi.followBusiness(pendingIntent.businessId);
-              const nextFollowed = Array.from(new Set([...f, pendingIntent.businessId]));
-              setFollowedIds(nextFollowed);
-              setCurrentUser((u) => (u ? { ...u, followedBusinessIds: nextFollowed } : null));
-              showToast("Following updates");
-            } catch {
-              showToast("Signed in, but failed to follow");
-            }
-          } else if (pendingIntent.type === "callback") {
-            pendingIntent.callback();
-          } else if (pendingIntent.type === "redirect") {
-            router.push(pendingIntent.url);
-          }
-        } else {
-          showToast("Welcome back!");
-        }
-
-        setPendingIntent(null);
-        setAuthStep(null);
-        setDevOtp("");
-      } catch (err: unknown) {
-        if (err instanceof ApiError) {
-          setAuthError(err.message);
-        } else {
-          setAuthError("Failed to verify code. Please try again.");
-        }
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [authPhone, challengeId, pendingIntent, router, showToast],
-  );
-
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -515,7 +473,26 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const startSignIn = useCallback(() => {
     setPendingIntent(null);
     setAuthError("");
-    setAuthStep("phone");
+    setAuthStep("signin");
+  }, []);
+
+  const startSignUp = useCallback(() => {
+    setPendingIntent(null);
+    setAuthError("");
+    setAuthStep("signup");
+  }, []);
+
+  // Legacy stubs kept for backwards compatibility
+  const continueToPhone = useCallback(() => {
+    setAuthStep("signin");
+  }, []);
+
+  const submitPhone = useCallback(async () => {
+    setAuthError("Phone authentication is deprecated. Please sign in with email and password.");
+  }, []);
+
+  const verifyOtp = useCallback(async (_code: string) => {
+    setAuthError("Phone verification is deprecated. Please sign in with email and password.");
   }, []);
 
   const pendingActionLegacy =
@@ -547,6 +524,8 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     setAuthPhone,
     submitPhone,
     verifyOtp,
+    signUp,
+    signIn,
     updateProfile,
     skipOnboarding,
     saveBusiness,
@@ -555,6 +534,8 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     unfollowBusiness,
     logout,
     startSignIn,
+    startSignUp,
+    setAuthStep,
     toast,
     showToast,
   };
@@ -578,14 +559,26 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
 function AuthModalFlow() {
   const customer = useCustomer();
-  const [otpValue, setOtpValue] = useState("");
   const [onboardingName, setOnboardingName] = useState("");
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [signUpName, setSignUpName] = useState("");
+  const [signUpEmail, setSignUpEmail] = useState("");
+  const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [clientError, setClientError] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!customer.authStep) {
-      setOtpValue("");
       setOnboardingName("");
+      setSignInEmail("");
+      setSignInPassword("");
+      setSignUpName("");
+      setSignUpEmail("");
+      setSignUpPassword("");
+      setSignUpConfirmPassword("");
+      setClientError("");
       return;
     }
     if (customer.authStep === "onboarding") {
@@ -597,7 +590,7 @@ function AuthModalFlow() {
       }
     }
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") customer.closeAuth();
+      if (e.key === "Escape" && !customer.isSubmitting) customer.closeAuth();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -631,7 +624,7 @@ function AuthModalFlow() {
                 Save {noun}.
               </h2>
               <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                Create a free Cafnet account to keep {noun} in one place.
+                Sign in or create a free account to keep {noun} in one place.
               </p>
             </div>
             <button
@@ -643,32 +636,72 @@ function AuthModalFlow() {
               <span className="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
-          <button
-            type="button"
-            className="mt-6 flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
-            onClick={customer.continueToPhone}
-          >
-            Continue with phone
-          </button>
-          <button
-            type="button"
-            className="mt-2 flex h-11 w-full items-center justify-center rounded-xl text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
-            onClick={customer.closeAuth}
-          >
-            Not now
-          </button>
+          <div className="mt-6 flex flex-col gap-2.5">
+            <button
+              type="button"
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
+              onClick={() => customer.setAuthStep("signin")}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              className="flex h-11 w-full items-center justify-center rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
+              onClick={() => customer.setAuthStep("signup")}
+            >
+              Create account
+            </button>
+          </div>
         </section>
       </div>
     );
   }
 
-  const isOtp = customer.authStep === "otp";
+  const isSignIn = customer.authStep === "signin";
+  const isSignUp = customer.authStep === "signup";
   const isOnboarding = customer.authStep === "onboarding";
 
-  const handleOtpInput = (value: string) => {
-    setOtpValue(value);
-    if (value.length === 6 && !customer.isSubmitting) {
-      customer.verifyOtp(value);
+  const handleSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setClientError("");
+    if (!signInEmail.trim() || !signInPassword) {
+      setClientError("Please enter your email and password.");
+      return;
+    }
+    try {
+      await customer.signIn(signInEmail, signInPassword);
+    } catch {
+      // Handled by customer.signIn
+    }
+  };
+
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setClientError("");
+    const trimmedName = signUpName.trim();
+    const trimmedEmail = signUpEmail.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      setClientError("Name must be at least 2 characters.");
+      return;
+    }
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setClientError("Please enter a valid email address.");
+      return;
+    }
+    if (signUpPassword.length < 8) {
+      setClientError("Password must be at least 8 characters.");
+      return;
+    }
+    if (signUpPassword !== signUpConfirmPassword) {
+      setClientError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      await customer.signUp(trimmedName, trimmedEmail, signUpPassword);
+    } catch {
+      // Handled by customer.signUp
     }
   };
 
@@ -680,6 +713,8 @@ function AuthModalFlow() {
       // Error handled by updateProfile setting authError
     }
   };
+
+  const errorToShow = clientError || customer.authError;
 
   return (
     <div
@@ -698,40 +733,43 @@ function AuthModalFlow() {
         aria-modal="true"
         aria-labelledby="auth-flow-title"
       >
-        <button
-          type="button"
-          className="mb-8 inline-flex items-center gap-1.5 text-sm font-semibold text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
-          onClick={isOnboarding ? customer.skipOnboarding : customer.closeAuth}
-          disabled={customer.isSubmitting}
-        >
-          <span className="material-symbols-outlined text-[19px]" aria-hidden="true">
-            {isOnboarding ? "close" : "arrow_back"}
-          </span>
-          {isOnboarding ? "Skip" : "Back"}
-        </button>
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+            {isOnboarding
+              ? "New account"
+              : isSignUp
+              ? "Create Account"
+              : "Welcome back"}
+          </p>
+          <button
+            type="button"
+            className="flex size-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
+            onClick={isOnboarding ? customer.skipOnboarding : customer.closeAuth}
+            aria-label="Close"
+          >
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
+          </button>
+        </div>
 
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-          {isOnboarding ? "New account" : "Cafnet account"}
-        </p>
-        <h2 id="auth-flow-title" className="mt-2 text-2xl sm:text-3xl font-bold text-on-surface">
+        <h2 id="auth-flow-title" className="text-2xl sm:text-3xl font-bold text-on-surface">
           {isOnboarding
             ? "Complete your profile"
-            : isOtp
-            ? "Enter your code"
+            : isSignUp
+            ? "Create your account"
             : "Sign in to Cafnet"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-on-surface-variant">
           {isOnboarding
             ? "What should we call you? Enter your name for reservations and reviews."
-            : isOtp
-            ? "Enter the 6-digit code sent to your phone."
-            : "Save places, follow kitchens, and manage your reservations."}
+            : isSignUp
+            ? "Join Cafnet to save your favorite cafes, reserve tables, and share reviews."
+            : "Enter your email and password to access your Cafnet account."}
         </p>
 
-        {isOnboarding ? (
-          <>
-            <label htmlFor="auth-name-input" className="mt-7 block text-sm font-semibold text-on-surface">
-              Your name
+        {isOnboarding && (
+          <div className="mt-6">
+            <label htmlFor="auth-name-input" className="block text-sm font-semibold text-on-surface">
+              Display name
             </label>
             <input
               id="auth-name-input"
@@ -739,7 +777,7 @@ function AuthModalFlow() {
               type="text"
               placeholder="e.g. Samuel Kebede"
               value={onboardingName}
-              onChange={(event) => setOnboardingName(event.target.value)}
+              onChange={(e) => setOnboardingName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !customer.isSubmitting) handleOnboardingSubmit();
               }}
@@ -763,70 +801,188 @@ function AuthModalFlow() {
             >
               Skip for now
             </button>
-          </>
-        ) : isOtp ? (
-          <>
-            <label htmlFor="auth-otp-input" className="mt-7 block text-sm font-semibold text-on-surface">
-              Verification code
-            </label>
-            <input
-              id="auth-otp-input"
-              className="mt-2 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-center text-lg tracking-[0.35em] font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="123456"
-              value={otpValue}
-              onChange={(event) => handleOtpInput(event.target.value)}
-              autoFocus
+          </div>
+        )}
+
+        {isSignIn && (
+          <form onSubmit={handleSignInSubmit} className="mt-6 space-y-4">
+            <div>
+              <label htmlFor="signin-email" className="block text-sm font-semibold text-on-surface">
+                Email address
+              </label>
+              <input
+                id="signin-email"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={signInEmail}
+                onChange={(e) => {
+                  setSignInEmail(e.target.value);
+                  setClientError("");
+                }}
+                autoFocus
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="signin-password" className="block text-sm font-semibold text-on-surface">
+                Password
+              </label>
+              <input
+                id="signin-password"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={signInPassword}
+                onChange={(e) => {
+                  setSignInPassword(e.target.value);
+                  setClientError("");
+                }}
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="mt-2 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer disabled:opacity-60"
               disabled={customer.isSubmitting}
-            />
-            <div className="mt-3 flex items-center justify-between text-xs text-on-surface-variant">
-              <span>
-                Verification code: <strong>{customer.devOtp || "123456"}</strong>
-              </span>
+            >
+              {customer.isSubmitting ? "Signing in..." : "Sign in"}
+            </button>
+
+            <div className="pt-2 text-center text-sm text-on-surface-variant">
+              Don&apos;t have an account?{" "}
               <button
                 type="button"
                 className="font-semibold text-primary hover:underline cursor-pointer"
-                onClick={customer.continueToPhone}
+                onClick={() => {
+                  setClientError("");
+                  customer.setAuthStep("signup");
+                }}
                 disabled={customer.isSubmitting}
               >
-                Change number
+                Create account
               </button>
             </div>
-          </>
-        ) : (
-          <>
-            <label htmlFor="auth-phone-input" className="mt-7 block text-sm font-semibold text-on-surface">
-              Ethiopian phone number
-            </label>
-            <input
-              id="auth-phone-input"
-              className="mt-2 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-              type="tel"
-              inputMode="tel"
-              placeholder="+251 9XX XXX XXX or 09XX XXX XXX"
-              value={customer.authPhone}
-              onChange={(event) => customer.setAuthPhone(event.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !customer.isSubmitting) customer.submitPhone();
-              }}
-              autoFocus
-              disabled={customer.isSubmitting}
-            />
-            <button
-              type="button"
-              className="mt-5 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer disabled:opacity-60"
-              onClick={customer.submitPhone}
-              disabled={customer.isSubmitting}
-            >
-              {customer.isSubmitting ? "Sending code..." : "Continue with code"}
-            </button>
-          </>
+          </form>
         )}
 
-        {customer.authError && (
+        {isSignUp && (
+          <form onSubmit={handleSignUpSubmit} className="mt-6 space-y-4">
+            <div>
+              <label htmlFor="signup-name" className="block text-sm font-semibold text-on-surface">
+                Full name
+              </label>
+              <input
+                id="signup-name"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="text"
+                autoComplete="name"
+                placeholder="e.g. Abebe Bikila"
+                value={signUpName}
+                onChange={(e) => {
+                  setSignUpName(e.target.value);
+                  setClientError("");
+                }}
+                autoFocus
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="signup-email" className="block text-sm font-semibold text-on-surface">
+                Email address
+              </label>
+              <input
+                id="signup-email"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={signUpEmail}
+                onChange={(e) => {
+                  setSignUpEmail(e.target.value);
+                  setClientError("");
+                }}
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="signup-password" className="block text-sm font-semibold text-on-surface">
+                Password <span className="text-xs font-normal text-on-surface-variant">(min 8 characters)</span>
+              </label>
+              <input
+                id="signup-password"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="password"
+                autoComplete="new-password"
+                placeholder="••••••••"
+                value={signUpPassword}
+                onChange={(e) => {
+                  setSignUpPassword(e.target.value);
+                  setClientError("");
+                }}
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="signup-confirm-password" className="block text-sm font-semibold text-on-surface">
+                Confirm password
+              </label>
+              <input
+                id="signup-confirm-password"
+                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                type="password"
+                autoComplete="new-password"
+                placeholder="••••••••"
+                value={signUpConfirmPassword}
+                onChange={(e) => {
+                  setSignUpConfirmPassword(e.target.value);
+                  setClientError("");
+                }}
+                required
+                disabled={customer.isSubmitting}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="mt-2 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary cursor-pointer disabled:opacity-60"
+              disabled={customer.isSubmitting}
+            >
+              {customer.isSubmitting ? "Creating account..." : "Create account"}
+            </button>
+
+            <div className="pt-2 text-center text-sm text-on-surface-variant">
+              Already have an account?{" "}
+              <button
+                type="button"
+                className="font-semibold text-primary hover:underline cursor-pointer"
+                onClick={() => {
+                  setClientError("");
+                  customer.setAuthStep("signin");
+                }}
+                disabled={customer.isSubmitting}
+              >
+                Sign in
+              </button>
+            </div>
+          </form>
+        )}
+
+        {errorToShow && (
           <p className="mt-4 rounded-lg bg-secondary-container/40 p-3 text-sm font-semibold text-secondary" role="alert">
-            {customer.authError}
+            {errorToShow}
           </p>
         )}
       </section>

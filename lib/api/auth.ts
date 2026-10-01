@@ -5,36 +5,28 @@ import type {
   LogoutResult,
   OTPRequestResult,
   RequestOTPInput,
+  SignInInput,
+  SignUpInput,
   UpdateProfileInput,
   User,
   VerifyOTPInput,
 } from "./types";
 
 /**
- * Initiates an OTP phone verification challenge.
- * In dev mode, the backend returns dev_otp for rapid local testing.
+ * Registers a new customer account using Name, Email, and Password.
+ * The Go server issues an HTTP-only secure session cookie upon success.
  */
-export async function requestOtp(phone: string): Promise<OTPRequestResult> {
-  const payload: RequestOTPInput = { phone };
-  const res = await api.post<OTPRequestResult>("/api/v1/auth/otp/request", payload);
+export async function signup(input: SignUpInput): Promise<AuthResult> {
+  const res = await api.post<AuthResult>("/api/v1/auth/signup", input);
   return res.data;
 }
 
 /**
- * Verifies an OTP challenge code. The Go server issues an HTTP-only secure cookie
- * upon successful verification and returns user details.
+ * Authenticates a customer using Email and Password.
+ * The Go server issues an HTTP-only secure session cookie upon success.
  */
-export async function verifyOtp(
-  challengeId: string,
-  phone: string,
-  otpCode: string,
-): Promise<AuthResult> {
-  const payload: VerifyOTPInput = {
-    challenge_id: challengeId,
-    phone,
-    otp_code: otpCode,
-  };
-  const res = await api.post<AuthResult>("/api/v1/auth/otp/verify", payload);
+export async function signin(input: SignInInput): Promise<AuthResult> {
+  const res = await api.post<AuthResult>("/api/v1/auth/signin", input);
   return res.data;
 }
 
@@ -79,3 +71,33 @@ export async function getProfile(): Promise<User | null> {
   return getCurrentUser();
 }
 
+// ============================================================================
+// INACTIVE / LEGACY PHONE OTP AUTHENTICATION
+// Retained for backward compatibility and testing only. Not for active UI flow.
+// ============================================================================
+
+/**
+ * @deprecated Legacy Phone OTP authentication is inactive. Use signup/signin instead.
+ */
+export async function requestOtp(phone: string): Promise<OTPRequestResult> {
+  const payload: RequestOTPInput = { phone };
+  const res = await api.post<OTPRequestResult>("/api/v1/auth/otp/request", payload);
+  return res.data;
+}
+
+/**
+ * @deprecated Legacy Phone OTP authentication is inactive. Use signup/signin instead.
+ */
+export async function verifyOtp(
+  challengeId: string,
+  phone: string,
+  otpCode: string,
+): Promise<AuthResult> {
+  const payload: VerifyOTPInput = {
+    challenge_id: challengeId,
+    phone,
+    otp_code: otpCode,
+  };
+  const res = await api.post<AuthResult>("/api/v1/auth/otp/verify", payload);
+  return res.data;
+}

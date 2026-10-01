@@ -361,6 +361,94 @@ test("authApi handles OTP request, verify, logout, and getCurrentUser", async ()
   }
 });
 
+test("authApi handles email/password signup, signin, logout, and getCurrentUser", async () => {
+  const originalFetch = globalThis.fetch;
+
+  let signupCalled = false;
+  let signinCalled = false;
+
+  globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    const strUrl = String(url);
+    if (strUrl.includes("/api/v1/auth/signup")) {
+      signupCalled = true;
+      const body = JSON.parse(String(init?.body || "{}"));
+      assert.equal(body.name, "Samuel Kebede");
+      assert.equal(body.email, "samuel@example.com");
+      assert.equal(body.password, "password123");
+      return new Response(
+        JSON.stringify({
+          data: {
+            user: {
+              id: "usr-email-1",
+              email: "samuel@example.com",
+              full_name: "Samuel Kebede",
+              role: "CUSTOMER",
+              is_active: true,
+              profile_completed: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          },
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (strUrl.includes("/api/v1/auth/signin")) {
+      signinCalled = true;
+      const body = JSON.parse(String(init?.body || "{}"));
+      assert.equal(body.email, "samuel@example.com");
+      assert.equal(body.password, "password123");
+      return new Response(
+        JSON.stringify({
+          data: {
+            user: {
+              id: "usr-email-1",
+              email: "samuel@example.com",
+              full_name: "Samuel Kebede",
+              role: "CUSTOMER",
+              is_active: true,
+              profile_completed: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (strUrl.includes("/api/v1/auth/logout")) {
+      return new Response(
+        JSON.stringify({ data: { logged_out: true } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return new Response(JSON.stringify({ error: { code: "not_found", message: "Not found" } }), { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const signupRes = await authApi.signup({
+      name: "Samuel Kebede",
+      email: "samuel@example.com",
+      password: "password123",
+    });
+    assert.equal(signupCalled, true);
+    assert.equal(signupRes.user.email, "samuel@example.com");
+    assert.equal(signupRes.user.full_name, "Samuel Kebede");
+
+    const signinRes = await authApi.signin({
+      email: "samuel@example.com",
+      password: "password123",
+    });
+    assert.equal(signinCalled, true);
+    assert.equal(signinRes.user.email, "samuel@example.com");
+
+    const logoutRes = await authApi.logout();
+    assert.equal(logoutRes.logged_out, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("customerApi handles saved and followed places", async () => {
   const originalFetch = globalThis.fetch;
 

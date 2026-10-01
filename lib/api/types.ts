@@ -72,7 +72,8 @@ export type AdminActionType =
 
 export interface User {
   id: string;
-  phone: string;
+  phone?: string;
+  email?: string;
   full_name: string;
   avatar_url?: string;
   role: UserRole;
@@ -593,6 +594,17 @@ export interface SetPublicationInput {
 
 export interface SetVerificationInput {
   status: VerificationStatus; // VERIFIED or UNVERIFIED
+}
+
+export interface SignUpInput {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface SignInInput {
+  email: string;
+  password: string;
 }
 
 

@@ -38,14 +38,14 @@ export default function OnboardingPage() {
         </p>
         <h1 className="mt-2 text-2xl font-bold text-on-surface">Sign in required</h1>
         <p className="mt-3 text-sm text-on-surface-variant">
-          Please verify your phone number to complete account setup.
+          Please sign in to complete your account setup.
         </p>
         <button
           type="button"
           className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]"
           onClick={startSignIn}
         >
-          Sign in with phone
+          Sign in
         </button>
       </div>
     );

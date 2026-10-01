@@ -61,7 +61,7 @@ export default function CustomerAccountPage() {
           className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]"
           onClick={startSignIn}
         >
-          Continue with phone
+          Sign in to your account
         </button>
       </div>
     );
@@ -122,7 +122,7 @@ export default function CustomerAccountPage() {
               </span>
               <div>
                 <h2 className="text-lg font-bold text-on-surface">{currentUser?.name}</h2>
-                <p className="mt-1 text-sm text-on-surface-variant">{currentUser?.phone}</p>
+                <p className="mt-1 text-sm text-on-surface-variant">{currentUser?.email || currentUser?.phone}</p>
               </div>
             </div>
             <button
