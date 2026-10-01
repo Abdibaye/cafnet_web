@@ -6,8 +6,6 @@ import BusinessReviewSection, { BusinessRatingSummary } from "@/components/Busin
 import BusinessProfileUpdatesSection from "@/components/BusinessProfileUpdatesSection";
 import BusinessProfileMenuSection from "@/components/BusinessProfileMenuSection";
 import ReportBusinessModal from "@/components/ReportBusinessModal";
-import { getBusinessById } from "@/data/mockBusinesses";
-import { getBusinessProfileData } from "@/data/businessProfileData";
 import { getBusinessProfile } from "@/lib/api/businesses";
 import { publicProfileToViewModel } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
@@ -18,61 +16,31 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  let businessName = "";
-  let location = "";
-  let description = "";
-  let images: string[] = [];
-
   try {
     const profile = await getBusinessProfile(id);
     if (profile?.business) {
-      businessName = profile.business.name;
-      location = profile.business.location_name || profile.business.neighborhood;
-      description = profile.business.short_description || profile.business.description;
-      images = profile.images?.map((img) => img.image_url) || [];
-    }
-  } catch (err) {
-    if (err instanceof ApiError && err.isNotFound()) {
+      const businessName = profile.business.name;
+      const location = profile.business.location_name || profile.business.neighborhood || "Addis Ababa";
+      const description = profile.business.short_description || profile.business.description || `Explore ${businessName} in Addis Ababa on Cafnet.`;
+      const images = profile.images?.map((img) => img.image_url) || [];
+      const title = `${businessName} - ${location} | Cafnet`;
       return {
-        title: "Business Not Found | Cafnet",
-        description: "This place may have been removed or the link may be incorrect.",
+        title,
+        description,
+        openGraph: {
+          title,
+          description,
+          images: images.length > 0 ? [images[0]] : [],
+        },
       };
     }
-    const fallback = getBusinessById(id);
-    if (fallback) {
-      businessName = fallback.name;
-      location = fallback.neighborhood || fallback.location;
-      description = fallback.shortDescription || fallback.description;
-      images = fallback.images || [];
-    }
+  } catch {
+    // Return not found metadata
   }
 
-  if (!businessName) {
-    const fallback = getBusinessById(id);
-    if (fallback) {
-      businessName = fallback.name;
-      location = fallback.neighborhood || fallback.location;
-      description = fallback.shortDescription || fallback.description;
-      images = fallback.images || [];
-    }
-  }
-
-  if (!businessName) {
-    return {
-      title: "Business Not Found | Cafnet",
-      description: "This place may have been removed or the link may be incorrect.",
-    };
-  }
-
-  const title = `${businessName} - ${location} | Cafnet`;
   return {
-    title,
-    description: description || `Explore ${businessName} in Addis Ababa on Cafnet.`,
-    openGraph: {
-      title,
-      description,
-      images: images.length > 0 ? [images[0]] : [],
-    },
+    title: "Business Not Found | Cafnet",
+    description: "This place may have been removed or the link may be incorrect.",
   };
 }
 
@@ -157,15 +125,8 @@ export default async function BusinessProfile({
     if (apiProfile?.business) {
       profileData = publicProfileToViewModel(apiProfile);
     }
-  } catch (err) {
-    if (err instanceof ApiError && err.isNotFound()) {
-      return <MissingBusiness />;
-    }
-    profileData = getBusinessProfileData(id);
-  }
-
-  if (!profileData) {
-    profileData = getBusinessProfileData(id);
+  } catch {
+    return <MissingBusiness />;
   }
 
   if (!profileData) return <MissingBusiness />;

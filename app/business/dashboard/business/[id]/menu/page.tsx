@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ManageMenuPage from "@/components/ManageMenuPage";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { getBusinessProfile } from "@/lib/api/businesses";
 
 export async function generateMetadata({
   params,
@@ -8,17 +8,20 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const business = getBusinessById(id);
-
-  if (!business) {
-    return {
-      title: "Manage Menu | Cafnet",
-    };
+  try {
+    const profile = await getBusinessProfile(id);
+    if (profile?.business) {
+      return {
+        title: `Manage Menu — ${profile.business.name} | Cafnet Business Center`,
+        description: `Update dishes, categories, and prices for ${profile.business.name}.`,
+      };
+    }
+  } catch {
+    // Business not found
   }
 
   return {
-    title: `Manage Menu — ${business.name} | Cafnet Business Center`,
-    description: `Update dishes, categories, and prices for ${business.name}.`,
+    title: "Manage Menu | Cafnet",
   };
 }
 

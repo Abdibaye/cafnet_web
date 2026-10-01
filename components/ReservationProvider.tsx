@@ -44,7 +44,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
 
   const refreshReservations = useCallback(async () => {
     if (!currentUser) {
-      setReservations(loadReservations());
+      setReservations([]);
       setReady(true);
       return;
     }
@@ -56,8 +56,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         setReservations(adapted);
       }
     } catch {
-      // If network is offline or server unreachable, maintain resilient offline state
-      setReservations(loadReservations());
+      setReservations([]);
     } finally {
       setReady(true);
     }

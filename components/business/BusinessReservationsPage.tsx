@@ -16,7 +16,6 @@ import {
 } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
 import type { Business } from "@/lib/api/types";
-import { getBusinessById } from "@/data/mockBusinesses";
 
 type TabType = "pending" | "confirmed" | "completed" | "declined" | "cancelled" | "all";
 
@@ -54,24 +53,8 @@ export default function BusinessReservationsPage({ businessId }: { businessId: s
         setErrorStatus(err.status);
         setErrorMessage(err.message);
       } else {
-        const mock = getBusinessById(businessId);
-        if (mock) {
-          setBusiness({
-            id: Number(businessId),
-            name: mock.name,
-            category: mock.category as any,
-            description: mock.description,
-            reservation_available: mock.reservationAvailable,
-            claim_status: mock.claimStatus === "claimed" ? "CLAIMED" : "UNCLAIMED",
-            verification_status: mock.verified ? "VERIFIED" : "UNVERIFIED",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          } as Business);
-          setBusinessReservations([]);
-        } else {
-          setErrorStatus(404);
-          setErrorMessage("Business not found");
-        }
+        setErrorStatus(404);
+        setErrorMessage("Business not found");
       }
     } finally {
       setLoading(false);

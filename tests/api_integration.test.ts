@@ -2233,5 +2233,100 @@ test("User Account Creation & Onboarding API integration (Backend 18)", async ()
   }
 });
 
+// ==========================================
+// 23. Backend 20: Real Business Lifecycle & Business Center
+// ==========================================
+test("businessesApi: submitBusiness calls POST /api/v1/businesses/submissions", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    let capturedBody: any = null;
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input);
+      capturedMethod = init?.method || "GET";
+      if (init?.body) capturedBody = JSON.parse(String(init.body));
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            id: "sub-b20-1",
+            submitter_user_id: "user-123",
+            business_name: "Tomoca Coffee",
+            category: "cafe",
+            area: "Bole",
+            status: "PENDING",
+            submitted_at: new Date().toISOString(),
+          },
+        }),
+        {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }) as any;
+
+    const res = await businessesApi.submitBusiness({
+      business_name: "Tomoca Coffee",
+      category: "cafe",
+      area: "Bole",
+    });
+
+    assert.equal(capturedUrl, "http://localhost:8080/api/v1/businesses/submissions");
+    assert.equal(capturedMethod, "POST");
+    assert.equal(capturedBody.business_name, "Tomoca Coffee");
+    assert.equal(capturedBody.category, "cafe");
+    assert.equal(capturedBody.area, "Bole");
+    assert.equal(res.id, "sub-b20-1");
+    assert.equal(res.status, "PENDING");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("businessesApi: getBusinessCenterManaged calls GET /api/v1/business-center/managed", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    let capturedUrl = "";
+    let capturedMethod = "";
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input);
+      capturedMethod = init?.method || "GET";
+
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 42,
+              name: "Tomoca Coffee",
+              category: "cafe",
+              claim_status: "CLAIMED",
+              verification_status: "VERIFIED",
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }) as any;
+
+    const res = await businessesApi.getBusinessCenterManaged();
+
+    assert.equal(capturedUrl, "http://localhost:8080/api/v1/business-center/managed");
+    assert.equal(capturedMethod, "GET");
+    assert.equal(res.length, 1);
+    assert.equal(res[0].id, 42);
+    assert.equal(res[0].name, "Tomoca Coffee");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
 
 

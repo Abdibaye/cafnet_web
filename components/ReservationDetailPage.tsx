@@ -1,15 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useReservations } from "@/components/ReservationProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { getBusinessProfile } from "@/lib/api/businesses";
 
 export default function ReservationDetailPage({ reservationId }: { reservationId: string }) {
   const { ready, getReservation, cancelReservation } = useReservations();
   const [showCancel, setShowCancel] = useState(false);
-
   const [cancelling, setCancelling] = useState(false);
+  const [businessName, setBusinessName] = useState<string | null>(null);
+
+  const reservation = getReservation(reservationId);
+
+  useEffect(() => {
+    if (!reservation?.businessId) return;
+    getBusinessProfile(reservation.businessId)
+      .then((p) => {
+        if (p?.business?.name) setBusinessName(p.business.name);
+      })
+      .catch(() => {});
+  }, [reservation?.businessId]);
 
   if (!ready) {
     return (
@@ -19,7 +30,6 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
     );
   }
 
-  const reservation = getReservation(reservationId);
   if (!reservation) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-20 text-center">
@@ -34,7 +44,6 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
     );
   }
 
-  const business = getBusinessById(reservation.businessId);
   const formattedDate = new Date(`${reservation.date}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -56,7 +65,7 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
         Reservation
       </p>
       <h1 className="mt-2 text-3xl font-bold text-on-surface">
-        {business?.name || `Business #${reservation.businessId}`}
+        {businessName || `Business #${reservation.businessId}`}
       </h1>
 
       {/* Status Notice Banners */}
@@ -196,15 +205,15 @@ export default function ReservationDetailPage({ reservationId }: { reservationId
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
-          href={business ? `/business/${business.id}` : "/explore"}
+          href={`/business/${reservation.businessId}`}
           className="inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#0f46b8]"
         >
           View restaurant
         </Link>
 
-        {isCompleted && business && (
+        {isCompleted && (
           <Link
-            href={`/business/${business.id}#reviews`}
+            href={`/business/${reservation.businessId}#reviews`}
             className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-primary bg-primary-container/20 px-5 text-sm font-bold text-primary hover:bg-primary-container"
           >
             <span className="material-symbols-outlined text-[18px]">rate_review</span>

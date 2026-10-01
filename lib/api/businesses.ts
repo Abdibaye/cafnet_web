@@ -144,3 +144,26 @@ export async function setBusinessImages(
   return res.data;
 }
 
+/**
+ * Submits a new business for admin review.
+ * Uses the canonical endpoint POST /api/v1/businesses/submissions.
+ */
+export async function submitBusiness(
+  input: import("./types").CreateSubmissionInput,
+): Promise<import("./types").BusinessSubmission> {
+  const res = await api.post<import("./types").BusinessSubmission>(
+    "/api/v1/businesses/submissions",
+    input,
+  );
+  return res.data;
+}
+
+/**
+ * Returns businesses managed by the current user from Business Center.
+ * Uses GET /api/v1/business-center/managed.
+ */
+export async function getBusinessCenterManaged(): Promise<Business[]> {
+  const res = await api.get<Business[]>("/api/v1/business-center/managed");
+  return res.data || [];
+}
+

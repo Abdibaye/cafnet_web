@@ -12,7 +12,6 @@ import {
   deleteCustomerReview,
   type CustomerReview,
 } from "@/data/customerReviewStorage";
-import { getBusinessReviews } from "@/data/mockReviews";
 import { isReviewRemoved } from "@/data/reviewReportStorage";
 
 export function isReservationEligible(date: string, status: string) {
@@ -53,8 +52,7 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
 
   const refreshReviews = useCallback(async () => {
     if (!currentUser) {
-      const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
-      setReviews(loaded);
+      setReviews([]);
       setReady(true);
       return;
     }
@@ -68,8 +66,7 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
         setReviews(adapted.filter((r) => !isReviewRemoved(r.id)));
       }
     } catch {
-      const loaded = loadCustomerReviews().filter((r) => !isReviewRemoved(r.id));
-      setReviews(loaded);
+      setReviews([]);
     } finally {
       setReady(true);
     }
@@ -257,10 +254,7 @@ export function useCustomerReviews() {
 }
 
 export function getCombinedBusinessReviews(businessId: number, customerReviews: CustomerReview[]) {
-  const custom = customerReviews.filter(
+  return customerReviews.filter(
     (review) => review.businessId === businessId && !isReviewRemoved(review.id),
   );
-  const customIds = new Set(custom.map((r) => r.id));
-  const base = getBusinessReviews(businessId).filter((r) => !customIds.has(r.id));
-  return [...custom, ...base];
 }

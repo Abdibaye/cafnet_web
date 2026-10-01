@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
 
 type BusinessStatusPageProps = {
   kind: "claim" | "submission";
@@ -20,9 +19,8 @@ export default function BusinessStatusPage({ kind, claimId, submissionId }: Busi
   const submission = submissions.find((item) => item.id === submissionId);
   const businessId = claim ? claim.businessId : submission?.createdBusinessId;
   const managedBusiness = businessId ? rawManagedBusinesses.find((b) => b.id === businessId) : undefined;
-  const mockBusiness = businessId ? getBusinessById(businessId) : undefined;
-  const businessName = managedBusiness?.name || mockBusiness?.name || submission?.businessName;
-  const businessLocation = managedBusiness?.location_name || mockBusiness?.location || submission?.area;
+  const businessName = managedBusiness?.name || submission?.businessName || (businessId ? `Business #${businessId}` : "Business");
+  const businessLocation = managedBusiness?.location_name || managedBusiness?.neighborhood || submission?.area || "Addis Ababa";
 
   if (kind === "claim" && !claim) return <MissingStatus />;
   if (kind === "submission" && !submission) return <MissingStatus />;

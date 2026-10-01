@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
-import { getBusinessById } from "@/data/mockBusinesses";
 import * as updatesApi from "@/lib/api/updates";
 import { apiUpdateToViewModel, type BusinessUpdateViewModel } from "@/lib/api/adapters";
 
@@ -55,18 +54,14 @@ export default function ExploreUpdatesFeed() {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      {updates.map((update) => {
-        const business = getBusinessById(update.businessId);
-        return business ? (
-          <BusinessUpdateCard
-            key={update.id}
-            update={update}
-            business={business}
-            showBusinessName
-            showTimestamp
-          />
-        ) : null;
-      })}
+      {updates.map((update) => (
+        <BusinessUpdateCard
+          key={update.id}
+          update={update}
+          showBusinessName
+          showTimestamp
+        />
+      ))}
     </div>
   );
 }

@@ -4,7 +4,6 @@ import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
 import ExploreUpdatesFeed from "@/components/sections/ExploreUpdatesFeed";
-import { mockBusinesses, toBusinessCardItem } from "@/data/mockBusinesses";
 import { listBusinesses } from "@/lib/api/businesses";
 import { businessToCardItem } from "@/lib/api/adapters";
 
@@ -40,24 +39,34 @@ function BusinessSection({
             </span>
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <BusinessCard key={item.id} item={item} />
-          ))}
-        </div>
+        {items.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((item) => (
+              <BusinessCard key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="border border-dashed border-outline-variant bg-white px-6 py-10 text-center">
+            <h3 className="text-base font-bold text-on-surface">No places listed yet</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Be the first to list your restaurant or cafe on Cafnet!
+            </p>
+            <Link
+              href="/business/add"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[#0f46b8]"
+            >
+              Add your business <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 export default async function ExplorePage() {
-  let popularPlaces: BusinessCardItem[] = mockBusinesses
-    .filter((business) => business.featured)
-    .map(toBusinessCardItem);
-  let newPlaces: BusinessCardItem[] = mockBusinesses
-    .filter((business) => !business.featured)
-    .slice(0, 3)
-    .map(toBusinessCardItem);
+  let popularPlaces: BusinessCardItem[] = [];
+  let newPlaces: BusinessCardItem[] = [];
 
   try {
     const res = await listBusinesses({ limit: 50 });
@@ -76,7 +85,8 @@ export default async function ExplorePage() {
       }
     }
   } catch {
-    // Graceful fallback to mock places
+    popularPlaces = [];
+    newPlaces = [];
   }
 
   return (

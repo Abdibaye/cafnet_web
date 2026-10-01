@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import BusinessReviews from "@/components/BusinessReviews";
-import { useCustomerReviews, getCombinedBusinessReviews } from "@/components/CustomerReviewProvider";
-import { getReviewSummary } from "@/data/mockReviews";
+import { useCustomerReviews } from "@/components/CustomerReviewProvider";
 import ReviewSubmission from "@/components/ReviewSubmission";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { MergedBusinessProfile } from "@/data/businessProfileData";
@@ -24,14 +23,14 @@ export default function BusinessReviewSection({ business }: { business: MockBusi
           reviewsApi.listBusinessReviews(business.id),
           reviewsApi.getReviewSummary(business.id).catch(() => null),
         ]);
-        if (!cancelled && revList && revList.length > 0) {
+        if (!cancelled && revList) {
           setApiReviews(revList.map((r) => reviewToViewModel(r)));
           if (summary) {
             setApiSummary(reviewSummaryToDistribution(summary));
           }
         }
       } catch {
-        // Fall back to local combined
+        if (!cancelled) setApiReviews([]);
       }
     }
     load();
@@ -42,7 +41,7 @@ export default function BusinessReviewSection({ business }: { business: MockBusi
 
   if (!ready) return <p className="text-sm text-on-surface-variant">Loading reviews...</p>;
 
-  const baseReviews = apiReviews ?? getCombinedBusinessReviews(business.id, customerReviews);
+  const baseReviews = apiReviews ?? [];
   const userAdded = customerReviews.filter(
     (cr) => cr.businessId === business.id && !baseReviews.some((r) => r.id === cr.id),
   );
@@ -102,11 +101,10 @@ export function BusinessRatingSummary({ businessId }: { businessId: number }) {
     );
   }
 
-  const seed = getReviewSummary(businessId);
   const customerReviews = reviews.filter((review) => review.businessId === businessId);
-  const count = seed.count + customerReviews.length;
+  const count = customerReviews.length;
   const average = count
-    ? Math.round(((seed.average * seed.count + customerReviews.reduce((sum, review) => sum + review.rating, 0)) / count) * 10) / 10
+    ? Math.round((customerReviews.reduce((sum, review) => sum + review.rating, 0) / count) * 10) / 10
     : 0;
 
   if (!count) return <span className="font-semibold text-primary">New on Cafnet</span>;

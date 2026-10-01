@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getBusinessById } from "@/data/mockBusinesses";
 import {
   formatUpdateDate,
   getUpdateTypeLabel,
@@ -17,12 +16,11 @@ type BusinessUpdateCardProps = {
 
 export default function BusinessUpdateCard({
   update,
-  business: propBusiness,
+  business,
   showBusinessName = false,
   showTimestamp = true,
   compact = false,
 }: BusinessUpdateCardProps) {
-  const business = propBusiness || getBusinessById(update.businessId);
   const typeLabel = getUpdateTypeLabel(update.type);
   const typeIcon = getUpdateTypeIcon(update.type);
 
@@ -33,7 +31,7 @@ export default function BusinessUpdateCard({
       }`}
     >
       <div className="flex items-start gap-4">
-        {business.images?.[0] && !compact && (
+        {business?.images?.[0] && !compact && (
           <img
             src={business.images[0]}
             alt=""
@@ -50,8 +48,18 @@ export default function BusinessUpdateCard({
             </span>
           </div>
           
-          {showBusinessName && business && (
-            <h3 className="mt-2 font-bold text-on-surface">{business.name}</h3>
+          {showBusinessName && (
+            <h3 className="mt-2 font-bold text-on-surface">
+              {business?.name ? (
+                <Link href={`/business/${update.businessId}`} className="hover:text-primary transition-colors">
+                  {business.name}
+                </Link>
+              ) : (
+                <Link href={`/business/${update.businessId}`} className="hover:text-primary transition-colors">
+                  {`Business #${update.businessId}`}
+                </Link>
+              )}
+            </h3>
           )}
           
           <h4 className={`mt-2 font-semibold text-on-surface ${showBusinessName ? "" : "text-lg"}`}>

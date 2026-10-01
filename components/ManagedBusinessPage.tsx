@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
 import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
 import { getBusinessMenu } from "@/lib/api/menus";
 import { getBusinessUpdates } from "@/lib/api/updates";
@@ -57,12 +56,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           if (err instanceof ApiError) {
             setErrorStatus(err.status);
           } else {
-            const mock = getBusinessById(businessId);
-            if (mock) {
-              setBusinessData(mock as any);
-            } else {
-              setErrorStatus(404);
-            }
+            setErrorStatus(404);
           }
         }
       } finally {

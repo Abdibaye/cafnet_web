@@ -5,7 +5,6 @@ import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import BusinessUpdateCard from "@/components/BusinessUpdateCard";
 import { useCustomer } from "@/components/CustomerProvider";
-import { getAllBusinesses, toBusinessCardItem, getBusinessById } from "@/data/mockBusinesses";
 import * as customerApi from "@/lib/api/customer";
 import * as updatesApi from "@/lib/api/updates";
 import { businessToCardItem, apiUpdateToViewModel, type BusinessUpdateViewModel } from "@/lib/api/adapters";
@@ -51,20 +50,8 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
     };
   }, [isAuthenticated, kind, currentUser?.savedBusinessIds, currentUser?.followedBusinessIds]);
 
-  // Prefer authoritative API businesses; fallback to mock seed only if offline
-  const cardItems: BusinessCardItem[] = (() => {
-    if (apiBusinesses.length > 0) {
-      return apiBusinesses.map((b) => businessToCardItem(b));
-    }
-    // Only fall back to mock businesses if still initializing or offline
-    if (ids.length > 0 && !loading) {
-      const mockList = getAllBusinesses().filter((b) => ids.includes(b.id));
-      if (mockList.length > 0) {
-        return mockList.map(toBusinessCardItem);
-      }
-    }
-    return [];
-  })();
+  // Purely authoritative API businesses from PostgreSQL
+  const cardItems: BusinessCardItem[] = apiBusinesses.map((b) => businessToCardItem(b));
 
   const [followedUpdates, setFollowedUpdates] = useState<BusinessUpdateViewModel[]>([]);
 
@@ -123,7 +110,7 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
           className="mt-6 h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]"
           onClick={startSignIn}
         >
-          Continue with phone
+          Sign in
         </button>
       </div>
     );
@@ -154,18 +141,14 @@ export default function CustomerCollectionPage({ kind }: CustomerCollectionPageP
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {followedUpdates.map((update) => {
-              const business = getBusinessById(update.businessId);
-              return business ? (
-                <BusinessUpdateCard
-                  key={update.id}
-                  update={update}
-                  business={business}
-                  showBusinessName
-                  showTimestamp
-                />
-              ) : null;
-            })}
+            {followedUpdates.map((update) => (
+              <BusinessUpdateCard
+                key={update.id}
+                update={update}
+                showBusinessName
+                showTimestamp
+              />
+            ))}
           </div>
         </section>
       )}

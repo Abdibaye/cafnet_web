@@ -4,14 +4,12 @@ import Link from "next/link";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import BusinessManagementCard from "@/components/BusinessManagementCard";
-import { getAllBusinesses } from "@/data/mockBusinesses";
 import { businessToViewModel } from "@/lib/api/adapters";
 
 export default function BusinessCenterPage() {
   const { authReady, isAuthenticated, startSignIn } = useCustomer();
   const { ready, claims, submissions, rawManagedBusinesses } = useBusinessOwner();
 
-  const allBusinesses = getAllBusinesses();
   // Server-authoritative managed businesses returned by GET /api/v1/businesses/managed
   const managedBusinesses = (rawManagedBusinesses || []).map((b) => businessToViewModel(b));
 
@@ -80,7 +78,7 @@ export default function BusinessCenterPage() {
               <BusinessManagementCard key={`managed-${business.id}`} business={business} isManaged={true} />
             ))}
             {displayClaims.map((claim) => {
-              const business = allBusinesses.find((item) => item.id === claim.businessId);
+              const business = managedBusinesses.find((item) => item.id === claim.businessId);
               return <BusinessManagementCard key={claim.id} business={business} claim={claim} />;
             })}
             {displaySubmissions.map((submission) => (

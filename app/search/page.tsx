@@ -1,9 +1,7 @@
 import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import SearchBar from "@/components/sections/SearchBar";
-import { toBusinessCardItem } from "@/data/mockBusinesses";
 import { popularSearches } from "@/data/popularSearches";
-import { searchBusinesses as localSearchBusinesses } from "@/data/searchBusinesses";
 import { searchBusinesses as apiSearchBusinesses } from "@/lib/api/search";
 import { businessToCardItem } from "@/lib/api/adapters";
 
@@ -21,11 +19,9 @@ export default async function SearchPage({
       const apiRes = await apiSearchBusinesses({ q: query });
       if (apiRes.results && apiRes.results.length > 0) {
         results = apiRes.results.map((r) => businessToCardItem(r.business));
-      } else {
-        results = localSearchBusinesses(query).map(toBusinessCardItem);
       }
     } catch {
-      results = localSearchBusinesses(query).map(toBusinessCardItem);
+      results = [];
     }
   }
 

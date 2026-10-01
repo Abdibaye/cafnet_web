@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useReservations } from "@/components/ReservationProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
 import type { MockReservation } from "@/data/reservationStorage";
 
 export default function ReservationsPage() {
@@ -90,7 +89,6 @@ export default function ReservationsPage() {
         </div>
         <div className="mt-3 divide-y divide-outline-variant rounded-2xl border border-outline-variant bg-white shadow-sm overflow-hidden">
           {items.map((reservation) => {
-            const business = getBusinessById(reservation.businessId);
             return (
               <Link
                 key={reservation.id}
@@ -99,7 +97,7 @@ export default function ReservationsPage() {
               >
                 <div>
                   <h3 className="font-semibold text-on-surface">
-                    {business?.name || `Business #${reservation.businessId}`}
+                    {`Business #${reservation.businessId}`}
                   </h3>
                   <p className="mt-1 text-sm text-on-surface-variant">
                     {new Date(`${reservation.date}T12:00:00`).toLocaleDateString("en-US", {

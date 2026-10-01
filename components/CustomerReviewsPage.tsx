@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useCustomerReviews } from "@/components/CustomerReviewProvider";
-import { getBusinessById } from "@/data/mockBusinesses";
 
 export default function CustomerReviewsPage() {
   const { authReady, isAuthenticated, startSignIn, showToast } = useCustomer();
@@ -73,7 +72,6 @@ export default function CustomerReviewsPage() {
       ) : (
         <div className="mt-8 divide-y divide-outline-variant rounded-2xl border border-outline-variant bg-white shadow-sm">
           {userReviews.map((review) => {
-            const business = getBusinessById(review.businessId);
             return (
               <article key={review.id} className="p-6">
                 <div className="flex items-start justify-between gap-4">
@@ -83,7 +81,7 @@ export default function CustomerReviewsPage() {
                         href={`/business/${review.businessId}`}
                         className="hover:text-primary transition-colors"
                       >
-                        {business?.name || `Business #${review.businessId}`}
+                        {`Business #${review.businessId}`}
                       </Link>
                     </h2>
                     <p

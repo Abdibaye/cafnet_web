@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AdminBusinessDetailPage from "@/components/admin/AdminBusinessDetailPage";
-import { getBusinessById } from "@/data/mockBusinesses";
+import { getBusinessProfile } from "@/lib/api/businesses";
 
 export async function generateMetadata({
   params,
@@ -8,10 +8,19 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const business = getBusinessById(id);
+  try {
+    const profile = await getBusinessProfile(id);
+    if (profile?.business) {
+      return {
+        title: `Inspect ${profile.business.name} — Cafnet Admin`,
+      };
+    }
+  } catch {
+    // Not found
+  }
 
   return {
-    title: business ? `Inspect ${business.name} — Cafnet Admin` : "Business Detail — Cafnet Admin",
+    title: "Business Detail — Cafnet Admin",
   };
 }
 

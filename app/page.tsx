@@ -2,7 +2,6 @@ import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
 import SearchBar from "@/components/sections/SearchBar";
 import TrustStrip from "@/components/sections/TrustStrip";
-import { getBusinessesByCategory, toBusinessCardItem } from "@/data/mockBusinesses";
 import { listBusinesses } from "@/lib/api/businesses";
 import { businessToCardItem } from "@/lib/api/adapters";
 
@@ -18,16 +17,31 @@ function BusinessSection({ heading, items }: { heading: string; items: BusinessC
             View all <span className="material-symbols-outlined text-[17px]" aria-hidden="true">arrow_forward</span>
           </Link>
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
-          {items.map((item) => <BusinessCard key={item.id} item={item} />)}
-        </div>
+        {items.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
+            {items.map((item) => <BusinessCard key={item.id} item={item} />)}
+          </div>
+        ) : (
+          <div className="border border-dashed border-outline-variant bg-white px-6 py-10 text-center">
+            <h3 className="text-base font-bold text-on-surface">No businesses found yet</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Be the first to list a restaurant or cafe on Cafnet!
+            </p>
+            <Link
+              href="/business/add"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[#0f46b8]"
+            >
+              Add your business <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 export default async function Home() {
-  let popularPlaces: BusinessCardItem[] = getBusinessesByCategory("restaurant").slice(0, 3).map(toBusinessCardItem);
+  let popularPlaces: BusinessCardItem[] = [];
 
   try {
     const res = await listBusinesses({ category: "restaurant", limit: 3 });
@@ -35,7 +49,7 @@ export default async function Home() {
       popularPlaces = res.businesses.map((b) => businessToCardItem(b));
     }
   } catch {
-    // Graceful fallback to seed places
+    popularPlaces = [];
   }
   return (
     <div className="w-full bg-background">
