@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3F4F6" />
+      <stop offset="100%" stop-color="#E5E7EB" />
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9CA3AF" />
+      <stop offset="100%" stop-color="#6B7280" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bgGrad)" />
+  <g transform="translate(350, 230)">
+    <!-- Cafnet Storefront / Venue Neutral Icon -->
+    <path d="M50 0 L90 30 L10 30 Z" fill="url(#iconGrad)" opacity="0.6" />
+    <rect x="15" y="30" width="70" height="15" rx="3" fill="url(#iconGrad)" opacity="0.8" />
+    <path d="M20 45 L20 85 L80 85 L80 45 Z" fill="none" stroke="url(#iconGrad)" stroke-width="4" stroke-linejoin="round" />
+    <rect x="30" y="55" width="18" height="30" rx="2" fill="url(#iconGrad)" opacity="0.4" />
+    <rect x="52" y="55" width="18" height="20" rx="2" fill="url(#iconGrad)" opacity="0.4" />
+  </g>
+  <text x="400" y="360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="500" fill="#6B7280" text-anchor="middle" letter-spacing="1">
+    CAFNET
+  </text>
+  <text x="400" y="385" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#9CA3AF" text-anchor="middle">
+    No image available
+  </text>
+</svg>

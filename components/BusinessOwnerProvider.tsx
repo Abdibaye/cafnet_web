@@ -57,7 +57,12 @@ type BusinessOwnerContextValue = {
   getEditableData: (businessId: number) => EditableBusinessData | undefined;
   hasUnsavedChanges: (businessId: number, currentData: Partial<EditableBusinessData>) => boolean;
   submitClaim: (businessId: number) => Promise<BusinessClaim>;
-  submitBusiness: (businessName: string, category: BusinessSubmission["category"], area: string) => Promise<BusinessSubmission>;
+  submitBusiness: (
+    businessName: string,
+    category: BusinessSubmission["category"],
+    area: string,
+    mediaId?: string,
+  ) => Promise<BusinessSubmission>;
   createManagedBusiness: (businessId: number, seedData: Partial<EditableBusinessData>) => Promise<OwnerManagedBusiness>;
   updateManagedBusiness: (businessId: number, updates: Partial<EditableBusinessData>) => Promise<OwnerManagedBusiness | undefined>;
   refreshManagedData: () => Promise<void>;
@@ -207,11 +212,13 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       businessName: string,
       category: BusinessSubmission["category"],
       area: string,
+      mediaId?: string,
     ) => {
       const apiSub = await createSubmissionApi({
         business_name: businessName,
         category,
         area,
+        media_id: mediaId,
       });
       const adapted = apiSubmissionToViewModel(apiSub);
       setSubmissions((prev) => [...prev, adapted]);

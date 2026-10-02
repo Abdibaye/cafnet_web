@@ -11,6 +11,7 @@ import * as reviewsApi from "../lib/api/reviews";
 import * as updatesApi from "../lib/api/updates";
 import * as reportsApi from "../lib/api/reports";
 import * as menusApi from "../lib/api/menus";
+import * as mediaApi from "../lib/api/media";
 import * as adapters from "../lib/api/adapters";
 import {
   formatPriceEtb,
@@ -2326,6 +2327,192 @@ test("businessesApi: getBusinessCenterManaged calls GET /api/v1/business-center/
     globalThis.fetch = originalFetch;
   }
 });
+
+test("mediaApi: validateImageFile correctly validates image types and sizes", () => {
+  // Valid types
+  const validJpeg = new File(["dummy content"], "test.jpg", { type: "image/jpeg" });
+  assert.equal(mediaApi.validateImageFile(validJpeg).valid, true);
+
+  const validPng = new File(["dummy content"], "test.png", { type: "image/png" });
+  assert.equal(mediaApi.validateImageFile(validPng).valid, true);
+
+  const validWebp = new File(["dummy content"], "test.webp", { type: "image/webp" });
+  assert.equal(mediaApi.validateImageFile(validWebp).valid, true);
+
+  // Invalid types
+  const invalidSvg = new File(["<svg></svg>"], "test.svg", { type: "image/svg+xml" });
+  assert.equal(mediaApi.validateImageFile(invalidSvg).valid, false);
+  assert.match(mediaApi.validateImageFile(invalidSvg).error || "", /Unsupported image format/);
+
+  const invalidPdf = new File(["dummy"], "doc.pdf", { type: "application/pdf" });
+  assert.equal(mediaApi.validateImageFile(invalidPdf).valid, false);
+  assert.match(mediaApi.validateImageFile(invalidPdf).error || "", /Unsupported image format/);
+
+  // Size over limit (10MB + 1)
+  const oversizedFile = {
+    name: "huge.jpg",
+    type: "image/jpeg",
+    size: 10 * 1024 * 1024 + 1,
+  } as File;
+  assert.equal(mediaApi.validateImageFile(oversizedFile).valid, false);
+  assert.match(mediaApi.validateImageFile(oversizedFile).error || "", /File is too large/);
+});
+
+test("mediaApi: createUpload, completeUpload, and media management endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; method: string; body?: any }[] = [];
+
+  try {
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = input.toString();
+      const method = init?.method || "GET";
+      const body = init?.body ? JSON.parse(init.body as string) : undefined;
+      requests.push({ url: urlStr, method, body });
+
+      if (urlStr.includes("/media/uploads") && !urlStr.includes("/complete")) {
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              upload_url: "https://fly.storage.tigris.dev/cafnet-media/submissions/sub-1/cover.jpg?presigned=true",
+              media_id: "med-123",
+              object_key: "submissions/sub-1/cover.jpg",
+              expires_at: "2026-10-02T16:00:00Z",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/media/uploads/med-123/complete")) {
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              media: {
+                id: "med-123",
+                target_type: "submission",
+                target_id: "sub-1",
+                media_type: "business_cover",
+                object_key: "submissions/sub-1/cover.jpg",
+                content_type: "image/jpeg",
+                file_size: 1024,
+                status: "READY",
+                url: "https://fly.storage.tigris.dev/cafnet-media/submissions/sub-1/cover.jpg",
+                created_at: "2026-10-02T15:00:00Z",
+                updated_at: "2026-10-02T15:00:00Z",
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/businesses/42/media") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              cover: {
+                id: "med-cover",
+                url: "https://fly.storage.tigris.dev/cafnet-media/businesses/42/cover.jpg",
+              },
+              gallery: [
+                {
+                  id: "med-gal-1",
+                  url: "https://fly.storage.tigris.dev/cafnet-media/businesses/42/gal1.jpg",
+                  sort_order: 0,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/businesses/42/media/cover")) {
+        return new Response(
+          JSON.stringify({ status: "success", data: { media_id: "med-gal-1" } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/businesses/42/media/gallery/reorder")) {
+        return new Response(
+          JSON.stringify({ status: "success", data: { reordered: true } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/media/med-gal-1") && method === "DELETE") {
+        return new Response(
+          JSON.stringify({ status: "success", data: { deleted: true } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (urlStr.includes("/menu/items/item-1/image") && method === "DELETE") {
+        return new Response(
+          JSON.stringify({ status: "success", data: { deleted: true } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return new Response(JSON.stringify({ status: "error", message: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as any;
+
+    // 1. Create Presigned Upload
+    const uploadRes = await mediaApi.createUpload({
+      target_type: "submission",
+      target_id: "sub-1",
+      media_type: "business_cover",
+      content_type: "image/jpeg",
+      file_size: 1024,
+    });
+    assert.equal(uploadRes.media_id, "med-123");
+    assert.match(uploadRes.upload_url, /presigned=true/);
+
+    // 2. Complete Upload
+    const completeRes = await mediaApi.completeUpload("med-123");
+    assert.equal(completeRes.id, "med-123");
+    assert.equal(completeRes.status, "READY");
+
+    // 3. Get Business Media
+    const bizMedia = await mediaApi.getBusinessMedia(42);
+    assert.equal(bizMedia.cover?.id, "med-cover");
+    assert.equal(bizMedia.gallery.length, 1);
+
+    // 4. Set Business Cover
+    await mediaApi.setBusinessCover(42, "med-gal-1");
+    const setCoverReq = requests.find((r) => r.url.includes("/businesses/42/media/cover"));
+    assert.ok(setCoverReq);
+    assert.equal(setCoverReq.body.media_id, "med-gal-1");
+
+    // 5. Reorder Business Gallery
+    await mediaApi.reorderBusinessGallery(42, ["med-gal-1"]);
+    const reorderReq = requests.find((r) => r.url.includes("/businesses/42/media/gallery/reorder"));
+    assert.ok(reorderReq);
+    assert.deepEqual(reorderReq.body.media_ids, ["med-gal-1"]);
+
+    // 6. Delete Media
+    await mediaApi.deleteMedia("med-gal-1");
+    const delReq = requests.find((r) => r.url.includes("/media/med-gal-1") && r.method === "DELETE");
+    assert.ok(delReq);
+
+    // 7. Delete Menu Item Media
+    await mediaApi.deleteMenuItemMedia(42, "item-1");
+    const delItemReq = requests.find(
+      (r) => r.url.includes("/menu/items/item-1/image") && r.method === "DELETE",
+    );
+    assert.ok(delItemReq);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 
 
 

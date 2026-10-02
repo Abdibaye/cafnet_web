@@ -43,7 +43,10 @@ export default function BusinessCard({ item }: BusinessCardProps) {
           <img
             alt={`${item.name} dining`}
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-            src={item.image}
+            src={item.image || "/images/cafnet-placeholder.svg"}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+            }}
           />
         </Link>
         <button

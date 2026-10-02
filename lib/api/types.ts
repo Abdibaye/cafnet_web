@@ -119,6 +119,8 @@ export interface Business {
   verification_status: VerificationStatus;
   claim_status: ClaimStatus;
   is_featured: boolean;
+  cover_image?: string;
+  gallery_count?: number;
   created_by_user_id?: string;
   created_at: string;
   updated_at: string;
@@ -162,6 +164,8 @@ export interface MenuItem {
   price_etb_minor: number; // in santims (1 ETB = 100 santims)
   sort_order: number;
   is_available: boolean;
+  image?: string;
+  image_media_id?: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -274,6 +278,8 @@ export interface BusinessSubmission {
   submitted_payload?: Record<string, unknown>;
   status: SubmissionWorkflowStatus;
   created_business_id?: number;
+  cover_media_id?: string;
+  cover_image_url?: string;
   submitted_at: string;
   reviewed_at?: string;
   reviewed_by?: string;
@@ -464,6 +470,7 @@ export interface CreateSubmissionInput {
   business_name: string;
   category: BusinessCategory;
   area: string;
+  media_id?: string;
   payload?: Record<string, unknown>;
 }
 
@@ -606,5 +613,66 @@ export interface SignInInput {
   email: string;
   password: string;
 }
+
+// Media Domain & Tigris Upload Types
+export type MediaType =
+  | "BUSINESS_COVER"
+  | "BUSINESS_GALLERY"
+  | "MENU_ITEM"
+  | "business_cover"
+  | "business_gallery"
+  | "menu_item";
+export type MediaStatus = "PENDING" | "READY" | "FAILED" | "DELETED";
+export type TargetType =
+  | "submission"
+  | "business_cover"
+  | "business_gallery"
+  | "menu_item";
+
+export interface Media {
+  id: string;
+  created_by_user_id: string;
+  business_id?: number;
+  menu_item_id?: string;
+  submission_id?: string;
+  media_type: MediaType;
+  object_key: string;
+  content_type: string;
+  file_size: number;
+  status: MediaStatus;
+  sort_order: number;
+  url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BusinessMedia {
+  cover: Media | null;
+  gallery: Media[];
+}
+
+export interface PresignedUploadResponse {
+  media_id: string;
+  upload_url: string;
+  object_key: string;
+  expires_at: string;
+}
+
+export interface CompleteUploadResponse {
+  media: Media;
+}
+
+export interface CreateUploadInput {
+  target_type: TargetType;
+  target_id?: string;
+  media_type?: MediaType;
+  content_type: string;
+  file_size: number;
+}
+
+export interface ReorderMediaInput {
+  media_ids: string[];
+}
+
 
 

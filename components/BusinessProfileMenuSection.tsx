@@ -10,9 +10,11 @@ type BusinessProfileMenuSectionProps = {
   initialMenu?: {
     category: string;
     items: {
+      id?: string;
       name: string;
       price: string;
       description: string;
+      image?: string;
     }[];
   }[];
 };
@@ -61,10 +63,11 @@ export default function BusinessProfileMenuSection({
         id: String(i),
         name: c.category,
         items: c.items.map((it, j) => ({
-          id: `${i}-${j}`,
+          id: it.id || `${i}-${j}`,
           name: it.name,
           price: it.price,
           description: it.description,
+          image: it.image,
         })),
       }))
     : (menu?.categories || []).filter((cat) => cat.items.length > 0);
@@ -79,21 +82,28 @@ export default function BusinessProfileMenuSection({
 
   return (
     <div className="space-y-8">
-      {activeCategories.map((category, categoryIndex) => (
+      {activeCategories.map((category) => (
         <div key={category.id || category.name}>
           <h3 className="mb-3 text-base font-bold text-on-surface">{category.name}</h3>
           <div className="grid gap-3 md:grid-cols-2">
-            {category.items.map((item, itemIndex) => (
+            {category.items.map((item) => (
               <article
                 key={item.id || item.name}
                 className="flex gap-3 rounded-[14px] border border-outline-variant/80 bg-white p-3"
               >
-                {images.length > 0 && (
+                {item.image ? (
                   <img
-                    src={images[(categoryIndex * 2 + itemIndex) % images.length]}
-                    alt=""
-                    className="size-20 shrink-0 rounded-xl object-cover"
+                    src={item.image}
+                    alt={item.name}
+                    className="size-20 shrink-0 rounded-xl object-cover border border-outline-variant/40"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                    }}
                   />
+                ) : (
+                  <div className="flex size-20 shrink-0 items-center justify-center rounded-xl bg-surface-container border border-outline-variant/40 text-on-surface-variant/40">
+                    <span className="material-symbols-outlined text-[24px]">restaurant</span>
+                  </div>
                 )}
                 <div className="min-w-0 py-0.5">
                   <div className="flex items-start justify-between gap-2">

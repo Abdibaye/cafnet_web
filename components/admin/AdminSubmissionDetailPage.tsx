@@ -219,6 +219,21 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
             <span className="text-on-surface-variant">City</span>
             <span className="font-semibold text-on-surface">Addis Ababa, Ethiopia</span>
           </div>
+          {submission.cover_image_url && (
+            <div className="pt-3">
+              <span className="text-on-surface-variant block mb-2">Cover Image</span>
+              <div className="overflow-hidden rounded-xl border border-outline-variant/60">
+                <img
+                  src={submission.cover_image_url}
+                  alt={submission.business_name}
+                  className="h-52 w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

@@ -13,4 +13,6 @@ export * as menusApi from "./menus";
 export * from "./menus";
 export * as adminApi from "./admin";
 export * from "./admin";
+export * as mediaApi from "./media";
+export * from "./media";
 

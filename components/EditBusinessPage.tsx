@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBusinessOwner } from "./BusinessOwnerProvider";
+import { useCustomer } from "@/components/CustomerProvider";
 import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
+import { getBusinessMedia, setBusinessCover, reorderBusinessGallery, deleteMedia } from "@/lib/api/media";
 import { businessToEditableData } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
-import type { Business, BusinessCategory, BusinessHours, BusinessImage } from "@/lib/api/types";
+import type { Business, BusinessCategory, BusinessHours, BusinessImage, BusinessMedia, Media } from "@/lib/api/types";
 import type { EditableBusinessData, OpeningHours } from "@/data/ownerManagedBusinessStorage";
+import ImageUpload from "@/components/ImageUpload";
 
 type FormErrors = {
   name?: string;
@@ -44,6 +47,7 @@ function formatPhoneForStorage(phone: string): string {
 
 export default function EditBusinessPage({ businessId }: { businessId: string }) {
   const router = useRouter();
+  const { showToast } = useCustomer();
   const { 
     ready, 
     updateManagedBusiness,
@@ -55,11 +59,21 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
   const [loadedBusiness, setLoadedBusiness] = useState<Business | null>(null);
   const [loadedHours, setLoadedHours] = useState<BusinessHours[]>([]);
   const [loadedImages, setLoadedImages] = useState<BusinessImage[]>([]);
+  const [businessMedia, setBusinessMedia] = useState<BusinessMedia>({ cover: null, gallery: [] });
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const initialDataRef = useRef<EditableBusinessData | null>(null);
+
+  const reloadMedia = useCallback(async () => {
+    try {
+      const m = await getBusinessMedia(businessId);
+      setBusinessMedia(m);
+    } catch {
+      // Ignore media load failure
+    }
+  }, [businessId]);
 
   const [formData, setFormData] = useState<Partial<EditableBusinessData>>({
     businessId: Number(businessId),
@@ -86,15 +100,17 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
       setLoading(true);
       setErrorStatus(null);
       try {
-        const [b, hours, images] = await Promise.all([
+        const [b, hours, images, media] = await Promise.all([
           getManagedBusiness(businessId),
           getBusinessHours(businessId).catch(() => []),
           getBusinessImages(businessId).catch(() => []),
+          getBusinessMedia(businessId).catch(() => ({ cover: null, gallery: [] })),
         ]);
         if (!cancelled) {
           setLoadedBusiness(b);
           setLoadedHours(hours);
           setLoadedImages(images);
+          setBusinessMedia(media);
 
           const initialData = businessToEditableData(b, hours);
           initialDataRef.current = initialData;
@@ -524,6 +540,172 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
               </div>
             </section>
 
+            {/* Photos & Media Management */}
+            <section className="border border-outline-variant bg-white p-6 rounded-2xl">
+              <div>
+                <h2 className="text-lg font-bold text-on-surface">Photos & Media</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Manage your business cover photo and gallery (up to 20 images)
+                </p>
+              </div>
+
+              {/* Cover Photo */}
+              <div className="mt-6 border-b border-outline-variant/60 pb-6">
+                <h3 className="text-sm font-bold text-on-surface mb-1">Cover Photo</h3>
+                <p className="text-xs text-on-surface-variant mb-4">
+                  The primary photo shown on search cards and at the top of your public profile.
+                </p>
+                <div className="max-w-md">
+                  <ImageUpload
+                    targetType="business_cover"
+                    targetId={businessId}
+                    currentImageUrl={businessMedia.cover?.url || loadedBusiness?.cover_image}
+                    onUploadComplete={() => {
+                      showToast("Cover photo updated");
+                      reloadMedia();
+                    }}
+                    onRemove={async () => {
+                      if (businessMedia.cover) {
+                        try {
+                          await deleteMedia(businessMedia.cover.id);
+                          showToast("Cover photo removed");
+                          reloadMedia();
+                        } catch {
+                          showToast("Failed to remove cover photo");
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Gallery Photos */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-on-surface">Gallery Photos</h3>
+                    <p className="text-xs text-on-surface-variant">
+                      {businessMedia.gallery.length} of 20 photos uploaded
+                    </p>
+                  </div>
+                </div>
+
+                {businessMedia.gallery.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
+                    {businessMedia.gallery.map((img: Media, idx: number) => (
+                      <div
+                        key={img.id}
+                        className="group relative rounded-xl border border-outline-variant/60 overflow-hidden bg-surface-container"
+                      >
+                        <img
+                          src={img.url}
+                          alt={`Gallery photo ${idx + 1}`}
+                          className="h-28 w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                          }}
+                        />
+                        <div className="p-2 bg-white flex flex-col gap-1.5 border-t border-outline-variant/40">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await setBusinessCover(businessId, img.id);
+                                showToast("Set as cover photo");
+                                reloadMedia();
+                              } catch {
+                                showToast("Failed to set cover photo");
+                              }
+                            }}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-outline-variant px-2 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[13px] text-primary">star</span>
+                            Set as cover
+                          </button>
+                          <div className="flex items-center justify-between pt-1">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={async () => {
+                                  const items = [...businessMedia.gallery];
+                                  const [moved] = items.splice(idx, 1);
+                                  items.splice(idx - 1, 0, moved);
+                                  try {
+                                    await reorderBusinessGallery(businessId, items.map((i) => i.id));
+                                    reloadMedia();
+                                  } catch {
+                                    showToast("Failed to reorder");
+                                  }
+                                }}
+                                className="inline-flex size-6 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container disabled:opacity-30"
+                                title="Move earlier"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === businessMedia.gallery.length - 1}
+                                onClick={async () => {
+                                  const items = [...businessMedia.gallery];
+                                  const [moved] = items.splice(idx, 1);
+                                  items.splice(idx + 1, 0, moved);
+                                  try {
+                                    await reorderBusinessGallery(businessId, items.map((i) => i.id));
+                                    reloadMedia();
+                                  } catch {
+                                    showToast("Failed to reorder");
+                                  }
+                                }}
+                                className="inline-flex size-6 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container disabled:opacity-30"
+                                title="Move later"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await deleteMedia(img.id);
+                                  showToast("Photo deleted");
+                                  reloadMedia();
+                                } catch {
+                                  showToast("Failed to delete photo");
+                                }
+                              }}
+                              className="inline-flex size-6 items-center justify-center rounded text-red-600 hover:bg-red-50"
+                              title="Delete photo"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {businessMedia.gallery.length < 20 ? (
+                  <div className="max-w-md">
+                    <p className="text-xs font-semibold text-on-surface mb-2">Add a photo to gallery</p>
+                    <ImageUpload
+                      targetType="business_gallery"
+                      targetId={businessId}
+                      onUploadComplete={() => {
+                        showToast("Photo added to gallery");
+                        reloadMedia();
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                    Maximum limit of 20 gallery photos reached. Remove an image to upload a new one.
+                  </p>
+                )}
+              </div>
+            </section>
+
             <section className="border border-outline-variant bg-white p-6">
               <h2 className="text-lg font-bold text-on-surface">Features</h2>
               <p className="mt-1 text-sm text-on-surface-variant">Help customers know what to expect</p>
@@ -601,9 +783,12 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
             <div className="mt-6">
               <div className="flex items-center gap-3">
                 <img
-                  src={loadedImages[0]?.image_url || "/images/placeholder1.jpeg"}
+                  src={businessMedia.cover?.url || loadedBusiness?.cover_image || "/images/cafnet-placeholder.svg"}
                   alt=""
                   className="size-16 rounded-xl object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                  }}
                 />
                 <div>
                   <h3 className="text-lg font-bold text-on-surface">{formData.name || loadedBusiness?.name}</h3>

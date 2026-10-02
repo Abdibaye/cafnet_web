@@ -24,6 +24,8 @@ import {
   type MenuCategoryViewModel,
   type MenuItemViewModel,
 } from "@/lib/api/adapters";
+import ImageUpload from "@/components/ImageUpload";
+import { deleteMenuItemMedia } from "@/lib/api/media";
 import { ApiError } from "@/lib/api/errors";
 import type { Business } from "@/lib/api/types";
 
@@ -618,20 +620,36 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                           key={item.id}
                           className="flex flex-col justify-between gap-3 rounded-xl border border-outline-variant/80 bg-white p-4 transition-all hover:border-outline-variant sm:flex-row sm:items-center"
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-semibold text-on-surface">
-                                {item.name}
-                              </h3>
-                              <span className="inline-flex items-center rounded-md bg-primary-container/40 px-2 py-0.5 text-xs font-bold text-primary">
-                                {item.price}
-                              </span>
-                            </div>
-                            {item.description && (
-                              <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-                                {item.description}
-                              </p>
+                          <div className="flex min-w-0 flex-1 items-start gap-3.5">
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="size-14 shrink-0 rounded-xl object-cover border border-outline-variant/60"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-surface-container border border-outline-variant/40 text-on-surface-variant/40">
+                                <span className="material-symbols-outlined text-[20px]">restaurant</span>
+                              </div>
                             )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-semibold text-on-surface">
+                                  {item.name}
+                                </h3>
+                                <span className="inline-flex items-center rounded-md bg-primary-container/40 px-2 py-0.5 text-xs font-bold text-primary">
+                                  {item.price}
+                                </span>
+                              </div>
+                              {item.description && (
+                                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
@@ -935,6 +953,48 @@ export default function ManageMenuPage({ businessId }: ManageMenuPageProps) {
                   className="mt-1.5 w-full rounded-xl border border-outline-variant p-3.5 text-sm outline-none transition-colors focus:border-primary"
                 />
               </div>
+
+              {editingItemInfo && (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                    Item Photo
+                  </label>
+                  <ImageUpload
+                    targetType="menu_item"
+                    targetId={editingItemInfo.item.id}
+                    currentImageUrl={editingItemInfo.item.image}
+                    onUploadComplete={(media) => {
+                      showToast("Item photo updated");
+                      setEditingItemInfo((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              item: { ...prev.item, image: media.url },
+                            }
+                          : null
+                      );
+                      reloadMenu();
+                    }}
+                    onRemove={async () => {
+                      try {
+                        await deleteMenuItemMedia(numId, editingItemInfo.item.id);
+                        showToast("Item photo removed");
+                        setEditingItemInfo((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                item: { ...prev.item, image: undefined },
+                              }
+                            : null
+                        );
+                        reloadMenu();
+                      } catch {
+                        showToast("Failed to remove item photo");
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
               <div className="mt-6 flex justify-end gap-3 pt-2">
                 <button

@@ -37,10 +37,7 @@ const DAY_NAMES = [
 ];
 
 const DEFAULT_IMAGES = [
-  "/images/placeholder1.jpeg",
-  "/images/placeholder2.jpeg",
-  "/images/placeholder3.jpeg",
-  "/images/placeholder4.jpeg",
+  "/images/cafnet-placeholder.svg",
 ];
 
 export function formatTime(timeStr?: string): string {
@@ -97,14 +94,9 @@ export function businessToCardItem(
   reviewSummary?: ReviewSummary,
   imageUrl?: string,
 ): BusinessCardItem {
-  const fallbackImage =
-    business.category === "cafe"
-      ? "/images/cafe/placeholder1.webp"
-      : business.category === "drinks"
-        ? "/images/pizza.jpg"
-        : "/images/placeholder1.jpeg";
+  const fallbackImage = "/images/cafnet-placeholder.svg";
 
-  const image = imageUrl || fallbackImage;
+  const image = imageUrl || business.cover_image || fallbackImage;
   const location = business.location_name
     ? `${business.location_name}, 350m`
     : `${business.neighborhood || "Addis Ababa"}, 350m`;
@@ -129,9 +121,11 @@ export function businessToCardItem(
 export interface AdaptedMenuCategory {
   category: string;
   items: {
+    id?: string;
     name: string;
     price: string;
     description: string;
+    image?: string;
   }[];
 }
 
@@ -188,7 +182,9 @@ export function publicProfileToViewModel(
   const images =
     profile.images && profile.images.length > 0
       ? profile.images.map((img) => img.image_url)
-      : DEFAULT_IMAGES;
+      : b.cover_image
+        ? [b.cover_image]
+        : DEFAULT_IMAGES;
 
   const tags = b.tags && b.tags.length > 0 ? b.tags : [b.cuisine || "Ethiopian"];
   const location = b.location_name || b.neighborhood || "Bole";
@@ -204,9 +200,11 @@ export function publicProfileToViewModel(
   const menu: AdaptedMenuCategory[] = (profile.menu?.categories || []).map((cat) => ({
     category: cat.category.name,
     items: (cat.items || []).map((item) => ({
+      id: item.id,
       name: item.name,
       price: formatPriceEtb(item.price_etb_minor),
       description: item.description,
+      image: item.image,
     })),
   }));
 
@@ -270,7 +268,9 @@ export function businessToViewModel(
   const imgUrls =
     images && images.length > 0
       ? images.map((img) => img.image_url)
-      : DEFAULT_IMAGES;
+      : business.cover_image
+        ? [business.cover_image]
+        : DEFAULT_IMAGES;
 
   const tags =
     business.tags && business.tags.length > 0
@@ -730,6 +730,8 @@ export interface MenuItemViewModel {
   priceEtbMinor: number;
   isAvailable: boolean;
   sortOrder: number;
+  image?: string;
+  imageMediaId?: string;
 }
 
 export interface MenuCategoryViewModel {
@@ -800,6 +802,8 @@ export function apiMenuToViewModel(menu: BusinessMenu): BusinessMenuViewModel {
         priceEtbMinor: item.price_etb_minor,
         isAvailable: item.is_available,
         sortOrder: item.sort_order,
+        image: item.image,
+        imageMediaId: item.image_media_id,
       })),
     })),
   };

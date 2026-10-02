@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
+import ImageUpload from "@/components/ImageUpload";
+import type { Media } from "@/lib/api/types";
 import type { BusinessSubmission } from "@/data/businessOwnerStorage";
 
 const categories: { value: BusinessSubmission["category"]; label: string }[] = [
@@ -18,6 +21,7 @@ export default function BusinessAddFlow() {
   const [businessName, setBusinessName] = useState("");
   const [category, setCategory] = useState<BusinessSubmission["category"]>("restaurant");
   const [area, setArea] = useState("");
+  const [coverMedia, setCoverMedia] = useState<Media | null>(null);
   const [step, setStep] = useState<"form" | "preview" | "submitted">("form");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -119,6 +123,10 @@ export default function BusinessAddFlow() {
       setError("Please select a business category.");
       return;
     }
+    if (!coverMedia) {
+      setError("Please upload 1 cover photo for your business listing.");
+      return;
+    }
 
     setError("");
     setSubmitError("");
@@ -129,7 +137,7 @@ export default function BusinessAddFlow() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await submitBusiness(businessName.trim(), category, area.trim());
+      await submitBusiness(businessName.trim(), category, area.trim(), coverMedia?.id);
       setStep("submitted");
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit business. Please check details and try again.");
@@ -197,6 +205,20 @@ export default function BusinessAddFlow() {
             <p className="text-xs text-on-surface-variant">Neighborhood / Area</p>
             <p className="mt-1 font-semibold text-on-surface">{area.trim()}</p>
           </div>
+          {coverMedia && coverMedia.url && (
+            <div className="p-5">
+              <p className="text-xs text-on-surface-variant mb-2">Cover photo</p>
+              <div className="relative w-full h-56 rounded-xl overflow-hidden border border-outline-variant bg-surface-container">
+                <Image
+                  src={coverMedia.url}
+                  alt={businessName}
+                  fill
+                  className="object-cover"
+                  unoptimized={coverMedia.url.startsWith("http://localhost")}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {submitError && (
@@ -272,6 +294,21 @@ export default function BusinessAddFlow() {
             placeholder="e.g. Bole Medhanialem"
             value={area}
             onChange={(event) => setArea(event.target.value)}
+          />
+        </div>
+
+        <div>
+          <ImageUpload
+            targetType="submission"
+            label="Cover photo"
+            description="Upload 1 photo to represent your business listing (JPEG, PNG, WebP up to 10MB)"
+            required
+            initialImageUrl={coverMedia?.url}
+            onUploadComplete={(media) => {
+              setCoverMedia(media);
+              setError("");
+            }}
+            onRemove={() => setCoverMedia(null)}
           />
         </div>
 
