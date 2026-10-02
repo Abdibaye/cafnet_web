@@ -178,10 +178,73 @@ export async function deleteMedia(mediaId: string): Promise<void> {
 export async function getBusinessMedia(
   businessId: number | string,
 ): Promise<BusinessMedia> {
-  const res = await api.get<BusinessMedia>(
-    `/api/v1/businesses/${businessId}/media`,
-  );
-  return res.data || { cover: null, gallery: [] };
+  try {
+    const res = await api.get<any>(
+      `/api/v1/businesses/${businessId}/media`,
+    );
+    const data = res.data;
+
+    // Handle array response from Go slice (domain.BusinessMedia[])
+    if (Array.isArray(data)) {
+      let cover: Media | null = null;
+      const gallery: Media[] = [];
+
+      for (const item of data) {
+        if (!item) continue;
+        const normalized: Media = {
+          id: String(item.id || ""),
+          created_by_user_id: String(item.created_by_user_id || ""),
+          business_id: Number(businessId),
+          media_type: item.type || item.media_type || "BUSINESS_GALLERY",
+          object_key: item.object_key || "",
+          content_type: item.content_type || "image/jpeg",
+          file_size: item.file_size || 0,
+          status: item.status || "READY",
+          sort_order: item.sort_order || 0,
+          url: item.url || "",
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString(),
+        };
+
+        const itemType = String(item.type || item.media_type || "").toUpperCase();
+        if (itemType === "BUSINESS_COVER") {
+          if (!cover) {
+            cover = normalized;
+          }
+        } else {
+          gallery.push(normalized);
+        }
+      }
+
+      return { cover, gallery };
+    }
+
+    // Handle { cover: ..., gallery: [...] } shape
+    if (data && typeof data === "object") {
+      const cover = data.cover
+        ? {
+            ...data.cover,
+            id: String(data.cover.id || ""),
+            url: data.cover.url || "",
+          }
+        : null;
+
+      const gallery = Array.isArray(data.gallery)
+        ? data.gallery.map((g: any) => ({
+            ...g,
+            id: String(g.id || ""),
+            url: g.url || "",
+            sort_order: g.sort_order || 0,
+          }))
+        : [];
+
+      return { cover, gallery };
+    }
+  } catch {
+    return { cover: null, gallery: [] };
+  }
+
+  return { cover: null, gallery: [] };
 }
 
 /**

@@ -2430,6 +2430,29 @@ test("mediaApi: createUpload, completeUpload, and media management endpoints", a
         );
       }
 
+      if (urlStr.includes("/businesses/99/media") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: [
+              {
+                id: "med-raw-cover",
+                url: "https://fly.storage.tigris.dev/cafnet-media/businesses/99/cover.jpg",
+                type: "BUSINESS_COVER",
+                sort_order: 0,
+              },
+              {
+                id: "med-raw-gal-1",
+                url: "https://fly.storage.tigris.dev/cafnet-media/businesses/99/gal1.jpg",
+                type: "BUSINESS_GALLERY",
+                sort_order: 1,
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
       if (urlStr.includes("/businesses/42/media/cover")) {
         return new Response(
           JSON.stringify({ status: "success", data: { media_id: "med-gal-1" } }),
@@ -2480,10 +2503,16 @@ test("mediaApi: createUpload, completeUpload, and media management endpoints", a
     assert.equal(completeRes.id, "med-123");
     assert.equal(completeRes.status, "READY");
 
-    // 3. Get Business Media
+    // 3. Get Business Media ({ cover, gallery } response)
     const bizMedia = await mediaApi.getBusinessMedia(42);
     assert.equal(bizMedia.cover?.id, "med-cover");
     assert.equal(bizMedia.gallery.length, 1);
+
+    // 3b. Get Business Media (raw array response from Go backend slice)
+    const rawArrayMedia = await mediaApi.getBusinessMedia(99);
+    assert.equal(rawArrayMedia.cover?.id, "med-raw-cover");
+    assert.equal(rawArrayMedia.gallery.length, 1);
+    assert.equal(rawArrayMedia.gallery[0].id, "med-raw-gal-1");
 
     // 4. Set Business Cover
     await mediaApi.setBusinessCover(42, "med-gal-1");

@@ -66,10 +66,21 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
 
   const initialDataRef = useRef<EditableBusinessData | null>(null);
 
+  const ensureBusinessMedia = (m: unknown): BusinessMedia => {
+    if (!m || typeof m !== "object") {
+      return { cover: null, gallery: [] };
+    }
+    const obj = m as Partial<BusinessMedia>;
+    return {
+      cover: obj.cover || null,
+      gallery: Array.isArray(obj.gallery) ? obj.gallery : [],
+    };
+  };
+
   const reloadMedia = useCallback(async () => {
     try {
       const m = await getBusinessMedia(businessId);
-      setBusinessMedia(m);
+      setBusinessMedia(ensureBusinessMedia(m));
     } catch {
       // Ignore media load failure
     }
@@ -110,7 +121,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
           setLoadedBusiness(b);
           setLoadedHours(hours);
           setLoadedImages(images);
-          setBusinessMedia(media);
+          setBusinessMedia(ensureBusinessMedia(media));
 
           const initialData = businessToEditableData(b, hours);
           initialDataRef.current = initialData;
@@ -559,13 +570,13 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   <ImageUpload
                     targetType="business_cover"
                     targetId={businessId}
-                    currentImageUrl={businessMedia.cover?.url || loadedBusiness?.cover_image}
+                    currentImageUrl={businessMedia?.cover?.url || loadedBusiness?.cover_image}
                     onUploadComplete={() => {
                       showToast("Cover photo updated");
                       reloadMedia();
                     }}
                     onRemove={async () => {
-                      if (businessMedia.cover) {
+                      if (businessMedia?.cover) {
                         try {
                           await deleteMedia(businessMedia.cover.id);
                           showToast("Cover photo removed");
@@ -585,14 +596,14 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   <div>
                     <h3 className="text-sm font-bold text-on-surface">Gallery Photos</h3>
                     <p className="text-xs text-on-surface-variant">
-                      {businessMedia.gallery.length} of 20 photos uploaded
+                      {(businessMedia?.gallery?.length || 0)} of 20 photos uploaded
                     </p>
                   </div>
                 </div>
 
-                {businessMedia.gallery.length > 0 && (
+                {(businessMedia?.gallery?.length || 0) > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
-                    {businessMedia.gallery.map((img: Media, idx: number) => (
+                    {(businessMedia?.gallery || []).map((img: Media, idx: number) => (
                       <div
                         key={img.id}
                         className="group relative rounded-xl border border-outline-variant/60 overflow-hidden bg-surface-container"
@@ -628,7 +639,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                                 type="button"
                                 disabled={idx === 0}
                                 onClick={async () => {
-                                  const items = [...businessMedia.gallery];
+                                  const items = [...(businessMedia?.gallery || [])];
                                   const [moved] = items.splice(idx, 1);
                                   items.splice(idx - 1, 0, moved);
                                   try {
@@ -645,9 +656,9 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                               </button>
                               <button
                                 type="button"
-                                disabled={idx === businessMedia.gallery.length - 1}
+                                disabled={idx === (businessMedia?.gallery?.length || 0) - 1}
                                 onClick={async () => {
-                                  const items = [...businessMedia.gallery];
+                                  const items = [...(businessMedia?.gallery || [])];
                                   const [moved] = items.splice(idx, 1);
                                   items.splice(idx + 1, 0, moved);
                                   try {
@@ -686,7 +697,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   </div>
                 )}
 
-                {businessMedia.gallery.length < 20 ? (
+                {(businessMedia?.gallery?.length || 0) < 20 ? (
                   <div className="max-w-md">
                     <p className="text-xs font-semibold text-on-surface mb-2">Add a photo to gallery</p>
                     <ImageUpload
@@ -783,7 +794,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
             <div className="mt-6">
               <div className="flex items-center gap-3">
                 <img
-                  src={businessMedia.cover?.url || loadedBusiness?.cover_image || "/images/cafnet-placeholder.svg"}
+                  src={businessMedia?.cover?.url || loadedBusiness?.cover_image || "/images/cafnet-placeholder.svg"}
                   alt=""
                   className="size-16 rounded-xl object-cover"
                   onError={(e) => {
@@ -840,7 +851,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                 )}
               </div>
 
-              {formData.tags && formData.tags.length > 0 && (
+              {Array.isArray(formData.tags) && formData.tags.length > 0 && (
                 <div className="mt-5">
                   <h4 className="text-sm font-semibold text-on-surface">Features</h4>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -865,7 +876,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
               <div className="mt-5">
                 <h4 className="text-sm font-semibold text-on-surface">Hours</h4>
                 <div className="mt-2 text-sm text-on-surface-variant">
-                  {formData.openingHours && formData.openingHours.length > 0 ? (
+                  {Array.isArray(formData.openingHours) && formData.openingHours.length > 0 ? (
                     <>
                       {formData.openingHours[0].isClosed ? (
                         <p>Closed</p>
