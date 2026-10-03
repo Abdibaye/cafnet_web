@@ -1,7 +1,6 @@
 import Link from "next/link";
 import BusinessCard, { type BusinessCardItem } from "@/components/BusinessCard";
-import SearchBar from "@/components/sections/SearchBar";
-import TrustStrip from "@/components/sections/TrustStrip";
+import SplitSearchBar from "@/components/sections/SplitSearchBar";
 import { listBusinesses } from "@/lib/api/businesses";
 import { businessToCardItem } from "@/lib/api/adapters";
 
@@ -62,8 +61,7 @@ export default async function Home() {
         </p>
       </section>
 
-      <SearchBar variant="homepage" />
-      <TrustStrip variant="homepage" />
+      <SplitSearchBar />
 
       <BusinessSection heading="Popular restaurants near you" items={popularPlaces} />
 
