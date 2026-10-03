@@ -85,7 +85,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         reservation_time: apiTime,
         special_request: draft.specialRequest?.trim() || "",
         customer_name: currentUser.name,
-        customer_phone: currentUser.phone,
+        customer_phone: draft.customerPhone || currentUser.phone || "",
       });
 
       const viewModel = reservationToViewModel(created);
@@ -104,7 +104,7 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
         id: `CAF-${String(Date.now()).slice(-4)}`,
         customerId: currentUser.id,
         customerName: currentUser.name,
-        customerPhone: currentUser.phone,
+        customerPhone: draft.customerPhone || currentUser.phone || "",
         status: "pending",
         createdAt: new Date().toISOString(),
       };

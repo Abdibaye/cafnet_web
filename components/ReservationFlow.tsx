@@ -28,15 +28,17 @@ type ReservationFlowProps = { business: MockBusiness };
 
 export default function ReservationFlow({ business }: ReservationFlowProps) {
   const dates = useMemo(() => dateOptions(), []);
-  const { isAuthenticated, startSignIn } = useCustomer();
+  const { isAuthenticated, startSignIn, currentUser } = useCustomer();
   const { createReservation } = useReservations();
   const [date, setDate] = useState(dates[0].value);
   const [time, setTime] = useState("7:00 PM");
   const [partySize, setPartySize] = useState(2);
+  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone ?? "");
   const [specialRequest, setSpecialRequest] = useState("");
   const [step, setStep] = useState<"form" | "review" | "confirmed">("form");
   const [reservationId, setReservationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
 
   const formattedDate = new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
@@ -58,6 +60,7 @@ export default function ReservationFlow({ business }: ReservationFlowProps) {
         date,
         time,
         partySize,
+        customerPhone: customerPhone.trim(),
         specialRequest: specialRequest.trim(),
       });
       if (reservation) {
@@ -143,6 +146,10 @@ export default function ReservationFlow({ business }: ReservationFlowProps) {
             <p className="mt-1 font-semibold text-on-surface">
               {partySize} {partySize === 1 ? "person" : "people"}
             </p>
+          </div>
+          <div className="p-5">
+            <p className="text-xs text-on-surface-variant">Phone number</p>
+            <p className="mt-1 font-semibold text-on-surface">{customerPhone.trim()}</p>
           </div>
           {specialRequest.trim() && (
             <div className="p-5">
@@ -251,6 +258,32 @@ export default function ReservationFlow({ business }: ReservationFlowProps) {
         <p className="mt-2 text-xs text-on-surface-variant">8:00 PM is currently fully booked.</p>
       </section>
       <section className="mt-8">
+        <label htmlFor="customer-phone" className="text-sm font-semibold text-on-surface">
+          Phone number
+        </label>
+        <p className="mt-1 text-xs text-on-surface-variant">
+          Required so the restaurant can reach you about your reservation.
+        </p>
+        <input
+          id="customer-phone"
+          type="tel"
+          className={`mt-3 h-12 w-full max-w-xs rounded-xl border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary/15 ${
+            phoneError
+              ? "border-red-400 focus:border-red-500"
+              : "border-outline-variant focus:border-primary"
+          }`}
+          placeholder="+251 9XX XXX XXXX"
+          value={customerPhone}
+          onChange={(event) => {
+            setCustomerPhone(event.target.value);
+            if (phoneError) setPhoneError("");
+          }}
+        />
+        {phoneError && (
+          <p className="mt-1.5 text-xs text-red-600">{phoneError}</p>
+        )}
+      </section>
+      <section className="mt-8">
         <label htmlFor="special-request" className="text-sm font-semibold text-on-surface">
           Special request <span className="font-normal text-on-surface-variant">(optional)</span>
         </label>
@@ -265,7 +298,13 @@ export default function ReservationFlow({ business }: ReservationFlowProps) {
       <button
         type="button"
         className="mt-8 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-[#0f46b8]"
-        onClick={() => setStep("review")}
+        onClick={() => {
+          if (!customerPhone.trim()) {
+            setPhoneError("Please enter your phone number.");
+            return;
+          }
+          setStep("review");
+        }}
       >
         Continue
       </button>
