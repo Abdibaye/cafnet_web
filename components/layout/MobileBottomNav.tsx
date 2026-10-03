@@ -20,9 +20,7 @@ export default function MobileBottomNav() {
     >
       <div className="mx-auto grid h-[68px] max-w-lg grid-cols-4">
         {navItems.map((item) => {
-          const isActive = item.href === "/explore"
-            ? pathname === "/" || pathname.startsWith("/explore")
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
