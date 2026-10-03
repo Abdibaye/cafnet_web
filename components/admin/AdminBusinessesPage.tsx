@@ -12,6 +12,7 @@ export default function AdminBusinessesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [claimFilter, setClaimFilter] = useState<string>("all");
   const [verifiedFilter, setVerifiedFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const loadData = useCallback(async () => {
     try {
@@ -49,6 +50,10 @@ export default function AdminBusinessesPage() {
     if (claimFilter === "claimed" && !isClaimed) return false;
     if (claimFilter === "unclaimed" && isClaimed) return false;
 
+    // Creation Source
+    if (sourceFilter === "admin_created" && b.creation_source !== "ADMIN_CREATED") return false;
+    if (sourceFilter === "owner_submission" && b.creation_source === "ADMIN_CREATED") return false;
+
     // Verified
     const isVerified = b.verification_status === "VERIFIED";
     if (verifiedFilter === "verified" && !isVerified) return false;
@@ -60,14 +65,24 @@ export default function AdminBusinessesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       {/* Header */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-          Platform Governance
-        </p>
-        <h1 className="mt-1 text-3xl font-bold text-on-surface">Businesses</h1>
-        <p className="mt-1 text-sm text-on-surface-variant">
-          Inspect listings, review verification statuses, and monitor management rights.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+            Platform Governance
+          </p>
+          <h1 className="mt-1 text-3xl font-bold text-on-surface">Businesses</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Inspect listings, review verification statuses, and monitor management rights.
+          </p>
+        </div>
+
+        <Link
+          href="/admin/businesses/add"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#0f46b8]"
+        >
+          <span className="material-symbols-outlined text-[18px]">add</span>
+          Add Business
+        </Link>
       </div>
 
       {/* Filter and Search Bar */}
@@ -88,6 +103,16 @@ export default function AdminBusinessesPage() {
 
         {/* Dropdowns */}
         <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="h-11 rounded-xl border border-outline-variant bg-white px-3 text-xs font-semibold text-on-surface outline-none focus:border-primary"
+          >
+            <option value="all">All Sources</option>
+            <option value="admin_created">Admin Created</option>
+            <option value="owner_submission">Owner Submission</option>
+          </select>
+
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -175,6 +200,19 @@ export default function AdminBusinessesPage() {
 
                   {/* Badges */}
                   <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {/* Source badge */}
+                    {business.creation_source === "ADMIN_CREATED" ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-2 py-0.5 text-[11px] font-bold text-purple-800">
+                        <span className="material-symbols-outlined text-[13px]">admin_panel_settings</span>
+                        Admin Created
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                        <span className="material-symbols-outlined text-[13px]">person</span>
+                        Owner Submitted
+                      </span>
+                    )}
+
                     {/* Claim badge */}
                     <span
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${

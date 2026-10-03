@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import { searchBusinesses as apiSearchBusinesses } from "@/lib/api/search";
+import { getBusinessProfile } from "@/lib/api/businesses";
 import type { Business } from "@/lib/api/types";
 
 function categoryLabel(category?: string) {
@@ -14,6 +16,9 @@ function categoryLabel(category?: string) {
 export default function BusinessClaimFlow() {
   const { authReady, isAuthenticated, startSignIn, startSignUp } = useCustomer();
   const { ready, getClaim, submitClaim } = useBusinessOwner();
+  const searchParams = useSearchParams();
+  const businessIdParam = searchParams.get("business_id");
+
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Business | null>(null);
   const [results, setResults] = useState<Business[]>([]);
@@ -22,6 +27,25 @@ export default function BusinessClaimFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (!businessIdParam) return;
+    const bid = Number(businessIdParam);
+    if (isNaN(bid) || bid <= 0) return;
+
+    let cancelled = false;
+    getBusinessProfile(bid)
+      .then((profile) => {
+        if (!cancelled && profile?.business) {
+          setSelected(profile.business);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessIdParam]);
 
   useEffect(() => {
     const trimmed = query.trim();

@@ -156,14 +156,22 @@ export default async function BusinessProfile({
               <h1 className="max-w-3xl text-[28px] font-bold leading-tight text-on-surface md:text-[32px]">
                 {profileData.name}
               </h1>
-              {profileData.verified && (
+              {profileData.claimStatus === "unclaimed" ? (
+                <Link
+                  href={`/business/claim?business_id=${profileData.id}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                >
+                  <span className="material-symbols-outlined text-[15px]">storefront</span>
+                  Unclaimed · Claim this business
+                </Link>
+              ) : profileData.verified ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-on-surface-variant">
                   <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">
                     verified
                   </span>
                   Verified business
                 </span>
-              )}
+              ) : null}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <a
@@ -269,7 +277,26 @@ export default async function BusinessProfile({
             </section>
           </main>
 
-          <aside className="h-fit lg:sticky lg:top-36">
+          <aside className="h-fit space-y-6 lg:sticky lg:top-36">
+            {profileData.claimStatus === "unclaimed" && (
+              <section className="rounded-[14px] border border-blue-200 bg-gradient-to-br from-blue-50/90 to-white p-5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[20px] text-primary">storefront</span>
+                  <h2 className="text-base font-bold text-on-surface">Is this your business?</h2>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                  Claim this listing to update business information, manage menus, publish announcements, and connect with customers.
+                </p>
+                <Link
+                  href={`/business/claim?business_id=${profileData.id}`}
+                  className="mt-4 flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-primary text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#0f46b8]"
+                >
+                  Claim this business
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </Link>
+              </section>
+            )}
+
             <section
               className="rounded-[14px] border border-outline-variant bg-white p-5"
               aria-labelledby="good-to-know-heading"

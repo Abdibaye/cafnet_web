@@ -20,6 +20,8 @@ export async function listBusinesses(
   const queryParams: Record<string, string | number | undefined> = {};
   if (params.category) queryParams.category = params.category;
   if (params.neighborhood) queryParams.neighborhood = params.neighborhood;
+  if (params.creation_source) queryParams.creation_source = params.creation_source;
+  if (params.claim_status) queryParams.claim_status = params.claim_status;
   if (params.limit !== undefined) queryParams.limit = params.limit;
   if (params.offset !== undefined) queryParams.offset = params.offset;
 

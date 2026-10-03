@@ -146,6 +146,18 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
+              {business.creation_source === "ADMIN_CREATED" ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-800">
+                  <span className="material-symbols-outlined text-[15px]">admin_panel_settings</span>
+                  Admin Created
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                  <span className="material-symbols-outlined text-[15px]">person</span>
+                  Owner Submitted
+                </span>
+              )}
+
               <span
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold ${
                   isManaged

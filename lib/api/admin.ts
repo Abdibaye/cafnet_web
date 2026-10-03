@@ -1,6 +1,7 @@
 import { api } from "./client";
 import type {
   AdminAction,
+  AdminCreateBusinessInput,
   AdminStats,
   Business,
   BusinessClaim,
@@ -214,8 +215,17 @@ export async function listAdminActions(params?: { limit?: number; offset?: numbe
   return res.data || [];
 }
 
+/**
+ * Create a canonical business listing directly from the Admin Center without an initial owner.
+ */
+export async function createBusiness(input: AdminCreateBusinessInput): Promise<Business> {
+  const res = await api.post<Business>("/api/v1/admin/businesses", input);
+  return res.data;
+}
+
 export const adminApi = {
   getAdminStats,
+  createBusiness,
   listSubmissions,
   getSubmission,
   approveSubmission,

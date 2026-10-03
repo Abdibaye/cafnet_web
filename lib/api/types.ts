@@ -16,6 +16,8 @@ export type VerificationStatus = "VERIFIED" | "UNVERIFIED";
 
 export type ClaimStatus = "UNCLAIMED" | "CLAIMED";
 
+export type CreationSource = "OWNER_SUBMISSION" | "ADMIN_CREATED";
+
 export type ManagerRole = "PRIMARY_OWNER" | "MANAGER";
 
 export type ClaimWorkflowStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -66,7 +68,8 @@ export type AdminActionType =
   | "BUSINESS_REPORT_ACTIONED"
   | "BUSINESS_REPORT_DISMISSED"
   | "PUBLICATION_STATUS_CHANGED"
-  | "VERIFICATION_STATUS_CHANGED";
+  | "VERIFICATION_STATUS_CHANGED"
+  | "BUSINESS_ADMIN_CREATED";
 
 // Core Domain Models
 
@@ -118,6 +121,7 @@ export interface Business {
   publication_status: PublicationStatus;
   verification_status: VerificationStatus;
   claim_status: ClaimStatus;
+  creation_source?: CreationSource;
   is_featured: boolean;
   cover_image?: string;
   gallery_count?: number;
@@ -125,6 +129,27 @@ export interface Business {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+}
+
+export interface AdminCreateBusinessInput {
+  name: string;
+  category: BusinessCategory;
+  cuisine?: string;
+  description?: string;
+  short_description?: string;
+  location_name?: string;
+  neighborhood: string;
+  address_line?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  website?: string;
+  price_range?: PriceRange;
+  tags?: string[];
+  payment_methods?: string[];
+  reservation_available?: boolean;
+  publication_status?: PublicationStatus;
+  cover_media_id?: string;
 }
 
 export interface BusinessHours {
@@ -391,6 +416,8 @@ export interface UpdateProfileInput {
 export interface BusinessFilterParams {
   category?: BusinessCategory;
   neighborhood?: string;
+  creation_source?: CreationSource;
+  claim_status?: ClaimStatus;
   limit?: number;
   offset?: number;
 }
