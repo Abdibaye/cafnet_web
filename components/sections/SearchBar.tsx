@@ -80,11 +80,7 @@ export default function SearchBar({ variant = "default", initialQuery = "" }: Se
   );
 
   const searchControls = (
-    <>
-      <div className="hidden min-h-12 shrink-0 items-center justify-between gap-2 border-l border-outline-variant px-4 py-2.5 md:flex md:min-h-14 md:px-4 md:py-3"><span className="whitespace-nowrap text-sm text-on-surface-variant">Now</span><span className="material-symbols-outlined text-[18px] text-outline" aria-hidden="true">arrow_drop_down</span></div>
-      <div className="hidden min-h-12 shrink-0 items-center justify-between gap-2 border-l border-outline-variant px-4 py-2.5 md:flex md:min-h-14 md:px-4 md:py-3"><span className="whitespace-nowrap text-sm text-on-surface-variant">2 people</span><span className="material-symbols-outlined text-[18px] text-outline" aria-hidden="true">arrow_drop_down</span></div>
-      <button className="hidden min-h-14 shrink-0 cursor-pointer items-center justify-center gap-2 bg-primary px-7 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#0f46b8] md:flex" type="submit"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">search</span><span>Search</span></button>
-    </>
+    <button className="hidden min-h-14 shrink-0 cursor-pointer items-center justify-center gap-2 bg-primary px-7 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#0f46b8] md:flex" type="submit"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">search</span><span>Search</span></button>
   );
 
   return (

@@ -12,8 +12,6 @@ const heroImages = [
 export default function HeroSection() {
   const router = useRouter();
   const [location, setLocation] = useState("");
-  const [time, setTime] = useState("Now");
-  const [people, setPeople] = useState("2 people");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleSearch = () => {
@@ -86,20 +84,7 @@ export default function HeroSection() {
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
-            <div className="hidden md:block w-px bg-surface-container self-stretch"></div>
-            
-            <div className="hidden md:flex items-center justify-between px-3.5 py-3 md:py-2.5 cursor-pointer hover:bg-surface-container-low/60 transition-colors border-t md:border-t-0 border-surface-container gap-2 shrink-0">
-              <span className="text-body-md text-sm text-on-surface-variant whitespace-nowrap">{time}</span>
-              <span className="material-symbols-outlined text-[18px] text-outline">arrow_drop_down</span>
-            </div>
-            
-            <div className="hidden md:block w-px bg-surface-container self-stretch"></div>
-            
-            <div className="hidden md:flex items-center justify-between px-3.5 py-3 md:py-2.5 cursor-pointer hover:bg-surface-container-low/60 transition-colors border-t md:border-t-0 border-surface-container gap-2 shrink-0">
-              <span className="text-body-md text-sm text-on-surface-variant whitespace-nowrap">{people}</span>
-              <span className="material-symbols-outlined text-[18px] text-outline">arrow_drop_down</span>
-            </div>
-            
+
             <button
               className="hidden md:flex bg-primary hover:bg-[#0f46b8] text-white px-7 py-3 md:py-3.5 flex items-center justify-center gap-2 font-label-md font-bold transition-colors cursor-pointer shrink-0"
               type="submit"
