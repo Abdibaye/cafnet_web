@@ -66,14 +66,14 @@ export default function SplitSearchBar() {
         {/* ─── DESKTOP ───────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          className={`hidden md:flex items-stretch overflow-hidden rounded-full bg-white border transition-all duration-200 shadow-sm ${
+          className={`hidden md:flex items-stretch rounded-full bg-white border transition-all duration-200 shadow-sm ${
             anyFocused
               ? "border-primary/40 shadow-md"
               : "border-outline-variant"
           }`}
         >
           {/* What */}
-          <div className="flex flex-1 items-center min-w-0 px-5 py-3.5 gap-3">
+          <div className="flex flex-1 items-center min-w-0 px-5 py-3.5 gap-3 rounded-l-full">
             <span
               className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
                 whatFocused ? "text-primary" : "text-outline"
@@ -100,9 +100,13 @@ export default function SplitSearchBar() {
           {/* Where – dropdown wrapper */}
           <div className="relative shrink-0">
             <div
-              className={`flex items-center gap-2.5 px-5 py-3.5 cursor-pointer min-w-[160px] transition-colors ${
+              className={`flex items-center gap-2.5 px-5 py-3.5 cursor-pointer min-w-[160px] transition-colors select-none ${
                 whereOpen ? "bg-surface-container-low" : ""
               }`}
+              onClick={() => {
+                setWhereOpen((o) => !o);
+                whereInputRef.current?.focus();
+              }}
             >
               <span
                 className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
@@ -114,13 +118,13 @@ export default function SplitSearchBar() {
               </span>
               <input
                 ref={whereInputRef}
-                className="w-full bg-transparent border-0 p-0 text-sm font-medium text-on-surface outline-none focus:ring-0 placeholder:text-outline placeholder:font-normal cursor-pointer"
+                className="w-full bg-transparent border-0 p-0 text-sm font-medium text-on-surface outline-none focus:ring-0 placeholder:text-outline placeholder:font-normal cursor-pointer pointer-events-none"
                 placeholder="Neighbourhood or city..."
                 type="text"
                 value={where}
                 onChange={(e) => setWhere(e.target.value)}
-                onFocus={() => setWhereOpen(true)}
                 readOnly
+                tabIndex={-1}
               />
               <span
                 className={`material-symbols-outlined text-[18px] shrink-0 text-outline transition-transform duration-200 ${
