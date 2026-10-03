@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+/* ── Static neighbourhood suggestions ─────────────────────── */
 const LOCATIONS = [
   { label: "Bole",      icon: "location_on" },
   { label: "Kazanchis", icon: "location_on" },
@@ -10,6 +11,165 @@ const LOCATIONS = [
   { label: "Merkato",   icon: "location_on" },
 ];
 
+/* ── Geo states ────────────────────────────────────────────── */
+type GeoStatus = "idle" | "loading" | "success" | "denied" | "error";
+
+/* ── Reverse-geocode via OpenStreetMap Nominatim (free, no key) ── */
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=en`;
+  const res = await fetch(url, {
+    headers: { "Accept-Language": "en" },
+  });
+  if (!res.ok) throw new Error("Nominatim error");
+  const data = await res.json();
+  const a = data.address ?? {};
+  // Return the most specific meaningful name available
+  return (
+    a.neighbourhood   ||
+    a.suburb          ||
+    a.quarter         ||
+    a.village         ||
+    a.town            ||
+    a.city_district   ||
+    a.district        ||
+    a.city            ||
+    a.county          ||
+    "Current location"
+  );
+}
+
+/* ── Shared hook: geolocation + reverse-geocoding ──────────── */
+function useCurrentLocation(onSuccess: (label: string) => void) {
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
+
+  const detect = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoStatus("error");
+      return;
+    }
+    setGeoStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const label = await reverseGeocode(
+            pos.coords.latitude,
+            pos.coords.longitude
+          );
+          setGeoStatus("success");
+          onSuccess(label);
+        } catch {
+          setGeoStatus("error");
+          onSuccess("Current location");
+        }
+      },
+      (err) => {
+        setGeoStatus(err.code === 1 ? "denied" : "error");
+      },
+      { timeout: 8000 }
+    );
+  }, [onSuccess]);
+
+  return { geoStatus, detect };
+}
+
+/* ── Location dropdown (shared between desktop & mobile) ───── */
+function LocationDropdown({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (label: string) => void;
+  onClose: () => void;
+}) {
+  const handleSelect = (label: string) => {
+    onSelect(label);
+    onClose();
+  };
+
+  const { geoStatus, detect } = useCurrentLocation((label) => {
+    handleSelect(label);
+  });
+
+  const geoLabel: Record<GeoStatus, string> = {
+    idle:    "Use current location",
+    loading: "Detecting location…",
+    success: "Location detected",
+    denied:  "Permission denied",
+    error:   "Could not detect location",
+  };
+
+  const geoIcon: Record<GeoStatus, string> = {
+    idle:    "my_location",
+    loading: "sync",
+    success: "my_location",
+    denied:  "location_disabled",
+    error:   "location_off",
+  };
+
+  return (
+    <>
+      {/* Auto-detect */}
+      <button
+        type="button"
+        disabled={geoStatus === "loading"}
+        className={`flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-semibold transition-colors focus-visible:outline-none ${
+          geoStatus === "denied" || geoStatus === "error"
+            ? "text-secondary cursor-not-allowed opacity-70"
+            : "text-primary hover:bg-primary-container cursor-pointer"
+        }`}
+        onClick={detect}
+      >
+        <span
+          className={`material-symbols-outlined text-[20px] shrink-0 ${
+            geoStatus === "loading" ? "animate-spin" : ""
+          } ${
+            geoStatus === "denied" || geoStatus === "error"
+              ? "text-secondary"
+              : "text-primary"
+          }`}
+          aria-hidden="true"
+        >
+          {geoIcon[geoStatus]}
+        </span>
+        {geoLabel[geoStatus]}
+      </button>
+
+      {/* Error hint */}
+      {(geoStatus === "denied" || geoStatus === "error") && (
+        <p className="px-4 pb-2 text-[11px] text-on-surface-variant leading-snug">
+          {geoStatus === "denied"
+            ? "Allow location access in your browser settings."
+            : "Something went wrong. Please try again."}
+        </p>
+      )}
+
+      <div className="mx-4 border-t border-outline-variant" />
+
+      <p className="px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
+        Popular areas
+      </p>
+
+      {LOCATIONS.map((loc) => (
+        <button
+          key={loc.label}
+          type="button"
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-on-surface transition-colors hover:bg-surface-container-low hover:text-primary focus-visible:outline-none cursor-pointer"
+          onClick={() => handleSelect(loc.label)}
+        >
+          <span className="material-symbols-outlined text-[18px] text-outline" aria-hidden="true">
+            {loc.icon}
+          </span>
+          {loc.label}
+        </button>
+      ))}
+
+      <div className="h-1.5" />
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Main component
+══════════════════════════════════════════════════════════════ */
 export default function SplitSearchBar() {
   const router = useRouter();
 
@@ -26,17 +186,17 @@ export default function SplitSearchBar() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setWhereOpen(false);
     };
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) {
         setWhereOpen(false);
         setWhatFocused(false);
       }
     };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
+    document.addEventListener("mousedown", onDown);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("mousedown", onDown);
     };
   }, []);
 
@@ -53,17 +213,11 @@ export default function SplitSearchBar() {
     router.push(`/search?${params.toString()}`);
   };
 
-  const selectLocation = (label: string) => {
-    setWhere(label);
-    setWhereOpen(false);
-    whereInputRef.current?.blur();
-  };
-
   return (
     <section className="px-5 pt-5 pb-0 lg:px-12">
       <div ref={containerRef} className="mx-auto max-w-7xl">
 
-        {/* ─── DESKTOP ───────────────────────────────────────── */}
+        {/* ─── DESKTOP ──────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
           className={`hidden md:flex items-stretch rounded-full bg-white border transition-all duration-200 shadow-sm ${
@@ -90,23 +244,22 @@ export default function SplitSearchBar() {
               onChange={(e) => setWhat(e.target.value)}
               onFocus={() => setWhatFocused(true)}
               onBlur={() => setWhatFocused(false)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(e as unknown as React.FormEvent); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit(e as unknown as React.FormEvent);
+              }}
             />
           </div>
 
           {/* Divider */}
           <div className="self-stretch w-px bg-outline-variant" aria-hidden="true" />
 
-          {/* Where – dropdown wrapper */}
+          {/* Where */}
           <div className="relative shrink-0">
             <div
               className={`flex items-center gap-2.5 px-5 py-3.5 cursor-pointer min-w-[160px] transition-colors select-none ${
                 whereOpen ? "bg-surface-container-low" : ""
               }`}
-              onClick={() => {
-                setWhereOpen((o) => !o);
-                whereInputRef.current?.focus();
-              }}
+              onClick={() => setWhereOpen((o) => !o)}
             >
               <span
                 className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
@@ -122,7 +275,6 @@ export default function SplitSearchBar() {
                 placeholder="Neighbourhood or city..."
                 type="text"
                 value={where}
-                onChange={(e) => setWhere(e.target.value)}
                 readOnly
                 tabIndex={-1}
               />
@@ -136,42 +288,13 @@ export default function SplitSearchBar() {
               </span>
             </div>
 
-            {/* Location dropdown */}
+            {/* Dropdown */}
             {whereOpen && (
               <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-xl">
-                {/* Auto-detect */}
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-semibold text-primary transition-colors hover:bg-primary-container focus-visible:outline-none"
-                  onClick={() => selectLocation("Current location")}
-                >
-                  <span className="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">
-                    my_location
-                  </span>
-                  Use current location
-                </button>
-
-                <div className="mx-4 border-t border-outline-variant" />
-
-                <p className="px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                  Popular areas
-                </p>
-
-                {LOCATIONS.map((loc) => (
-                  <button
-                    key={loc.label}
-                    type="button"
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-on-surface transition-colors hover:bg-surface-container-low hover:text-primary focus-visible:outline-none"
-                    onClick={() => selectLocation(loc.label)}
-                  >
-                    <span className="material-symbols-outlined text-[18px] text-outline" aria-hidden="true">
-                      {loc.icon}
-                    </span>
-                    {loc.label}
-                  </button>
-                ))}
-
-                <div className="h-1.5" />
+                <LocationDropdown
+                  onSelect={(label) => setWhere(label)}
+                  onClose={() => setWhereOpen(false)}
+                />
               </div>
             )}
           </div>
@@ -186,7 +309,7 @@ export default function SplitSearchBar() {
           </button>
         </form>
 
-        {/* ─── MOBILE ────────────────────────────────────────── */}
+        {/* ─── MOBILE ───────────────────────────────────────── */}
         <MobileSearchBar
           what={what}
           setWhat={setWhat}
@@ -199,7 +322,7 @@ export default function SplitSearchBar() {
   );
 }
 
-/* ── Mobile variant ── */
+/* ── Mobile variant ─────────────────────────────────────────── */
 function MobileSearchBar({
   what,
   setWhat,
@@ -214,11 +337,6 @@ function MobileSearchBar({
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const [whereOpen, setWhereOpen] = useState(false);
-
-  const selectLocation = (label: string) => {
-    setWhere(label);
-    setWhereOpen(false);
-  };
 
   return (
     <form onSubmit={onSubmit} className="md:hidden flex flex-col gap-2">
@@ -271,34 +389,10 @@ function MobileSearchBar({
 
         {whereOpen && (
           <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-xl">
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-semibold text-primary hover:bg-primary-container transition-colors"
-              onClick={() => selectLocation("Current location")}
-            >
-              <span className="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">
-                my_location
-              </span>
-              Use current location
-            </button>
-            <div className="mx-4 border-t border-outline-variant" />
-            <p className="px-4 pt-3 pb-1.5 text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
-              Popular areas
-            </p>
-            {LOCATIONS.map((loc) => (
-              <button
-                key={loc.label}
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
-                onClick={() => selectLocation(loc.label)}
-              >
-                <span className="material-symbols-outlined text-[18px] text-outline" aria-hidden="true">
-                  {loc.icon}
-                </span>
-                {loc.label}
-              </button>
-            ))}
-            <div className="h-1.5" />
+            <LocationDropdown
+              onSelect={(label) => setWhere(label)}
+              onClose={() => setWhereOpen(false)}
+            />
           </div>
         )}
       </div>
