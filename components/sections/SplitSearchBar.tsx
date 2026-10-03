@@ -68,7 +68,7 @@ export default function SplitSearchBar() {
           onSubmit={handleSubmit}
           className={`hidden md:flex items-stretch overflow-hidden rounded-full bg-white border transition-all duration-200 shadow-sm ${
             anyFocused
-              ? "border-primary/40 ring-2 ring-primary/20 shadow-md"
+              ? "border-primary/40 shadow-md"
               : "border-outline-variant"
           }`}
         >
