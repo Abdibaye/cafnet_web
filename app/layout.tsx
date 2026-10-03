@@ -34,6 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        {/* Google Maps JavaScript API – used for reverse geocoding */}
+        <script
+          async
+          defer
+          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geocoder`}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><ReservationProvider><CustomerReviewProvider><BusinessOwnerProvider><Navbar /><main className="flex-1 w-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></BusinessOwnerProvider></CustomerReviewProvider></ReservationProvider></CustomerProvider></body>
     </html>

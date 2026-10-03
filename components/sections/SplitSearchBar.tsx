@@ -14,29 +14,98 @@ const LOCATIONS = [
 /* ── Geo states ────────────────────────────────────────────── */
 type GeoStatus = "idle" | "loading" | "success" | "denied" | "error";
 
-/* ── Reverse-geocode via OpenStreetMap Nominatim (free, no key) ── */
+/* ── Declare the google global that the Maps JS SDK injects ── */
+declare global {
+  interface Window {
+    google?: {
+      maps: {
+        Geocoder: new () => {
+          geocode: (
+            request: { location: { lat: number; lng: number } },
+            callback: (
+              results: Array<{
+                address_components: Array<{ long_name: string; types: string[] }>;
+                formatted_address: string;
+              }> | null,
+              status: string
+            ) => void
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
+/* ── Preferred component types (most specific → least) ───── */
+const PREFERRED_TYPES = [
+  "neighborhood",
+  "sublocality_level_1",
+  "sublocality",
+  "administrative_area_level_2",
+  "locality",
+];
+
+/**
+ * Reverse-geocode using google.maps.Geocoder (Maps JS SDK loaded via <script>
+ * in layout.tsx — same pattern as the official Google Maps demo).
+ * Falls back silently to OSM Nominatim when billing is not yet active.
+ */
 async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  // ── Try Google Maps JS SDK Geocoder ───────────────────────
+  if (typeof window !== "undefined" && window.google?.maps?.Geocoder) {
+    return new Promise<string>((resolve) => {
+      const geocoder = new window.google!.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng: lon } }, (results, status) => {
+        if (status === "OK" && results && results.length > 0) {
+          for (const result of results) {
+            for (const targetType of PREFERRED_TYPES) {
+              const match = result.address_components.find((c) =>
+                c.types.includes(targetType)
+              );
+              if (match?.long_name) {
+                resolve(match.long_name);
+                return;
+              }
+            }
+          }
+          // Fallback to first segment of formatted_address
+          resolve(results[0].formatted_address.split(",")[0]);
+        } else {
+          // Non-OK status (e.g. billing not yet enabled) → silent fallback
+          reverseGeocodeNominatim(lat, lon)
+            .then(resolve)
+            .catch(() => resolve("Current location"));
+        }
+      });
+    });
+  }
+
+  // ── Fallback: OSM Nominatim (free, no billing required) ───
+  return reverseGeocodeNominatim(lat, lon);
+}
+
+/* ── OSM Nominatim reverse geocoding ─────────────────────── */
+async function reverseGeocodeNominatim(lat: number, lon: number): Promise<string> {
   const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=en`;
-  const res = await fetch(url, {
-    headers: { "Accept-Language": "en" },
-  });
+  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
   if (!res.ok) throw new Error("Nominatim error");
   const data = await res.json();
   const a = data.address ?? {};
-  // Return the most specific meaningful name available
   return (
-    a.neighbourhood   ||
-    a.suburb          ||
-    a.quarter         ||
-    a.village         ||
-    a.town            ||
-    a.city_district   ||
-    a.district        ||
-    a.city            ||
-    a.county          ||
+    a.neighbourhood ||
+    a.suburb        ||
+    a.quarter       ||
+    a.village       ||
+    a.town          ||
+    a.city_district ||
+    a.district      ||
+    a.city          ||
+    a.county        ||
     "Current location"
   );
 }
+
+
 
 /* ── Shared hook: geolocation + reverse-geocoding ──────────── */
 function useCurrentLocation(onSuccess: (label: string) => void) {
