@@ -24,6 +24,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [activeUpdatesCount, setActiveUpdatesCount] = useState(0);
   const [businessReservations, setBusinessReservations] = useState<BusinessReservationViewModel[]>([]);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,20 +155,32 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
       })
     : undefined;
 
-
   const isReservable = Boolean(business.reservationAvailable);
   const pendingReservations = isReservable ? businessReservations.filter((r) => r.status === "pending") : [];
   const confirmedReservations = isReservable ? businessReservations.filter((r) => r.status === "confirmed") : [];
 
+  const coverUrl =
+    business.cover_image ||
+    (business.images && business.images.length > 0 && business.images[0] !== "/images/cafnet-placeholder.svg"
+      ? business.images[0]
+      : null);
+
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-0 lg:py-16">
-      <Link href="/business/dashboard" className="text-sm font-semibold text-primary">
-        ← Business Center
+      {/* Back Link */}
+      <Link
+        href="/business/dashboard"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-[#0f46b8]"
+      >
+        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+          arrow_back
+        </span>
+        Business Center
       </Link>
 
       {/* Alert Banner for Pending Reservation Requests */}
       {isReservable && pendingReservations.length > 0 && (
-        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
+        <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
               <span className="material-symbols-outlined text-2xl">notifications_active</span>
@@ -176,289 +189,283 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
               <h2 className="text-sm font-bold text-amber-950">
                 {pendingReservations.length} reservation {pendingReservations.length === 1 ? "request needs" : "requests need"} your attention.
               </h2>
-              <p className="text-xs text-amber-800 mt-0.5">
+              <p className="mt-0.5 text-xs text-amber-800">
                 Guests are waiting for your response to book tables.
               </p>
             </div>
           </div>
           <Link
             href={`/business/dashboard/business/${business.id}/reservations`}
-            className="inline-flex h-9 items-center justify-center rounded-xl bg-amber-800 px-4 text-xs font-bold text-white shadow-sm hover:bg-amber-900 transition-colors"
+            className="inline-flex h-9 items-center justify-center rounded-xl bg-amber-800 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-900"
           >
             Review requests
           </Link>
         </div>
       )}
 
-      {/* Header */}
+      {/* Header: Cover Image + Business Name & Meta */}
       <div className="mt-8 flex flex-col gap-5 border-b border-outline-variant pb-7 sm:flex-row sm:items-center">
-        <img src={business.images[0]} alt="" className="size-24 rounded-xl object-cover" />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-            Managed by you
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-on-surface">{business.name}</h1>
-          <p className="mt-2 text-sm text-on-surface-variant">
+        <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-low shadow-xs sm:h-24 sm:w-32">
+          {coverUrl && !imgError ? (
+            <img
+              src={coverUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-outline/60">
+              <span className="material-symbols-outlined text-3xl sm:text-4xl" aria-hidden="true">
+                storefront
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-2xl font-bold text-on-surface sm:text-3xl">
+            {business.name}
+          </h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
             {business.cuisine} · {business.location}
           </p>
+          {lastUpdated && (
+            <p className="mt-1 text-xs text-on-surface-variant/80">
+              Last updated {lastUpdated}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Action Buttons Row */}
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link
-          href={`/business/${business.id}`}
-          className="inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-[#0f46b8]"
-        >
-          View public profile
-        </Link>
-
+      {/* Organized Action Buttons - Ordered by Usage Frequency */}
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        {/* 1. Edit Listing (Primary Management Action) */}
         <Link
           href={`/business/dashboard/business/${business.id}/edit`}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#0f46b8] active:scale-[0.98]"
         >
-          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+          <span className="material-symbols-outlined text-[19px]" aria-hidden="true">
             edit
           </span>
           Edit listing
         </Link>
 
-        {/* Manage Reservations Button */}
+        {/* 2. Manage Menu (High Daily/Weekly Usage) */}
+        <Link
+          href={`/business/dashboard/business/${business.id}/menu`}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
+        >
+          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">
+            restaurant_menu
+          </span>
+          Manage menu
+          {menuSummary.itemCount > 0 && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+              {menuSummary.itemCount} {menuSummary.itemCount === 1 ? "item" : "items"}
+            </span>
+          )}
+        </Link>
+
+        {/* 3. Manage Reservations (When Enabled) */}
         {isReservable && (
           <Link
             href={`/business/dashboard/business/${business.id}/reservations`}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
           >
-            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+            <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">
               event_seat
             </span>
             Manage reservations
             {pendingReservations.length > 0 ? (
-              <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
+              <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
                 {pendingReservations.length} pending
               </span>
             ) : confirmedReservations.length > 0 ? (
-              <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                 {confirmedReservations.length} confirmed
               </span>
             ) : null}
           </Link>
         )}
 
-        <Link
-          href={`/business/dashboard/business/${business.id}/menu`}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
-        >
-          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-            restaurant_menu
-          </span>
-          Manage menu
-          {menuSummary.itemCount > 0 && (
-            <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-              {menuSummary.itemCount} items
-            </span>
-          )}
-        </Link>
-
+        {/* 4. Manage Updates & Announcements */}
         <Link
           href={`/business/dashboard/business/${business.id}/updates`}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-5 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
         >
-          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">
             campaign
           </span>
           Manage updates
           {activeUpdatesCount > 0 && (
-            <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-              {activeUpdatesCount}
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+              {activeUpdatesCount} active
             </span>
           )}
         </Link>
 
-        {lastUpdated && (
-          <span className="inline-flex h-11 items-center gap-2 rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface">
-            <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
-              schedule
-            </span>
-            Updated {lastUpdated}
+        {/* 5. View Public Profile (Preview) */}
+        <Link
+          href={`/business/${business.id}`}
+          target="_blank"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface-variant shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
+        >
+          <span className="material-symbols-outlined text-[19px]" aria-hidden="true">
+            visibility
           </span>
-        )}
+          View public profile
+        </Link>
       </div>
 
-      {/* Your listing section */}
+      {/* Management Hub Grid */}
       <section className="mt-12">
-        <h2 className="text-xl font-bold text-on-surface">Your listing</h2>
-        <p className="mt-2 text-sm text-on-surface-variant">
-          Manage the information customers see about your business
+        <h2 className="text-xl font-bold text-on-surface">Management Hub</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Quickly access and update customer-facing areas of your business
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <article className="border border-outline-variant bg-white p-5">
-            <h3 className="font-semibold text-on-surface">Basic information</h3>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Name, description, and category
-            </p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs font-semibold text-on-surface-variant">Editable</span>
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
-            </div>
-          </article>
-
-          <article className="border border-outline-variant bg-white p-5">
-            <h3 className="font-semibold text-on-surface">Contact & location</h3>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Phone, address, website, and price range
-            </p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs font-semibold text-on-surface-variant">Editable</span>
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
-            </div>
-          </article>
-
-          <article className="border border-outline-variant bg-white p-5">
-            <h3 className="font-semibold text-on-surface">Opening hours</h3>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Set your regular business hours
-            </p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs font-semibold text-on-surface-variant">Editable</span>
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
-            </div>
-          </article>
-
-          <article className="border border-outline-variant bg-white p-5">
-            <h3 className="font-semibold text-on-surface">Features</h3>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Customer-facing attributes and tags
-            </p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-xs font-semibold text-on-surface-variant">Editable</span>
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                check_circle
-              </span>
-            </div>
-          </article>
-        </div>
-
-        {/* Reservations Summary Card */}
-        {isReservable && (
-          <div className="mt-8">
-            <h3 className="text-lg font-bold text-on-surface">Table reservations</h3>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              Accept or decline guest table reservations, and mark visits completed.
-            </p>
-            <div className="mt-4">
-              <Link
-                href={`/business/dashboard/business/${business.id}/reservations`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
-              >
-                <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                  event_seat
+          {/* Card 1: Listing & Profile Information */}
+          <Link
+            href={`/business/dashboard/business/${business.id}/edit`}
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-2xl">edit_note</span>
                 </span>
-                Manage reservations
+                <span className="text-xs font-semibold text-primary group-hover:underline">
+                  Edit &rarr;
+                </span>
+              </div>
+              <h3 className="mt-4 font-bold text-on-surface">Listing details</h3>
+              <p className="mt-1.5 text-sm text-on-surface-variant">
+                Business name, phone, opening hours, location, and photos.
+              </p>
+            </div>
+            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
+              Phone: {business.phone || "Not set"} · Hours: {business.openingHours || "Configured"}
+            </div>
+          </Link>
+
+          {/* Card 2: Menu Management */}
+          <Link
+            href={`/business/dashboard/business/${business.id}/menu`}
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-2xl">restaurant_menu</span>
+                </span>
+                <span className="text-xs font-semibold text-primary group-hover:underline">
+                  Manage &rarr;
+                </span>
+              </div>
+              <h3 className="mt-4 font-bold text-on-surface">Menu & pricing</h3>
+              <p className="mt-1.5 text-sm text-on-surface-variant">
+                Categories, dishes, items, prices, and item availability.
+              </p>
+            </div>
+            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
+              {menuSummary.hasMenu
+                ? `${menuSummary.categoryCount} categories · ${menuSummary.itemCount} items listed`
+                : "No menu items yet · Setup menu"}
+            </div>
+          </Link>
+
+          {/* Card 3: Reservations (if enabled) */}
+          {isReservable && (
+            <Link
+              href={`/business/dashboard/business/${business.id}/reservations`}
+              className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="material-symbols-outlined text-2xl">event_seat</span>
+                  </span>
+                  <span className="text-xs font-semibold text-primary group-hover:underline">
+                    Manage &rarr;
+                  </span>
+                </div>
+                <h3 className="mt-4 font-bold text-on-surface">Table reservations</h3>
+                <p className="mt-1.5 text-sm text-on-surface-variant">
+                  Review booking requests, confirm guests, and track seating status.
+                </p>
+              </div>
+              <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
                 {pendingReservations.length > 0 ? (
-                  <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-300">
-                    {pendingReservations.length} pending requests
+                  <span className="font-semibold text-amber-700">
+                    {pendingReservations.length} pending requests waiting
                   </span>
                 ) : confirmedReservations.length > 0 ? (
-                  <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
+                  <span className="text-primary">
                     {confirmedReservations.length} confirmed bookings
                   </span>
                 ) : (
-                  <span className="ml-1 text-xs text-on-surface-variant font-normal">No active requests</span>
+                  "All caught up · No active requests"
                 )}
-              </Link>
-            </div>
-          </div>
-        )}
+              </div>
+            </Link>
+          )}
 
-        {/* Customer Information (Read-only) */}
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-on-surface">Customer information</h3>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            The following information is managed by Cafnet and cannot be edited:
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center justify-between rounded-xl border border-outline-variant bg-white p-4">
-              <div>
-                <p className="font-semibold text-on-surface">Rating & reviews</p>
-                <p className="text-sm text-on-surface-variant">
-                  {business.rating} · {business.reviewCount} reviews
-                </p>
+          {/* Card 4: Updates & Announcements */}
+          <Link
+            href={`/business/dashboard/business/${business.id}/updates`}
+            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-2xl">campaign</span>
+                </span>
+                <span className="text-xs font-semibold text-primary group-hover:underline">
+                  Manage &rarr;
+                </span>
               </div>
-              <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
-                lock
-              </span>
+              <h3 className="mt-4 font-bold text-on-surface">Updates & offers</h3>
+              <p className="mt-1.5 text-sm text-on-surface-variant">
+                Publish special offers, announcements, and events to customers.
+              </p>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-outline-variant bg-white p-4">
-              <div>
-                <p className="font-semibold text-on-surface">Verified status</p>
-                <p className="text-sm text-on-surface-variant">
-                  {business.verified ? "Verified" : "Not verified"}
-                </p>
-              </div>
-              <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
-                lock
-              </span>
+            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
+              {activeUpdatesCount > 0
+                ? `${activeUpdatesCount} active public announcements`
+                : "No active announcements · Share an update"}
             </div>
-          </div>
+          </Link>
         </div>
 
-        {/* Menu link */}
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-on-surface">Menu</h3>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Manage the categories, dishes, and prices customers see on your profile.
-          </p>
-          <div className="mt-4">
-            <Link
-              href={`/business/dashboard/business/${business.id}/menu`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
-            >
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                restaurant_menu
-              </span>
-              Manage menu
-              {menuSummary.hasMenu ? (
-                <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-                  {menuSummary.categoryCount}{" "}
-                  {menuSummary.categoryCount === 1 ? "category" : "categories"} ·{" "}
-                  {menuSummary.itemCount} items
-                </span>
-              ) : (
-                <span className="ml-1 text-xs text-on-surface-variant font-normal">Not setup yet</span>
-              )}
-            </Link>
+        {/* Read-only verification & review status */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-2xl border border-outline-variant/60 bg-white p-4">
+            <div>
+              <p className="text-xs text-on-surface-variant">Rating & Reviews</p>
+              <p className="mt-0.5 text-sm font-bold text-on-surface">
+                ★ {business.rating} · {business.reviewCount} customer reviews
+              </p>
+            </div>
+            <span className="material-symbols-outlined text-xl text-outline/60" aria-hidden="true">
+              reviews
+            </span>
           </div>
-        </div>
 
-        {/* Updates link */}
-        <div className="mt-8">
-          <h3 className="text-lg font-bold text-on-surface">Updates</h3>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            Share new menus, offers, events, and announcements with customers.
-          </p>
-          <div className="mt-4">
-            <Link
-              href={`/business/dashboard/business/${business.id}/updates`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface hover:border-primary/40 hover:text-primary"
+          <div className="flex items-center justify-between rounded-2xl border border-outline-variant/60 bg-white p-4">
+            <div>
+              <p className="text-xs text-on-surface-variant">Verification Status</p>
+              <p className="mt-0.5 text-sm font-bold text-on-surface">
+                {business.verified ? "Verified listing" : "Standard listing"}
+              </p>
+            </div>
+            <span
+              className={`material-symbols-outlined text-xl ${
+                business.verified ? "text-primary" : "text-outline/60"
+              }`}
+              aria-hidden="true"
             >
-              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
-                campaign
-              </span>
-              Manage updates
-              {activeUpdatesCount > 0 && (
-                <span className="ml-1 rounded-full bg-primary-container px-2 py-0.5 text-xs font-semibold text-primary">
-                  {activeUpdatesCount} active
-                </span>
-              )}
-            </Link>
+              {business.verified ? "verified" : "info"}
+            </span>
           </div>
         </div>
       </section>
