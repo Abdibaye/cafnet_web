@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import type { MockBusiness } from "@/data/mockBusinesses";
 import type { BusinessClaim, BusinessSubmission } from "@/data/businessOwnerStorage";
@@ -17,6 +20,7 @@ export default function BusinessManagementCard({
   submission,
   isManaged: propIsManaged,
 }: BusinessManagementCardProps) {
+  const [imgError, setImgError] = useState(false);
   const { isBusinessManaged } = useBusinessOwner();
   const contextManaged = business ? isBusinessManaged?.(business.id) : false;
   const isManaged = propIsManaged ?? Boolean(contextManaged || business?.claimStatus === "claimed");
@@ -31,37 +35,57 @@ export default function BusinessManagementCard({
       ? `/business/dashboard/submission/${submission.id}`
       : "/business/dashboard";
 
+  const coverUrl =
+    (business && "cover_image" in business && typeof (business as any).cover_image === "string" && (business as any).cover_image) ||
+    (business?.images && business.images.length > 0 && business.images[0] !== "/images/cafnet-placeholder.svg" ? business.images[0] : null) ||
+    submission?.cover_image_url ||
+    null;
+
   return (
-    <article className="flex items-center justify-between gap-4 rounded-2xl border border-outline-variant bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-primary/30">
-      <div className="flex min-w-0 items-center gap-4">
-        {business && business.images && business.images.length > 0 ? (
-          <img
-            src={business.images[0]}
-            alt=""
-            className="size-16 shrink-0 rounded-xl object-cover"
-          />
-        ) : (
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-outline">
-            <span className="material-symbols-outlined text-3xl" aria-hidden="true">
-              storefront
-            </span>
-          </div>
-        )}
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-bold text-on-surface sm:text-lg">
+    <Link
+      href={detailHref}
+      className="group flex items-center justify-between gap-3 rounded-2xl border border-outline-variant/80 bg-white p-3.5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.99] sm:gap-4 sm:p-5"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+        {/* Cover image container - landscape ratio fitted for cover images */}
+        <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container-low sm:h-16 sm:w-24">
+          {coverUrl && !imgError ? (
+            <img
+              src={coverUrl}
+              alt=""
+              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-outline/60">
+              <span className="material-symbols-outlined text-2xl sm:text-3xl" aria-hidden="true">
+                storefront
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Business Title */}
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-bold text-on-surface transition-colors group-hover:text-primary sm:text-lg">
             {title}
           </h2>
         </div>
       </div>
 
-      <div className="shrink-0">
-        <Link
-          href={detailHref}
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#0f46b8] active:scale-[0.98]"
-        >
-          Manage business
-        </Link>
+      {/* Mobile chevron to indicate full card clickability */}
+      <div className="flex shrink-0 items-center text-outline-variant transition-colors group-hover:text-primary sm:hidden">
+        <span className="material-symbols-outlined text-xl" aria-hidden="true">
+          chevron_right
+        </span>
       </div>
-    </article>
+
+      {/* Desktop "Manage business" button */}
+      <div className="hidden shrink-0 sm:block">
+        <span className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-colors group-hover:bg-[#0f46b8] active:scale-[0.98]">
+          Manage business
+        </span>
+      </div>
+    </Link>
   );
 }

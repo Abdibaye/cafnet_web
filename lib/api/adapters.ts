@@ -173,6 +173,7 @@ export interface BusinessProfileViewModel {
   address: string;
   amenities: string[];
   highlights: string[];
+  cover_image?: string;
 }
 
 export function publicProfileToViewModel(
@@ -257,6 +258,7 @@ export function publicProfileToViewModel(
     address,
     amenities,
     highlights,
+    cover_image: b.cover_image,
   };
 }
 
@@ -323,6 +325,7 @@ export function businessToViewModel(
     address,
     amenities,
     highlights,
+    cover_image: business.cover_image,
   };
 }
 
@@ -694,6 +697,7 @@ export function apiSubmissionToViewModel(
     category: sub.category,
     area: sub.area,
     phone: (sub.submitted_payload?.phone as string) || undefined,
+    cover_image_url: sub.cover_image_url,
     status: sub.status.toLowerCase() as "pending" | "approved" | "rejected",
     submittedAt: sub.submitted_at,
     reviewedAt: sub.reviewed_at,

@@ -14,6 +14,7 @@ export type BusinessSubmission = {
   category: "restaurant" | "cafe" | "drinks";
   area: string;
   phone?: string;
+  cover_image_url?: string;
   status: "pending" | "approved" | "rejected";
   submittedAt: string;
   reviewedAt?: string;
