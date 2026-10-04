@@ -203,6 +203,7 @@ export default async function BusinessProfile({
             phone={profileData.phone}
             hasUpdates={profileData.updates.length > 0}
             reservationAvailable={profileData.reservationAvailable}
+            createdByUserId={profileData.created_by_user_id}
           />
         </header>
 

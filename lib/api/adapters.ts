@@ -174,6 +174,7 @@ export interface BusinessProfileViewModel {
   amenities: string[];
   highlights: string[];
   cover_image?: string;
+  created_by_user_id?: string;
 }
 
 export function publicProfileToViewModel(
@@ -259,6 +260,7 @@ export function publicProfileToViewModel(
     amenities,
     highlights,
     cover_image: b.cover_image,
+    created_by_user_id: b.created_by_user_id,
   };
 }
 
@@ -326,6 +328,7 @@ export function businessToViewModel(
     amenities,
     highlights,
     cover_image: business.cover_image,
+    created_by_user_id: business.created_by_user_id,
   };
 }
 
