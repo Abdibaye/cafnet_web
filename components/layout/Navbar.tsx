@@ -328,16 +328,31 @@ export default function Navbar() {
               )}
             </div>
 
-            <div className="border-b border-outline-variant py-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Business</p>
-              <Link className="mt-3 block text-sm font-semibold text-on-surface hover:text-primary" href="/business" onClick={closeMobileMenu}>
-                For businesses
-              </Link>
-              <Link className="mt-2 block text-sm text-on-surface-variant hover:text-primary" href="/business/claim" onClick={closeMobileMenu}>
-                Claim your listing
-              </Link>
-              <Link className="mt-2 block text-sm text-on-surface-variant hover:text-primary" href="/business/dashboard" onClick={closeMobileMenu}>
-                Business Center
+            <div className="border-b border-outline-variant py-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Business</p>
+              <Link
+                href="/business/add"
+                onClick={closeMobileMenu}
+                className="group flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-surface-container-low/70 p-3.5 transition-all duration-200 hover:border-primary/50 hover:bg-primary-container/30 active:scale-[0.98]"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                      add_business
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold text-on-surface transition-colors group-hover:text-primary">
+                      Add Your Business
+                    </span>
+                    <p className="mt-0.5 truncate text-xs text-on-surface-variant">
+                      List your place on Cafnet
+                    </p>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined shrink-0 text-[20px] text-on-surface-variant/70 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true">
+                  chevron_right
+                </span>
               </Link>
             </div>
 
