@@ -14,25 +14,21 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
-  const languageRef = useRef<HTMLDivElement>(null);
   const { authReady, isAuthenticated, currentUser, startSignIn, startSignUp, logout } = useCustomer();
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsAccountOpen(false);
-        setIsLanguageOpen(false);
         setIsMobileMenuOpen(false);
       }
     };
     const closeOnOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
       if (!accountRef.current?.contains(target)) setIsAccountOpen(false);
-      if (!languageRef.current?.contains(target)) setIsLanguageOpen(false);
     };
     document.addEventListener("keydown", closeOnEscape);
     document.addEventListener("mousedown", closeOnOutsideClick);
@@ -90,39 +86,7 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="ml-auto flex shrink-0 items-center gap-3 md:gap-5">
-          <Link
-            className="hidden text-sm font-medium text-primary transition-colors hover:text-primary/75 lg:inline-flex"
-            href="/business"
-          >
-            For businesses
-          </Link>
-
-          <div ref={languageRef} className="relative hidden sm:block">
-            <button
-              type="button"
-              aria-expanded={isLanguageOpen}
-              aria-haspopup="menu"
-              className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-on-surface transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
-              onClick={() => setIsLanguageOpen((open) => !open)}
-            >
-              EN
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">expand_more</span>
-            </button>
-            {isLanguageOpen && (
-              <div
-                className="absolute right-0 top-full mt-2 min-w-44 rounded-xl border border-outline-variant bg-white p-2 shadow-lg"
-                role="menu"
-                aria-label="Language"
-              >
-                <div className="px-3 py-2 text-sm font-semibold text-on-surface" role="menuitem">
-                  English <span className="ml-1 text-xs font-normal text-on-surface-variant">(current)</span>
-                </div>
-                <p className="px-3 pb-2 text-xs leading-5 text-on-surface-variant">Additional languages will be available in upcoming releases.</p>
-              </div>
-            )}
-          </div>
-
+        <div className="ml-auto flex shrink-0 items-center gap-2.5 md:gap-3">
           {authReady && (
             isAuthenticated ? (
               <div ref={accountRef} className="relative">
@@ -231,6 +195,37 @@ export default function Navbar() {
               </div>
             )
           )}
+
+          {/* Visual Divider between Customer Auth and Business Partner */}
+          <div className="hidden sm:block h-8 w-px bg-outline-variant/70 mx-1" aria-hidden="true" />
+
+          {/* Add Your Business - Desktop Card Pill */}
+          <Link
+            href="/business/add"
+            className="group hidden sm:inline-flex items-center gap-3 rounded-2xl border border-primary/20 bg-white py-1.5 pl-2 pr-3.5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                add_business
+              </span>
+            </div>
+
+            <div className="flex flex-col text-left">
+              <span className="text-sm font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
+                Add Your Business
+              </span>
+              <span className="text-xs leading-tight text-on-surface-variant">
+                List your place on Cafnet
+              </span>
+            </div>
+
+            <span
+              className="material-symbols-outlined ml-1 text-[20px] text-on-surface-variant/60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary"
+              aria-hidden="true"
+            >
+              chevron_right
+            </span>
+          </Link>
 
           <button
             type="button"
@@ -356,13 +351,6 @@ export default function Navbar() {
               </Link>
             </div>
 
-            <div className="py-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Preferences</p>
-              <div className="mt-3 flex items-center justify-between text-sm text-on-surface">
-                <span>Language</span>
-                <span className="font-semibold text-primary">English</span>
-              </div>
-            </div>
           </aside>
         </div>
       )}
