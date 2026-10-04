@@ -18,7 +18,7 @@ import {
 import { ApiError } from "@/lib/api/errors";
 
 export default function ManagedBusinessPage({ businessId }: { businessId: string }) {
-  const { ready, getManagedBusiness: getManagedFromContext } = useBusinessOwner();
+  const { ready } = useBusinessOwner();
   const [businessData, setBusinessData] = useState<BusinessProfileViewModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
@@ -146,15 +146,6 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
   }
 
   const business = businessData;
-  const managedFromContext = getManagedFromContext?.(Number(businessId));
-  const lastUpdated = managedFromContext?.editableData?.updatedAt
-    ? new Date(managedFromContext.editableData.updatedAt).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : undefined;
-
   const isReservable = Boolean(business.reservationAvailable);
   const pendingReservations = isReservable ? businessReservations.filter((r) => r.status === "pending") : [];
   const confirmedReservations = isReservable ? businessReservations.filter((r) => r.status === "confirmed") : [];
@@ -228,17 +219,12 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           <p className="mt-1 text-sm text-on-surface-variant">
             {business.cuisine} · {business.location}
           </p>
-          {lastUpdated && (
-            <p className="mt-1 text-xs text-on-surface-variant/80">
-              Last updated {lastUpdated}
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Organized Action Buttons - Ordered by Usage Frequency */}
+      {/* 5 Essential Action Buttons Ordered by Usage */}
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        {/* 1. Edit Listing (Primary Management Action) */}
+        {/* 1. Edit Listing */}
         <Link
           href={`/business/dashboard/business/${business.id}/edit`}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#0f46b8] active:scale-[0.98]"
@@ -249,7 +235,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           Edit listing
         </Link>
 
-        {/* 2. Manage Menu (High Daily/Weekly Usage) */}
+        {/* 2. Manage Menu */}
         <Link
           href={`/business/dashboard/business/${business.id}/menu`}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
@@ -287,7 +273,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           </Link>
         )}
 
-        {/* 4. Manage Updates & Announcements */}
+        {/* 4. Manage Updates */}
         <Link
           href={`/business/dashboard/business/${business.id}/updates`}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-white px-4 text-sm font-semibold text-on-surface shadow-xs transition-all hover:border-primary/40 hover:text-primary active:scale-[0.98]"
@@ -303,7 +289,7 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           )}
         </Link>
 
-        {/* 5. View Public Profile (Preview) */}
+        {/* 5. View Public Profile */}
         <Link
           href={`/business/${business.id}`}
           target="_blank"
@@ -315,160 +301,6 @@ export default function ManagedBusinessPage({ businessId }: { businessId: string
           View public profile
         </Link>
       </div>
-
-      {/* Management Hub Grid */}
-      <section className="mt-12">
-        <h2 className="text-xl font-bold text-on-surface">Management Hub</h2>
-        <p className="mt-1 text-sm text-on-surface-variant">
-          Quickly access and update customer-facing areas of your business
-        </p>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {/* Card 1: Listing & Profile Information */}
-          <Link
-            href={`/business/dashboard/business/${business.id}/edit`}
-            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <span className="material-symbols-outlined text-2xl">edit_note</span>
-                </span>
-                <span className="text-xs font-semibold text-primary group-hover:underline">
-                  Edit &rarr;
-                </span>
-              </div>
-              <h3 className="mt-4 font-bold text-on-surface">Listing details</h3>
-              <p className="mt-1.5 text-sm text-on-surface-variant">
-                Business name, phone, opening hours, location, and photos.
-              </p>
-            </div>
-            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
-              Phone: {business.phone || "Not set"} · Hours: {business.openingHours || "Configured"}
-            </div>
-          </Link>
-
-          {/* Card 2: Menu Management */}
-          <Link
-            href={`/business/dashboard/business/${business.id}/menu`}
-            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <span className="material-symbols-outlined text-2xl">restaurant_menu</span>
-                </span>
-                <span className="text-xs font-semibold text-primary group-hover:underline">
-                  Manage &rarr;
-                </span>
-              </div>
-              <h3 className="mt-4 font-bold text-on-surface">Menu & pricing</h3>
-              <p className="mt-1.5 text-sm text-on-surface-variant">
-                Categories, dishes, items, prices, and item availability.
-              </p>
-            </div>
-            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
-              {menuSummary.hasMenu
-                ? `${menuSummary.categoryCount} categories · ${menuSummary.itemCount} items listed`
-                : "No menu items yet · Setup menu"}
-            </div>
-          </Link>
-
-          {/* Card 3: Reservations (if enabled) */}
-          {isReservable && (
-            <Link
-              href={`/business/dashboard/business/${business.id}/reservations`}
-              className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <span className="material-symbols-outlined text-2xl">event_seat</span>
-                  </span>
-                  <span className="text-xs font-semibold text-primary group-hover:underline">
-                    Manage &rarr;
-                  </span>
-                </div>
-                <h3 className="mt-4 font-bold text-on-surface">Table reservations</h3>
-                <p className="mt-1.5 text-sm text-on-surface-variant">
-                  Review booking requests, confirm guests, and track seating status.
-                </p>
-              </div>
-              <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
-                {pendingReservations.length > 0 ? (
-                  <span className="font-semibold text-amber-700">
-                    {pendingReservations.length} pending requests waiting
-                  </span>
-                ) : confirmedReservations.length > 0 ? (
-                  <span className="text-primary">
-                    {confirmedReservations.length} confirmed bookings
-                  </span>
-                ) : (
-                  "All caught up · No active requests"
-                )}
-              </div>
-            </Link>
-          )}
-
-          {/* Card 4: Updates & Announcements */}
-          <Link
-            href={`/business/dashboard/business/${business.id}/updates`}
-            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-sm"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <span className="material-symbols-outlined text-2xl">campaign</span>
-                </span>
-                <span className="text-xs font-semibold text-primary group-hover:underline">
-                  Manage &rarr;
-                </span>
-              </div>
-              <h3 className="mt-4 font-bold text-on-surface">Updates & offers</h3>
-              <p className="mt-1.5 text-sm text-on-surface-variant">
-                Publish special offers, announcements, and events to customers.
-              </p>
-            </div>
-            <div className="mt-5 border-t border-outline-variant/60 pt-3 text-xs text-on-surface-variant">
-              {activeUpdatesCount > 0
-                ? `${activeUpdatesCount} active public announcements`
-                : "No active announcements · Share an update"}
-            </div>
-          </Link>
-        </div>
-
-        {/* Read-only verification & review status */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <div className="flex items-center justify-between rounded-2xl border border-outline-variant/60 bg-white p-4">
-            <div>
-              <p className="text-xs text-on-surface-variant">Rating & Reviews</p>
-              <p className="mt-0.5 text-sm font-bold text-on-surface">
-                ★ {business.rating} · {business.reviewCount} customer reviews
-              </p>
-            </div>
-            <span className="material-symbols-outlined text-xl text-outline/60" aria-hidden="true">
-              reviews
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between rounded-2xl border border-outline-variant/60 bg-white p-4">
-            <div>
-              <p className="text-xs text-on-surface-variant">Verification Status</p>
-              <p className="mt-0.5 text-sm font-bold text-on-surface">
-                {business.verified ? "Verified listing" : "Standard listing"}
-              </p>
-            </div>
-            <span
-              className={`material-symbols-outlined text-xl ${
-                business.verified ? "text-primary" : "text-outline/60"
-              }`}
-              aria-hidden="true"
-            >
-              {business.verified ? "verified" : "info"}
-            </span>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
