@@ -693,6 +693,7 @@ export function apiSubmissionToViewModel(
     businessName: sub.business_name,
     category: sub.category,
     area: sub.area,
+    phone: (sub.submitted_payload?.phone as string) || undefined,
     status: sub.status.toLowerCase() as "pending" | "approved" | "rejected",
     submittedAt: sub.submitted_at,
     reviewedAt: sub.reviewed_at,

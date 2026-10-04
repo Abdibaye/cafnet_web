@@ -13,6 +13,7 @@ export type BusinessSubmission = {
   businessName: string;
   category: "restaurant" | "cafe" | "drinks";
   area: string;
+  phone?: string;
   status: "pending" | "approved" | "rejected";
   submittedAt: string;
   reviewedAt?: string;

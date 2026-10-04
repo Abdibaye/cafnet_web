@@ -62,6 +62,7 @@ type BusinessOwnerContextValue = {
     category: BusinessSubmission["category"],
     area: string,
     mediaId?: string,
+    phone?: string,
   ) => Promise<BusinessSubmission>;
   createManagedBusiness: (businessId: number, seedData: Partial<EditableBusinessData>) => Promise<OwnerManagedBusiness>;
   updateManagedBusiness: (businessId: number, updates: Partial<EditableBusinessData>) => Promise<OwnerManagedBusiness | undefined>;
@@ -213,12 +214,14 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
       category: BusinessSubmission["category"],
       area: string,
       mediaId?: string,
+      phone?: string,
     ) => {
       const apiSub = await createSubmissionApi({
         business_name: businessName,
         category,
         area,
         media_id: mediaId,
+        payload: phone ? { phone } : undefined,
       });
       const adapted = apiSubmissionToViewModel(apiSub);
       setSubmissions((prev) => [...prev, adapted]);

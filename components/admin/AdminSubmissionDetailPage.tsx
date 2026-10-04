@@ -215,6 +215,12 @@ export default function AdminSubmissionDetailPage({ submissionId }: { submission
             <span className="text-on-surface-variant">Area / Neighborhood</span>
             <span className="font-semibold text-on-surface">{submission.area}</span>
           </div>
+          {Boolean(submission.submitted_payload?.phone) && (
+            <div className="flex justify-between pt-3">
+              <span className="text-on-surface-variant">Business Phone</span>
+              <span className="font-semibold text-on-surface">{String(submission.submitted_payload?.phone)}</span>
+            </div>
+          )}
           <div className="flex justify-between pt-3">
             <span className="text-on-surface-variant">City</span>
             <span className="font-semibold text-on-surface">Addis Ababa, Ethiopia</span>

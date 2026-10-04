@@ -19,6 +19,7 @@ export default function BusinessAddFlow() {
   const { authReady, isAuthenticated, startSignIn, startSignUp } = useCustomer();
   const { ready, submissions, submitBusiness } = useBusinessOwner();
   const [businessName, setBusinessName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [category, setCategory] = useState<BusinessSubmission["category"]>("restaurant");
   const [area, setArea] = useState("");
   const [coverMedia, setCoverMedia] = useState<Media | null>(null);
@@ -109,10 +110,15 @@ export default function BusinessAddFlow() {
 
   const continueToPreview = () => {
     const nameTrimmed = businessName.trim();
+    const phoneTrimmed = phoneNumber.trim();
     const areaTrimmed = area.trim();
 
     if (!nameTrimmed || nameTrimmed.length < 2) {
       setError("Please enter a valid business name (at least 2 characters).");
+      return;
+    }
+    if (!phoneTrimmed || phoneTrimmed.length < 8) {
+      setError("Please enter a valid business phone number.");
       return;
     }
     if (!areaTrimmed || areaTrimmed.length < 2) {
@@ -137,7 +143,13 @@ export default function BusinessAddFlow() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await submitBusiness(businessName.trim(), category, area.trim(), coverMedia?.id);
+      await submitBusiness(
+        businessName.trim(),
+        category,
+        area.trim(),
+        coverMedia?.id,
+        phoneNumber.trim(),
+      );
       setStep("submitted");
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit business. Please check details and try again.");
@@ -194,6 +206,10 @@ export default function BusinessAddFlow() {
           <div className="p-5">
             <p className="text-xs text-on-surface-variant">Business name</p>
             <p className="mt-1 font-semibold text-on-surface">{businessName.trim()}</p>
+          </div>
+          <div className="p-5">
+            <p className="text-xs text-on-surface-variant">Business phone number</p>
+            <p className="mt-1 font-semibold text-on-surface">{phoneNumber.trim()}</p>
           </div>
           <div className="p-5">
             <p className="text-xs text-on-surface-variant">Category</p>
@@ -264,6 +280,26 @@ export default function BusinessAddFlow() {
             value={businessName}
             onChange={(event) => setBusinessName(event.target.value)}
           />
+        </div>
+
+        <div>
+          <label htmlFor="new-business-phone" className="block text-sm font-semibold text-on-surface">
+            Business phone number
+          </label>
+          <input
+            id="new-business-phone"
+            type="tel"
+            className="mt-2 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+            placeholder="e.g. +251 91 123 4567"
+            value={phoneNumber}
+            onChange={(event) => setPhoneNumber(event.target.value)}
+          />
+          <div className="mt-2 flex items-start gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-low/80 p-3 text-xs leading-5 text-on-surface-variant">
+            <span className="material-symbols-outlined mt-0.5 shrink-0 text-[18px] text-primary" aria-hidden="true">
+              info
+            </span>
+            <span>We will use this phone number to contact you and verify your business.</span>
+          </div>
         </div>
 
         <div>
