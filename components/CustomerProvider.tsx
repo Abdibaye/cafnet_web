@@ -566,6 +566,9 @@ function AuthModalFlow() {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
+  const [showSignInPassword, setShowSignInPassword] = useState(true);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(true);
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(true);
   const [clientError, setClientError] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
 
@@ -578,6 +581,9 @@ function AuthModalFlow() {
       setSignUpEmail("");
       setSignUpPassword("");
       setSignUpConfirmPassword("");
+      setShowSignInPassword(true);
+      setShowSignUpPassword(true);
+      setShowSignUpConfirmPassword(true);
       setClientError("");
       return;
     }
@@ -831,20 +837,34 @@ function AuthModalFlow() {
               <label htmlFor="signin-password" className="block text-sm font-semibold text-on-surface">
                 Password
               </label>
-              <input
-                id="signin-password"
-                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={signInPassword}
-                onChange={(e) => {
-                  setSignInPassword(e.target.value);
-                  setClientError("");
-                }}
-                required
-                disabled={customer.isSubmitting}
-              />
+              <div className="relative mt-1.5">
+                <input
+                  id="signin-password"
+                  className="h-12 w-full rounded-xl border border-outline-variant bg-white pl-4 pr-11 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  type={showSignInPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder={showSignInPassword ? "Enter your password" : "••••••••"}
+                  value={signInPassword}
+                  onChange={(e) => {
+                    setSignInPassword(e.target.value);
+                    setClientError("");
+                  }}
+                  required
+                  disabled={customer.isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSignInPassword((prev) => !prev)}
+                  className="absolute right-0 top-0 flex h-12 w-11 items-center justify-center text-on-surface-variant hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary cursor-pointer transition-colors"
+                  aria-label={showSignInPassword ? "Hide password" : "Show password"}
+                  title={showSignInPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                    {showSignInPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <button
@@ -862,6 +882,8 @@ function AuthModalFlow() {
                 className="font-semibold text-primary hover:underline cursor-pointer"
                 onClick={() => {
                   setClientError("");
+                  setShowSignUpPassword(true);
+                  setShowSignUpConfirmPassword(true);
                   customer.setAuthStep("signup");
                 }}
                 disabled={customer.isSubmitting}
@@ -919,40 +941,68 @@ function AuthModalFlow() {
               <label htmlFor="signup-password" className="block text-sm font-semibold text-on-surface">
                 Password <span className="text-xs font-normal text-on-surface-variant">(min 8 characters)</span>
               </label>
-              <input
-                id="signup-password"
-                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                type="password"
-                autoComplete="new-password"
-                placeholder="••••••••"
-                value={signUpPassword}
-                onChange={(e) => {
-                  setSignUpPassword(e.target.value);
-                  setClientError("");
-                }}
-                required
-                disabled={customer.isSubmitting}
-              />
+              <div className="relative mt-1.5">
+                <input
+                  id="signup-password"
+                  className="h-12 w-full rounded-xl border border-outline-variant bg-white pl-4 pr-11 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  type={showSignUpPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder={showSignUpPassword ? "Enter password" : "••••••••"}
+                  value={signUpPassword}
+                  onChange={(e) => {
+                    setSignUpPassword(e.target.value);
+                    setClientError("");
+                  }}
+                  required
+                  disabled={customer.isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSignUpPassword((prev) => !prev)}
+                  className="absolute right-0 top-0 flex h-12 w-11 items-center justify-center text-on-surface-variant hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary cursor-pointer transition-colors"
+                  aria-label={showSignUpPassword ? "Hide password" : "Show password"}
+                  title={showSignUpPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                    {showSignUpPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div>
               <label htmlFor="signup-confirm-password" className="block text-sm font-semibold text-on-surface">
                 Confirm password
               </label>
-              <input
-                id="signup-confirm-password"
-                className="mt-1.5 h-12 w-full rounded-xl border border-outline-variant bg-white px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                type="password"
-                autoComplete="new-password"
-                placeholder="••••••••"
-                value={signUpConfirmPassword}
-                onChange={(e) => {
-                  setSignUpConfirmPassword(e.target.value);
-                  setClientError("");
-                }}
-                required
-                disabled={customer.isSubmitting}
-              />
+              <div className="relative mt-1.5">
+                <input
+                  id="signup-confirm-password"
+                  className="h-12 w-full rounded-xl border border-outline-variant bg-white pl-4 pr-11 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  type={showSignUpConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder={showSignUpConfirmPassword ? "Re-enter password" : "••••••••"}
+                  value={signUpConfirmPassword}
+                  onChange={(e) => {
+                    setSignUpConfirmPassword(e.target.value);
+                    setClientError("");
+                  }}
+                  required
+                  disabled={customer.isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSignUpConfirmPassword((prev) => !prev)}
+                  className="absolute right-0 top-0 flex h-12 w-11 items-center justify-center text-on-surface-variant hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary cursor-pointer transition-colors"
+                  aria-label={showSignUpConfirmPassword ? "Hide password" : "Show password"}
+                  title={showSignUpConfirmPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                    {showSignUpConfirmPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <button
@@ -970,6 +1020,7 @@ function AuthModalFlow() {
                 className="font-semibold text-primary hover:underline cursor-pointer"
                 onClick={() => {
                   setClientError("");
+                  setShowSignInPassword(true);
                   customer.setAuthStep("signin");
                 }}
                 disabled={customer.isSubmitting}
