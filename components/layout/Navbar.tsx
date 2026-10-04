@@ -177,55 +177,57 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-2">
-                <button
-                  type="button"
-                  className="min-h-10 items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer transition-colors"
-                  onClick={startSignIn}
+              <>
+                <div className="hidden sm:flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="min-h-10 items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold text-on-surface hover:text-primary hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer transition-colors"
+                    onClick={startSignIn}
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer shadow-xs transition-colors"
+                    onClick={startSignUp}
+                  >
+                    Create account
+                  </button>
+                </div>
+
+                {/* Visual Divider between Customer Auth and Business Partner */}
+                <div className="hidden sm:block h-8 w-px bg-outline-variant/70 mx-1" aria-hidden="true" />
+
+                {/* Add Your Business - Desktop Card Pill (only shown when not signed in) */}
+                <Link
+                  href="/business/add"
+                  className="group hidden sm:inline-flex items-center gap-3 rounded-2xl border border-primary/20 bg-white py-1.5 pl-2 pr-3.5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-primary"
                 >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  className="min-h-10 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f46b8] focus-visible:outline-2 focus-visible:outline-primary inline-flex cursor-pointer shadow-xs transition-colors"
-                  onClick={startSignUp}
-                >
-                  Create account
-                </button>
-              </div>
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
+                      add_business
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col text-left">
+                    <span className="text-sm font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
+                      Add Your Business
+                    </span>
+                    <span className="text-xs leading-tight text-on-surface-variant">
+                      List your place on Cafnet
+                    </span>
+                  </div>
+
+                  <span
+                    className="material-symbols-outlined ml-1 text-[20px] text-on-surface-variant/60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary"
+                    aria-hidden="true"
+                  >
+                    chevron_right
+                  </span>
+                </Link>
+              </>
             )
           )}
-
-          {/* Visual Divider between Customer Auth and Business Partner */}
-          <div className="hidden sm:block h-8 w-px bg-outline-variant/70 mx-1" aria-hidden="true" />
-
-          {/* Add Your Business - Desktop Card Pill */}
-          <Link
-            href="/business/add"
-            className="group hidden sm:inline-flex items-center gap-3 rounded-2xl border border-primary/20 bg-white py-1.5 pl-2 pr-3.5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">
-                add_business
-              </span>
-            </div>
-
-            <div className="flex flex-col text-left">
-              <span className="text-sm font-bold leading-tight text-on-surface transition-colors group-hover:text-primary">
-                Add Your Business
-              </span>
-              <span className="text-xs leading-tight text-on-surface-variant">
-                List your place on Cafnet
-              </span>
-            </div>
-
-            <span
-              className="material-symbols-outlined ml-1 text-[20px] text-on-surface-variant/60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary"
-              aria-hidden="true"
-            >
-              chevron_right
-            </span>
-          </Link>
 
           <button
             type="button"
