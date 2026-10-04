@@ -114,44 +114,20 @@ export default function Navbar() {
                   >
                     <div className="py-1">
                       <Link
-                        className="block rounded-lg px-3.5 py-2.5 text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
+                        className="block rounded-lg px-3.5 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
                         href="/account"
                         role="menuitem"
                         onClick={() => setIsAccountOpen(false)}
                       >
-                        My account
+                        My Personal Account
                       </Link>
                       <Link
-                        className="block rounded-lg px-3.5 py-2.5 text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
-                        href="/reservations"
-                        role="menuitem"
-                        onClick={() => setIsAccountOpen(false)}
-                      >
-                        My reservations
-                      </Link>
-                      <Link
-                        className="block rounded-lg px-3.5 py-2.5 text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
-                        href="/saved"
-                        role="menuitem"
-                        onClick={() => setIsAccountOpen(false)}
-                      >
-                        Saved places
-                      </Link>
-                      <Link
-                        className="block rounded-lg px-3.5 py-2.5 text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
-                        href="/following"
-                        role="menuitem"
-                        onClick={() => setIsAccountOpen(false)}
-                      >
-                        Following
-                      </Link>
-                      <Link
-                        className="block rounded-lg px-3.5 py-2.5 text-sm text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
+                        className="block rounded-lg px-3.5 py-2.5 text-sm font-medium text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
                         href="/business/dashboard"
                         role="menuitem"
                         onClick={() => setIsAccountOpen(false)}
                       >
-                        My businesses
+                        My Business Account
                       </Link>
                     </div>
 
@@ -271,19 +247,10 @@ export default function Navbar() {
                     </div>
                   </div>
                   <Link className="block py-2 text-sm font-semibold text-on-surface hover:text-primary" href="/account" onClick={closeMobileMenu}>
-                    My account
-                  </Link>
-                  <Link className="block py-2 text-sm text-on-surface hover:text-primary" href="/reservations" onClick={closeMobileMenu}>
-                    My reservations
-                  </Link>
-                  <Link className="block py-2 text-sm text-on-surface hover:text-primary" href="/saved" onClick={closeMobileMenu}>
-                    Saved places
-                  </Link>
-                  <Link className="block py-2 text-sm text-on-surface hover:text-primary" href="/following" onClick={closeMobileMenu}>
-                    Following
+                    My Personal Account
                   </Link>
                   <Link className="block py-2 text-sm text-on-surface hover:text-primary" href="/business/dashboard" onClick={closeMobileMenu}>
-                    My businesses
+                    My Business Account
                   </Link>
                   <Link className="block py-2 text-sm text-on-surface hover:text-primary" href="/account/settings" onClick={closeMobileMenu}>
                     Settings
