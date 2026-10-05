@@ -180,6 +180,38 @@ export interface MenuCategory {
   deleted_at?: string;
 }
 
+export interface CanonicalDish {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  cuisine_id?: number | null;
+  aliases?: DishAlias[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DishAlias {
+  id: string;
+  canonical_dish_id: string;
+  alias: string;
+  normalized_alias: string;
+  language?: string | null;
+  created_at: string;
+}
+
+export interface FoodSearchResult {
+  menu_item: MenuItem;
+  business: Business;
+  canonical_dish?: CanonicalDish | null;
+  matched_by: string;
+}
+
+export interface FoodSearchResponse {
+  canonical_dish?: CanonicalDish | null;
+  items: FoodSearchResult[];
+}
+
 export interface MenuItem {
   id: string;
   category_id: string;
@@ -191,6 +223,8 @@ export interface MenuItem {
   is_available: boolean;
   image?: string;
   image_media_id?: string;
+  canonical_dish_id?: string | null;
+  canonical_dish?: CanonicalDish | null;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
@@ -524,6 +558,7 @@ export interface CreateMenuItemInput {
   price_etb_minor: number;
   is_available?: boolean;
   sort_order: number;
+  canonical_dish_id?: string | null;
 }
 
 export interface UpdateMenuItemInput {
@@ -533,6 +568,7 @@ export interface UpdateMenuItemInput {
   price_etb_minor?: number;
   is_available?: boolean;
   sort_order?: number;
+  canonical_dish_id?: string | null;
 }
 
 export interface ReorderItemsInput {

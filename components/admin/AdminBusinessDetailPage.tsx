@@ -3,8 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getBusinessProfile } from "@/lib/api/businesses";
-import { setBusinessVerification, setBusinessPublication } from "@/lib/api/admin";
-import type { PublicBusinessProfile } from "@/lib/api/types";
+import {
+  setBusinessVerification,
+  setBusinessPublication,
+  listAdminDishes,
+  mapMenuItemCanonicalDish,
+} from "@/lib/api/admin";
+import type { CanonicalDish, MenuItem, PublicBusinessProfile } from "@/lib/api/types";
 import { useCustomer } from "@/components/CustomerProvider";
 
 export default function AdminBusinessDetailPage({ businessId }: { businessId: string }) {
@@ -15,6 +20,13 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
   const [isConfirmingVerification, setIsConfirmingVerification] = useState(false);
   const [isConfirmingPublication, setIsConfirmingPublication] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Canonical Food Classification State
+  const [canonicalDishes, setCanonicalDishes] = useState<CanonicalDish[]>([]);
+  const [selectedItemForMapping, setSelectedItemForMapping] = useState<MenuItem | null>(null);
+  const [selectedDishId, setSelectedDishId] = useState<string>("");
+  const [isMappingItem, setIsMappingItem] = useState(false);
+  const [isMenuExpanded, setIsMenuExpanded] = useState(false);
 
   const loadData = useCallback(async () => {
     if (isNaN(numId)) {
@@ -104,6 +116,40 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
       showToast(msg);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    listAdminDishes({ limit: 100 })
+      .then((dishes) => setCanonicalDishes(dishes))
+      .catch(() => setCanonicalDishes([]));
+  }, []);
+
+  const handleOpenMapping = (item: MenuItem) => {
+    setSelectedItemForMapping(item);
+    setSelectedDishId(item.canonical_dish_id || item.canonical_dish?.id || "");
+  };
+
+  const handleSaveMapping = async () => {
+    if (!selectedItemForMapping) return;
+    try {
+      setIsMappingItem(true);
+      await mapMenuItemCanonicalDish(
+        selectedItemForMapping.id,
+        selectedDishId ? selectedDishId : null,
+      );
+      showToast(
+        selectedDishId
+          ? `Mapped "${selectedItemForMapping.name}" to canonical dish`
+          : `Removed canonical mapping from "${selectedItemForMapping.name}"`
+      );
+      setSelectedItemForMapping(null);
+      await loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update dish mapping";
+      showToast(msg);
+    } finally {
+      setIsMappingItem(false);
     }
   };
 
@@ -304,19 +350,80 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
         <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
           <h2 className="text-base font-bold text-on-surface">Menu & updates</h2>
           <div className="mt-4 space-y-4 text-xs">
-            {/* Menu summary */}
+            {/* Menu summary & classification */}
             <div className="rounded-xl border border-outline-variant/70 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-on-surface">Menu</span>
-                <span className="text-on-surface-variant">
-                  {categoryCount} categories · {itemCount} items
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-on-surface-variant">
+                    {categoryCount} categories · {itemCount} items
+                  </span>
+                  {itemCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsMenuExpanded(!isMenuExpanded)}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      {isMenuExpanded ? "Hide items" : "Inspect & classify items"}
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="mt-1 text-on-surface-variant">
                 {itemCount > 0
-                  ? "Menu has been configured for this business."
+                  ? "Menu has been configured for this business. You can classify items into canonical food taxonomy."
                   : "No menu items configured yet."}
               </p>
+
+              {/* Detailed Menu Categories and Items */}
+              {isMenuExpanded && menu?.categories && (
+                <div className="mt-4 space-y-4 border-t border-outline-variant/50 pt-4">
+                  {menu.categories.map((cat) => (
+                    <div key={cat.category.id} className="rounded-lg bg-surface-container/30 p-3 border border-outline-variant/40">
+                      <div className="flex items-center justify-between font-bold text-on-surface text-sm mb-2">
+                        <span>{cat.category.name}</span>
+                        <span className="text-xs font-normal text-on-surface-variant">
+                          {cat.items?.length || 0} items
+                        </span>
+                      </div>
+                      <div className="divide-y divide-outline-variant/30">
+                        {(cat.items || []).map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-on-surface">{item.name}</span>
+                              <span className="text-on-surface-variant font-mono">
+                                {(item.price_etb_minor / 100).toFixed(0)} ETB
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {item.canonical_dish ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                  <span className="material-symbols-outlined text-[12px]">restaurant_menu</span>
+                                  {item.canonical_dish.name}
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-outline-variant/40 px-2 py-0.5 text-[11px] text-on-surface-variant">
+                                  Unclassified
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenMapping(item)}
+                                className="rounded px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/5 transition-colors border border-primary/30"
+                              >
+                                {item.canonical_dish ? "Change" : "Classify"}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Updates summary */}
@@ -427,6 +534,65 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
                   : isPublished
                   ? "Unpublish"
                   : "Publish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Classification Modal */}
+      {selectedItemForMapping && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-on-surface">
+              Classify Menu Item
+            </h3>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Restaurant Item: <strong className="text-on-surface font-semibold">&quot;{selectedItemForMapping.name}&quot;</strong>
+            </p>
+            <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+              Assigning a canonical dish enables diners searching for normalized terms (e.g. &quot;tibs&quot;, &quot;ጥብስ&quot;) to discover this restaurant&apos;s menu item. The restaurant&apos;s own naming is never altered.
+            </p>
+
+            <div className="mt-4">
+              <label htmlFor="canonical-dish-select" className="block text-xs font-semibold text-on-surface mb-1">
+                Canonical Food Concept
+              </label>
+              <select
+                id="canonical-dish-select"
+                value={selectedDishId}
+                onChange={(e) => setSelectedDishId(e.target.value)}
+                className="w-full rounded-xl border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
+              >
+                <option value="">None / Unclassified (raw menu item)</option>
+                {canonicalDishes.map((dish) => (
+                  <option key={dish.id} value={dish.id}>
+                    {dish.name} {dish.description ? `— ${dish.description}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isMappingItem}
+                onClick={() => setSelectedItemForMapping(null)}
+                className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface-variant hover:bg-surface-container"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isMappingItem}
+                onClick={handleSaveMapping}
+                className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#0f46b8] disabled:opacity-50"
+              >
+                {isMappingItem ? "Saving..." : "Save Classification"}
               </button>
             </div>
           </div>

@@ -7,6 +7,8 @@ import type {
   BusinessClaim,
   BusinessReport,
   BusinessSubmission,
+  CanonicalDish,
+  DishAlias,
   PublicationStatus,
   ReportStatus,
   Review,
@@ -223,6 +225,91 @@ export async function createBusiness(input: AdminCreateBusinessInput): Promise<B
   return res.data;
 }
 
+/**
+ * List canonical dishes with optional search and pagination.
+ */
+export async function listAdminDishes(params?: { q?: string; limit?: number; offset?: number }): Promise<CanonicalDish[]> {
+  const res = await api.get<CanonicalDish[]>("/api/v1/admin/dishes", { params });
+  return res.data || [];
+}
+
+/**
+ * Retrieve a canonical dish and its aliases by ID.
+ */
+export async function getAdminDish(id: string): Promise<CanonicalDish> {
+  const res = await api.get<CanonicalDish>(`/api/v1/admin/dishes/${encodeURIComponent(id)}`);
+  return res.data;
+}
+
+/**
+ * Create a new canonical dish.
+ */
+export async function createAdminDish(input: {
+  name: string;
+  slug?: string;
+  description?: string;
+  cuisine_id?: number | null;
+}): Promise<CanonicalDish> {
+  const res = await api.post<CanonicalDish>("/api/v1/admin/dishes", input);
+  return res.data;
+}
+
+/**
+ * Update an existing canonical dish.
+ */
+export async function updateAdminDish(
+  id: string,
+  input: {
+    name?: string;
+    slug?: string;
+    description?: string;
+    cuisine_id?: number | null;
+  },
+): Promise<CanonicalDish> {
+  const res = await api.put<CanonicalDish>(`/api/v1/admin/dishes/${encodeURIComponent(id)}`, input);
+  return res.data;
+}
+
+/**
+ * Delete a canonical dish (safely nullifying menu item references).
+ */
+export async function deleteAdminDish(id: string): Promise<{ deleted: boolean }> {
+  const res = await api.delete<{ deleted: boolean }>(`/api/v1/admin/dishes/${encodeURIComponent(id)}`);
+  return res.data;
+}
+
+/**
+ * Add an alias to a canonical dish.
+ */
+export async function addAdminDishAlias(
+  dishId: string,
+  input: { alias: string; language?: string },
+): Promise<DishAlias> {
+  const res = await api.post<DishAlias>(`/api/v1/admin/dishes/${encodeURIComponent(dishId)}/aliases`, input);
+  return res.data;
+}
+
+/**
+ * Delete an alias from a canonical dish.
+ */
+export async function deleteAdminDishAlias(aliasId: string): Promise<{ deleted: boolean }> {
+  const res = await api.delete<{ deleted: boolean }>(`/api/v1/admin/aliases/${encodeURIComponent(aliasId)}`);
+  return res.data;
+}
+
+/**
+ * Map or unmap a restaurant menu item to a canonical dish.
+ */
+export async function mapMenuItemCanonicalDish(
+  itemId: string,
+  canonicalDishId: string | null,
+): Promise<{ mapped: boolean }> {
+  const res = await api.put<{ mapped: boolean }>(`/api/v1/admin/menu-items/${encodeURIComponent(itemId)}/canonical`, {
+    canonical_dish_id: canonicalDishId,
+  });
+  return res.data;
+}
+
 export const adminApi = {
   getAdminStats,
   createBusiness,
@@ -245,4 +332,12 @@ export const adminApi = {
   setBusinessPublication,
   setBusinessVerification,
   listAdminActions,
+  listAdminDishes,
+  getAdminDish,
+  createAdminDish,
+  updateAdminDish,
+  deleteAdminDish,
+  addAdminDishAlias,
+  deleteAdminDishAlias,
+  mapMenuItemCanonicalDish,
 };
