@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBusinessOwner } from "./BusinessOwnerProvider";
 import { useCustomer } from "@/components/CustomerProvider";
-import { getManagedBusiness, getBusinessHours, getBusinessImages } from "@/lib/api/businesses";
+import { getManagedBusiness, getBusinessHours, getBusinessImages, setBusinessImages, deleteBusinessImage } from "@/lib/api/businesses";
 import { getBusinessMedia, setBusinessCover, reorderBusinessGallery, deleteMedia } from "@/lib/api/media";
 import { businessToEditableData } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
@@ -19,6 +19,17 @@ type FormErrors = {
   website?: string;
   description?: string;
 };
+
+interface DisplayProfilePhoto {
+  id: string;
+  url: string;
+  source: "media" | "business_image" | "cover_only";
+  isCover: boolean;
+  altText?: string;
+  sortOrder?: number;
+  originalMedia?: Media;
+  originalImage?: BusinessImage;
+}
 
 const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -79,12 +90,211 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
 
   const reloadMedia = useCallback(async () => {
     try {
-      const m = await getBusinessMedia(businessId);
+      const [m, imgs, b] = await Promise.all([
+        getBusinessMedia(businessId).catch(() => ({ cover: null, gallery: [] })),
+        getBusinessImages(businessId).catch(() => []),
+        getManagedBusiness(businessId).catch(() => null),
+      ]);
       setBusinessMedia(ensureBusinessMedia(m));
+      setLoadedImages(imgs);
+      if (b) {
+        setLoadedBusiness(b);
+      }
     } catch {
       // Ignore media load failure
     }
   }, [businessId]);
+
+  const [photoToDelete, setPhotoToDelete] = useState<DisplayProfilePhoto | null>(null);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
+  const [previewPhoto, setPreviewPhoto] = useState<DisplayProfilePhoto | null>(null);
+  const [settingCoverId, setSettingCoverId] = useState<string | null>(null);
+
+  // Unified list of all photos currently belonging to this business profile
+  const allProfilePhotos = useMemo<DisplayProfilePhoto[]>(() => {
+    const list: DisplayProfilePhoto[] = [];
+    const seenUrls = new Set<string>();
+
+    const activeCoverUrl = (businessMedia?.cover?.url || loadedBusiness?.cover_image || "").trim();
+
+    // 1. Tigris media cover
+    if (businessMedia?.cover?.url) {
+      const url = businessMedia.cover.url.trim();
+      seenUrls.add(url);
+      list.push({
+        id: String(businessMedia.cover.id),
+        url,
+        source: "media",
+        isCover: true,
+        altText: "Cover photo",
+        originalMedia: businessMedia.cover,
+      });
+    }
+
+    // 2. Direct cover_image from business
+    if (loadedBusiness?.cover_image && !seenUrls.has(loadedBusiness.cover_image.trim())) {
+      const url = loadedBusiness.cover_image.trim();
+      seenUrls.add(url);
+      list.push({
+        id: `biz-cover-${businessId}`,
+        url,
+        source: "cover_only",
+        isCover: true,
+        altText: `${loadedBusiness.name || "Business"} cover`,
+      });
+    }
+
+    // 3. Tigris media gallery
+    for (const m of businessMedia?.gallery || []) {
+      if (!m.url) continue;
+      const url = m.url.trim();
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        list.push({
+          id: String(m.id),
+          url,
+          source: "media",
+          isCover: activeCoverUrl !== "" && activeCoverUrl === url,
+          altText: "Gallery photo",
+          sortOrder: m.sort_order,
+          originalMedia: m,
+        });
+      }
+    }
+
+    // 4. Scraped / direct business_images
+    for (const img of loadedImages || []) {
+      if (!img.image_url) continue;
+      const url = img.image_url.trim();
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        list.push({
+          id: String(img.id),
+          url,
+          source: "business_image",
+          isCover: activeCoverUrl !== "" && activeCoverUrl === url,
+          altText: img.alt_text || "Venue photo",
+          sortOrder: img.sort_order,
+          originalImage: img,
+        });
+      }
+    }
+
+    return list;
+  }, [businessMedia, loadedBusiness, loadedImages, businessId]);
+
+  const handleConfirmDeletePhoto = async () => {
+    if (!photoToDelete) return;
+    setIsDeletingPhoto(true);
+    try {
+      if (photoToDelete.source === "media") {
+        await deleteMedia(photoToDelete.id);
+      } else if (photoToDelete.source === "business_image") {
+        await deleteBusinessImage(businessId, photoToDelete.id);
+      } else {
+        // Fallback: check media cover or loadedImages
+        if (businessMedia?.cover?.id) {
+          await deleteMedia(businessMedia.cover.id).catch(() => {});
+        }
+        const matchedImg = loadedImages.find(
+          (img) => img.id === photoToDelete.id || img.image_url === photoToDelete.url,
+        );
+        if (matchedImg) {
+          await deleteBusinessImage(businessId, matchedImg.id).catch(() => {});
+        }
+      }
+
+      showToast("Photo deleted successfully");
+      setPhotoToDelete(null);
+      if (previewPhoto?.id === photoToDelete.id) {
+        setPreviewPhoto(null);
+      }
+      await reloadMedia();
+    } catch {
+      showToast("Failed to delete photo");
+    } finally {
+      setIsDeletingPhoto(false);
+    }
+  };
+
+  const handleSetCoverPhoto = async (photo: DisplayProfilePhoto) => {
+    setSettingCoverId(photo.id);
+    try {
+      if (photo.source === "media" && photo.originalMedia) {
+        await setBusinessCover(businessId, photo.originalMedia.id);
+      } else if (photo.originalImage || photo.source === "business_image") {
+        const targetImg = photo.originalImage || loadedImages.find((i) => i.id === photo.id || i.image_url === photo.url);
+        if (targetImg) {
+          const reordered = [
+            targetImg,
+            ...loadedImages.filter((img) => img.id !== targetImg.id),
+          ].map((img, idx) => ({ ...img, sort_order: idx }));
+          await setBusinessImages(businessId, reordered);
+        }
+      }
+      showToast("Set as primary cover photo");
+      await reloadMedia();
+    } catch {
+      showToast("Failed to set cover photo");
+    } finally {
+      setSettingCoverId(null);
+    }
+  };
+
+  const handleMovePhoto = async (index: number, direction: "prev" | "next") => {
+    const targetIndex = direction === "prev" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= allProfilePhotos.length) return;
+
+    const photoA = allProfilePhotos[index];
+    const photoB = allProfilePhotos[targetIndex];
+
+    if (photoA.source === "business_image" && photoB.source === "business_image") {
+      const copy = [...loadedImages];
+      const fromIdx = copy.findIndex((i) => i.id === photoA.id);
+      const toIdx = copy.findIndex((i) => i.id === photoB.id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = copy.splice(fromIdx, 1);
+        copy.splice(toIdx, 0, moved);
+        const reordered = copy.map((item, idx) => ({ ...item, sort_order: idx }));
+        try {
+          await setBusinessImages(businessId, reordered);
+          await reloadMedia();
+          showToast("Photo order updated");
+        } catch {
+          showToast("Failed to update photo order");
+        }
+      }
+    } else if (photoA.source === "media" && photoB.source === "media") {
+      const copy = [...(businessMedia?.gallery || [])];
+      const fromIdx = copy.findIndex((i) => i.id === photoA.id);
+      const toIdx = copy.findIndex((i) => i.id === photoB.id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = copy.splice(fromIdx, 1);
+        copy.splice(toIdx, 0, moved);
+        try {
+          await reorderBusinessGallery(businessId, copy.map((i) => i.id));
+          await reloadMedia();
+          showToast("Photo order updated");
+        } catch {
+          showToast("Failed to update photo order");
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (previewPhoto) {
+          setPreviewPhoto(null);
+        } else if (photoToDelete) {
+          setPhotoToDelete(null);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewPhoto, photoToDelete]);
 
   const [formData, setFormData] = useState<Partial<EditableBusinessData>>({
     businessId: Number(businessId),
@@ -553,20 +763,41 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
 
             {/* Photos & Media Management */}
             <section className="border border-outline-variant bg-white p-6 rounded-2xl">
-              <div>
-                <h2 className="text-lg font-bold text-on-surface">Photos & Media</h2>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  Manage your business cover photo and gallery (up to 20 images)
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant/60 pb-5">
+                <div>
+                  <h2 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[22px]">photo_library</span>
+                    Photos & Media
+                  </h2>
+                  <p className="mt-1 text-sm text-on-surface-variant">
+                    Manage your business cover photo and gallery images. Photos appear on your public listing and search cards.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-xs font-semibold text-on-surface self-start sm:self-center">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {allProfilePhotos.length} {allProfilePhotos.length === 1 ? "photo" : "photos"} in profile
+                </div>
               </div>
 
               {/* Cover Photo */}
-              <div className="mt-6 border-b border-outline-variant/60 pb-6">
-                <h3 className="text-sm font-bold text-on-surface mb-1">Cover Photo</h3>
-                <p className="text-xs text-on-surface-variant mb-4">
-                  The primary photo shown on search cards and at the top of your public profile.
-                </p>
-                <div className="max-w-md">
+              <div className="py-6 border-b border-outline-variant/60">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-amber-500 text-[18px]">star</span>
+                      Primary Cover Photo
+                    </h3>
+                    <p className="text-xs text-on-surface-variant">
+                      The prominent photo displayed at the top of your public profile and on search result cards.
+                    </p>
+                  </div>
+                  {(businessMedia?.cover?.url || loadedBusiness?.cover_image) && (
+                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                      Active Cover
+                    </span>
+                  )}
+                </div>
+                <div className="max-w-md mt-4">
                   <ImageUpload
                     targetType="business_cover"
                     targetId={businessId}
@@ -576,119 +807,154 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                       reloadMedia();
                     }}
                     onRemove={async () => {
-                      if (businessMedia?.cover) {
-                        try {
+                      try {
+                        if (businessMedia?.cover) {
                           await deleteMedia(businessMedia.cover.id);
-                          showToast("Cover photo removed");
-                          reloadMedia();
-                        } catch {
-                          showToast("Failed to remove cover photo");
+                        } else if (loadedImages.length > 0) {
+                          await deleteBusinessImage(businessId, loadedImages[0].id);
                         }
+                        showToast("Cover photo removed");
+                        await reloadMedia();
+                      } catch {
+                        showToast("Failed to remove cover photo");
                       }
                     }}
                   />
                 </div>
               </div>
 
-              {/* Gallery Photos */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-4">
+              {/* Gallery Photos (Current Profile Photos) */}
+              <div className="pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                   <div>
-                    <h3 className="text-sm font-bold text-on-surface">Gallery Photos</h3>
+                    <h3 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-primary text-[18px]">collections</span>
+                      Current Business Photos ({allProfilePhotos.length})
+                    </h3>
                     <p className="text-xs text-on-surface-variant">
-                      {(businessMedia?.gallery?.length || 0)} of 20 photos uploaded
+                      All photos currently visible on your public business page. Click any photo to preview, set as cover, or delete.
                     </p>
                   </div>
                 </div>
 
-                {(businessMedia?.gallery?.length || 0) > 0 && (
+                {allProfilePhotos.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-outline-variant/80 p-8 text-center bg-surface-container-lowest mb-6">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
+                      <span className="material-symbols-outlined text-[24px]">no_photography</span>
+                    </div>
+                    <p className="text-sm font-semibold text-on-surface">No photos in profile yet</p>
+                    <p className="text-xs text-on-surface-variant mt-1 max-w-sm mx-auto">
+                      Add photos below to showcase your venue, menu items, ambience, and interior to visitors.
+                    </p>
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
-                    {(businessMedia?.gallery || []).map((img: Media, idx: number) => (
+                    {allProfilePhotos.map((photo, idx) => (
                       <div
-                        key={img.id}
-                        className="group relative rounded-xl border border-outline-variant/60 overflow-hidden bg-surface-container"
+                        key={photo.id}
+                        className={`group relative rounded-xl border overflow-hidden bg-white shadow-xs transition-all duration-200 hover:shadow-md ${
+                          photo.isCover ? "border-amber-400 ring-2 ring-amber-400/20" : "border-outline-variant/60 hover:border-primary/40"
+                        }`}
                       >
-                        <img
-                          src={img.url}
-                          alt={`Gallery photo ${idx + 1}`}
-                          className="h-28 w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
-                          }}
-                        />
-                        <div className="p-2 bg-white flex flex-col gap-1.5 border-t border-outline-variant/40">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await setBusinessCover(businessId, img.id);
-                                showToast("Set as cover photo");
-                                reloadMedia();
-                              } catch {
-                                showToast("Failed to set cover photo");
-                              }
+                        {/* Image Thumbnail with Overlay */}
+                        <div
+                          className="relative h-32 w-full bg-surface-container overflow-hidden cursor-pointer"
+                          onClick={() => setPreviewPhoto(photo)}
+                          title="Click to view full size"
+                        >
+                          <img
+                            src={photo.url}
+                            alt={photo.altText || `Business photo ${idx + 1}`}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
                             }}
-                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-outline-variant px-2 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[13px] text-primary">star</span>
-                            Set as cover
-                          </button>
-                          <div className="flex items-center justify-between pt-1">
+                          />
+                          
+                          {/* Badges */}
+                          <div className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none">
+                            {photo.isCover && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/95 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                                <span className="material-symbols-outlined text-[12px]">star</span>
+                                Cover
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Hover preview icon */}
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-on-surface shadow-md">
+                              <span className="material-symbols-outlined text-[18px]">zoom_in</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Photo Card Action Bar */}
+                        <div className="p-2.5 bg-white flex flex-col gap-2 border-t border-outline-variant/40">
+                          {/* Set as Cover / Current Cover status */}
+                          {photo.isCover ? (
+                            <div className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-50 border border-amber-200/80 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                              <span className="material-symbols-outlined text-[13px] text-amber-600">check_circle</span>
+                              Primary Cover
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={settingCoverId === photo.id}
+                              onClick={() => handleSetCoverPhoto(photo)}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-outline-variant px-2 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50"
+                              title="Make this photo the listing cover"
+                            >
+                              {settingCoverId === photo.id ? (
+                                <span className="inline-block size-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              ) : (
+                                <span className="material-symbols-outlined text-[13px] text-primary">star</span>
+                              )}
+                              Set as cover
+                            </button>
+                          )}
+
+                          {/* Lower controls: Preview, Reorder, Delete */}
+                          <div className="flex items-center justify-between pt-0.5 border-t border-outline-variant/20">
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                disabled={idx === 0}
-                                onClick={async () => {
-                                  const items = [...(businessMedia?.gallery || [])];
-                                  const [moved] = items.splice(idx, 1);
-                                  items.splice(idx - 1, 0, moved);
-                                  try {
-                                    await reorderBusinessGallery(businessId, items.map((i) => i.id));
-                                    reloadMedia();
-                                  } catch {
-                                    showToast("Failed to reorder");
-                                  }
-                                }}
-                                className="inline-flex size-6 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container disabled:opacity-30"
-                                title="Move earlier"
+                                onClick={() => setPreviewPhoto(photo)}
+                                className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors"
+                                title="View full size photo"
                               >
-                                <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+                                <span className="material-symbols-outlined text-[16px]">visibility</span>
                               </button>
-                              <button
-                                type="button"
-                                disabled={idx === (businessMedia?.gallery?.length || 0) - 1}
-                                onClick={async () => {
-                                  const items = [...(businessMedia?.gallery || [])];
-                                  const [moved] = items.splice(idx, 1);
-                                  items.splice(idx + 1, 0, moved);
-                                  try {
-                                    await reorderBusinessGallery(businessId, items.map((i) => i.id));
-                                    reloadMedia();
-                                  } catch {
-                                    showToast("Failed to reorder");
-                                  }
-                                }}
-                                className="inline-flex size-6 items-center justify-center rounded text-on-surface-variant hover:bg-surface-container disabled:opacity-30"
-                                title="Move later"
-                              >
-                                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                              </button>
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMovePhoto(idx, "prev")}
+                                  className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface-container"
+                                  title="Move photo earlier"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">arrow_back</span>
+                                </button>
+                              )}
+                              {idx < allProfilePhotos.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMovePhoto(idx, "next")}
+                                  className="inline-flex size-7 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface-container"
+                                  title="Move photo later"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                                </button>
+                              )}
                             </div>
+
+                            {/* Delete button */}
                             <button
                               type="button"
-                              onClick={async () => {
-                                try {
-                                  await deleteMedia(img.id);
-                                  showToast("Photo deleted");
-                                  reloadMedia();
-                                } catch {
-                                  showToast("Failed to delete photo");
-                                }
-                              }}
-                              className="inline-flex size-6 items-center justify-center rounded text-red-600 hover:bg-red-50"
-                              title="Delete photo"
+                              onClick={() => setPhotoToDelete(photo)}
+                              className="inline-flex size-7 items-center justify-center rounded-md text-red-600 hover:bg-red-50 transition-colors"
+                              title="Delete this photo"
                             >
-                              <span className="material-symbols-outlined text-[15px]">delete</span>
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
                             </button>
                           </div>
                         </div>
@@ -697,9 +963,13 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   </div>
                 )}
 
-                {(businessMedia?.gallery?.length || 0) < 20 ? (
-                  <div className="max-w-md">
-                    <p className="text-xs font-semibold text-on-surface mb-2">Add a photo to gallery</p>
+                {/* Upload New Photo */}
+                {allProfilePhotos.length < 20 ? (
+                  <div className="max-w-md pt-2">
+                    <p className="text-xs font-semibold text-on-surface mb-2 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px] text-primary">add_photo_alternate</span>
+                      Upload additional photo to gallery
+                    </p>
                     <ImageUpload
                       targetType="business_gallery"
                       targetId={businessId}
@@ -711,7 +981,7 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   </div>
                 ) : (
                   <p className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
-                    Maximum limit of 20 gallery photos reached. Remove an image to upload a new one.
+                    Maximum limit of 20 photos reached. Delete an existing image to upload a new one.
                   </p>
                 )}
               </div>
@@ -957,6 +1227,183 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
               </button>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* Delete Photo Confirmation Modal */}
+      {photoToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-photo-dialog-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-outline-variant">
+            <div className="flex items-start gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <span className="material-symbols-outlined text-[24px]">delete_forever</span>
+              </div>
+              <div className="flex-1">
+                <h3 id="delete-photo-dialog-title" className="text-lg font-bold text-on-surface">
+                  Delete Photo?
+                </h3>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Are you sure you want to permanently delete this photo from your business profile? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Thumbnail Preview */}
+            <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-surface-container border border-outline-variant/60">
+              <img
+                src={photoToDelete.url}
+                alt="To delete"
+                className="size-16 rounded-lg object-cover border border-outline-variant/40"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-on-surface truncate">
+                  {photoToDelete.altText || "Business photo"}
+                </p>
+                {photoToDelete.isCover && (
+                  <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                    <span className="material-symbols-outlined text-[12px]">warning</span>
+                    Currently set as primary cover
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeletingPhoto}
+                onClick={() => setPhotoToDelete(null)}
+                className="h-10 rounded-xl px-4 text-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingPhoto}
+                onClick={handleConfirmDeletePhoto}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 shadow-xs"
+              >
+                {isDeletingPhoto ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    Delete Photo
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Size Photo Lightbox Preview Modal */}
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setPreviewPhoto(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative max-w-4xl w-full flex flex-col bg-surface-container-lowest rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-black/40 text-white border-b border-white/10 backdrop-blur-xs">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-primary">image</span>
+                <span className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                  {previewPhoto.altText || "Photo preview"}
+                </span>
+                {previewPhoto.isCover && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                    <span className="material-symbols-outlined text-[12px]">star</span>
+                    Cover
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhoto(null)}
+                className="inline-flex size-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Close preview (Esc)"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {/* Image Content */}
+            <div className="flex items-center justify-center bg-black/60 p-4 max-h-[70vh] overflow-hidden">
+              <img
+                src={previewPhoto.url}
+                alt={previewPhoto.altText || "Full size photo"}
+                className="max-h-[65vh] w-auto max-w-full object-contain rounded-lg shadow-lg"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                }}
+              />
+            </div>
+
+            {/* Bottom bar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-white border-t border-outline-variant/60">
+              <div>
+                {!previewPhoto.isCover ? (
+                  <button
+                    type="button"
+                    disabled={settingCoverId === previewPhoto.id}
+                    onClick={() => {
+                      handleSetCoverPhoto(previewPhoto);
+                      setPreviewPhoto((prev) => (prev ? { ...prev, isCover: true } : null));
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container hover:text-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px] text-primary">star</span>
+                    Set as Primary Cover
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
+                    <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                    Current Primary Cover
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = previewPhoto;
+                    setPreviewPhoto(null);
+                    setPhotoToDelete(target);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-xl bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[15px]">delete</span>
+                  Delete Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPhoto(null)}
+                  className="rounded-xl bg-surface-container px-4 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

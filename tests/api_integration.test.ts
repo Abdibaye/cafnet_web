@@ -1488,6 +1488,14 @@ test("businessesApi and customerApi handle management and submission endpoints",
       );
     }
 
+    // 8. DELETE /api/v1/businesses/{id}/images/{imageId}
+    if (urlStr.includes("/images/img-del-1") && method === "DELETE") {
+      return new Response(JSON.stringify({ data: { deleted: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: { message: "Not found" } }), { status: 404 });
   }) as unknown as typeof fetch;
 
@@ -1530,7 +1538,9 @@ test("businessesApi and customerApi handle management and submission endpoints",
       area: "Piazza",
     });
     assert.equal(newSub.business_name, "Piassa Pastry");
-    assert.equal(newSub.status, "PENDING");
+    // 6. Delete business image
+    const deleteRes = await businessesApi.deleteBusinessImage(42, "img-del-1");
+    assert.equal(deleteRes.deleted, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

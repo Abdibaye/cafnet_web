@@ -147,6 +147,28 @@ export async function setBusinessImages(
 }
 
 /**
+ * Deletes a specific gallery image from a business profile.
+ * Tries direct DELETE /api/v1/businesses/{id}/images/{imageId},
+ * falling back to setBusinessImages excluding the target image.
+ */
+export async function deleteBusinessImage(
+  businessId: number | string,
+  imageId: string,
+): Promise<{ deleted: boolean }> {
+  try {
+    const res = await api.delete<{ deleted: boolean }>(
+      `/api/v1/businesses/${encodeURIComponent(String(businessId))}/images/${encodeURIComponent(imageId)}`,
+    );
+    return res.data;
+  } catch {
+    const current = await getBusinessImages(businessId);
+    const updated = current.filter((img) => img.id !== imageId);
+    await setBusinessImages(businessId, updated);
+    return { deleted: true };
+  }
+}
+
+/**
  * Submits a new business for admin review.
  * Uses the canonical endpoint POST /api/v1/businesses/submissions.
  */
