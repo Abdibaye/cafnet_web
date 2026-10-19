@@ -11,7 +11,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    console.error("Admin view error caught by boundary:", error);
   }, [error]);
 
   return (
@@ -23,6 +23,12 @@ export default function AdminError({
       <p className="mt-2 text-sm text-on-surface-variant">
         An error occurred while loading this administrative view. Please try again.
       </p>
+      {error?.message && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-left text-xs font-mono text-red-700">
+          <p className="font-bold">Error:</p>
+          <p className="mt-0.5 break-words">{error.message}</p>
+        </div>
+      )}
       <div className="mt-8 flex items-center justify-center gap-4">
         <button
           type="button"

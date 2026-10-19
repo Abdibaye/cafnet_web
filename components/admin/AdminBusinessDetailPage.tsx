@@ -82,7 +82,7 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
 
   const categoryCount = menu?.categories?.length || 0;
   const itemCount = (menu?.categories || []).reduce(
-    (acc, cat) => acc + (cat.items?.length || 0),
+    (acc, cat) => acc + (cat?.items?.length || 0),
     0
   );
   const updatesCount = active_updates?.length || 0;
@@ -121,7 +121,7 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
 
   useEffect(() => {
     listAdminDishes({ limit: 100 })
-      .then((dishes) => setCanonicalDishes(dishes))
+      .then((dishes) => setCanonicalDishes(Array.isArray(dishes) ? dishes : []))
       .catch(() => setCanonicalDishes([]));
   }, []);
 
@@ -169,7 +169,7 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
       {/* Header Info */}
       <div className="flex flex-col gap-5 rounded-2xl border border-outline-variant bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-4">
-          {profile.images && profile.images.length > 0 ? (
+          {profile.images && profile.images.length > 0 && profile.images[0]?.image_url ? (
             <img
               src={profile.images[0].image_url}
               alt={business.name}
@@ -378,16 +378,16 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
               {/* Detailed Menu Categories and Items */}
               {isMenuExpanded && menu?.categories && (
                 <div className="mt-4 space-y-4 border-t border-outline-variant/50 pt-4">
-                  {menu.categories.map((cat) => (
-                    <div key={cat.category.id} className="rounded-lg bg-surface-container/30 p-3 border border-outline-variant/40">
+                  {(menu.categories || []).map((cat, catIdx) => (
+                    <div key={cat?.category?.id || catIdx} className="rounded-lg bg-surface-container/30 p-3 border border-outline-variant/40">
                       <div className="flex items-center justify-between font-bold text-on-surface text-sm mb-2">
-                        <span>{cat.category.name}</span>
+                        <span>{cat?.category?.name || "Category"}</span>
                         <span className="text-xs font-normal text-on-surface-variant">
-                          {cat.items?.length || 0} items
+                          {cat?.items?.length || 0} items
                         </span>
                       </div>
                       <div className="divide-y divide-outline-variant/30">
-                        {(cat.items || []).map((item) => (
+                        {(cat?.items || []).map((item) => (
                           <div
                             key={item.id}
                             className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
@@ -395,7 +395,10 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-on-surface">{item.name}</span>
                               <span className="text-on-surface-variant font-mono">
-                                {(item.price_etb_minor / 100).toFixed(0)} ETB
+                                {typeof item.price_etb_minor === "number"
+                                  ? (item.price_etb_minor / 100).toFixed(0)
+                                  : "0"}{" "}
+                                ETB
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -569,7 +572,7 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
                 className="w-full rounded-xl border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
               >
                 <option value="">None / Unclassified (raw menu item)</option>
-                {canonicalDishes.map((dish) => (
+                {(Array.isArray(canonicalDishes) ? canonicalDishes : []).map((dish) => (
                   <option key={dish.id} value={dish.id}>
                     {dish.name} {dish.description ? `— ${dish.description}` : ""}
                   </option>

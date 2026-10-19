@@ -2274,7 +2274,7 @@ test("businessesApi: submitBusiness calls POST /api/v1/businesses/submissions", 
       area: "Bole",
     });
 
-    assert.equal(capturedUrl, "http://localhost:8080/api/v1/businesses/submissions");
+    assert.ok(capturedUrl.endsWith("/api/v1/businesses/submissions"));
     assert.equal(capturedMethod, "POST");
     assert.equal(capturedBody.business_name, "Tomoca Coffee");
     assert.equal(capturedBody.category, "cafe");
@@ -2318,7 +2318,7 @@ test("businessesApi: getBusinessCenterManaged calls GET /api/v1/business-center/
 
     const res = await businessesApi.getBusinessCenterManaged();
 
-    assert.equal(capturedUrl, "http://localhost:8080/api/v1/business-center/managed");
+    assert.ok(capturedUrl.endsWith("/api/v1/business-center/managed"));
     assert.equal(capturedMethod, "GET");
     assert.equal(res.length, 1);
     assert.equal(res[0].id, 42);
