@@ -48,6 +48,12 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    listAdminDishes({ limit: 100 })
+      .then((dishes) => setCanonicalDishes(Array.isArray(dishes) ? dishes : []))
+      .catch(() => setCanonicalDishes([]));
+  }, []);
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl space-y-6">
@@ -119,11 +125,6 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
     }
   };
 
-  useEffect(() => {
-    listAdminDishes({ limit: 100 })
-      .then((dishes) => setCanonicalDishes(Array.isArray(dishes) ? dishes : []))
-      .catch(() => setCanonicalDishes([]));
-  }, []);
 
   const handleOpenMapping = (item: MenuItem) => {
     setSelectedItemForMapping(item);
