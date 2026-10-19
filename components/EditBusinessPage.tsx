@@ -1079,12 +1079,14 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                 </div>
               </div>
 
-              <div className="mt-5">
-                <h4 className="text-sm font-semibold text-on-surface">About</h4>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-                  {formData.description || loadedBusiness?.description}
-                </p>
-              </div>
+              {(formData.description || loadedBusiness?.description) ? (
+                <div className="mt-5">
+                  <h4 className="text-sm font-semibold text-on-surface">About</h4>
+                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    {formData.description || loadedBusiness?.description}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="mt-5 grid gap-3">
                 {formData.phone && (

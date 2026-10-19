@@ -131,21 +131,21 @@ export default async function BusinessProfile({
 
   if (!profileData) return <MissingBusiness />;
 
-  const address = `${profileData.location}, Addis Ababa, Ethiopia`;
-  const amenities = profileData.tags.filter((tag: string) =>
+  const address = profileData.address || (profileData.location ? `${profileData.location}, Addis Ababa, Ethiopia` : "");
+  const amenities = (profileData.tags || []).filter((tag: string) =>
     ["Credit card accepted", "Wi-Fi available", "Parking available", "Family friendly"].includes(tag),
   );
-  const highlights = profileData.tags.filter((tag: string) => !amenities.includes(tag)).slice(0, 3);
+  const highlights = (profileData.tags || []).filter((tag: string) => !amenities.includes(tag)).slice(0, 3);
 
   const formattedOpeningHours =
     typeof profileData.openingHours === "string"
-      ? profileData.openingHours || "Hours not available"
+      ? profileData.openingHours
       : Array.isArray(profileData.openingHours)
         ? profileData.openingHours
             .filter((h: any) => !h.isClosed)
             .map((h: any) => `${h.day}: ${h.open} – ${h.close}`)
-            .join(", ") || "Closed"
-        : "Hours not available";
+            .join(", ")
+        : "";
 
   return (
     <div className="w-full bg-background">
@@ -180,21 +180,33 @@ export default async function BusinessProfile({
               >
                 <BusinessRatingSummary businessId={profileData.id} />
               </a>
-              <span className="text-on-surface-variant">{profileData.priceRange}</span>
-              <span className="text-on-surface-variant">{profileData.cuisine}</span>
+              {profileData.priceRange ? (
+                <span className="text-on-surface-variant">{profileData.priceRange}</span>
+              ) : null}
+              {profileData.cuisine ? (
+                <span className="text-on-surface-variant">{profileData.cuisine}</span>
+              ) : null}
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
-                  location_on
-                </span>
-                <strong className="text-on-surface">{profileData.location}</strong>
-              </span>
-              <span>{profileData.distance} around Bole</span>
-              <span className={profileData.isOpen ? "font-semibold text-primary" : "font-semibold text-secondary"}>
-                ● {profileData.isOpen ? "Open now" : "Closed"}
-              </span>
-            </div>
+            {(profileData.location || profileData.distance || formattedOpeningHours) && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant">
+                {profileData.location && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
+                      location_on
+                    </span>
+                    <strong className="text-on-surface">{profileData.location}</strong>
+                  </span>
+                )}
+                {profileData.distance && (
+                  <span>{profileData.distance}</span>
+                )}
+                {formattedOpeningHours && (
+                  <span className={profileData.isOpen ? "font-semibold text-primary" : "font-semibold text-secondary"}>
+                    ● {profileData.isOpen ? "Open now" : "Closed"}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <BusinessProfileActions
             businessId={profileData.id}
@@ -215,7 +227,9 @@ export default async function BusinessProfile({
         >
           <div className="flex min-w-max gap-7">
             {[
-              ["overview", "Overview"],
+              ...(profileData.description || highlights.length > 0
+                ? [["overview", "Overview"]]
+                : []),
               ["menu", "Menu"],
               ["photos", "Photos"],
               ["updates", "Updates"],
@@ -238,25 +252,34 @@ export default async function BusinessProfile({
 
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-16">
           <main className="min-w-0">
-            <section id="overview" className="scroll-mt-36 border-b border-outline-variant pb-10">
-              <SectionHeading eyebrow="The place" title="About" />
-              <p className="max-w-3xl text-[15px] leading-7 text-on-surface-variant">
-                {profileData.description}
-              </p>
-              <div className="mt-8">
-                <h3 className="mb-3 text-base font-bold text-on-surface">Highlights</h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {highlights.map((tag: string) => (
-                    <div key={tag} className="flex items-center gap-2 text-sm text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
-                        check_circle
-                      </span>
-                      {tag}
+            {/* Overview / About / Highlights - Only shown if business actually has description or highlights */}
+            {(profileData.description || highlights.length > 0) && (
+              <section id="overview" className="scroll-mt-36 border-b border-outline-variant pb-10">
+                {profileData.description && (
+                  <>
+                    <SectionHeading eyebrow="The place" title="About" />
+                    <p className="max-w-3xl text-[15px] leading-7 text-on-surface-variant whitespace-pre-line">
+                      {profileData.description}
+                    </p>
+                  </>
+                )}
+                {highlights.length > 0 && (
+                  <div className={profileData.description ? "mt-8" : ""}>
+                    <h3 className="mb-3 text-base font-bold text-on-surface">Highlights</h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {highlights.map((tag: string) => (
+                        <div key={tag} className="flex items-center gap-2 text-sm text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">
+                            check_circle
+                          </span>
+                          {tag}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </section>
+                  </div>
+                )}
+              </section>
+            )}
 
             <section id="menu" className="scroll-mt-36 border-b border-outline-variant py-10">
               <SectionHeading eyebrow="What you can eat" title="Popular dishes" />
@@ -298,39 +321,43 @@ export default async function BusinessProfile({
               </section>
             )}
 
-            <section
-              className="rounded-[14px] border border-outline-variant bg-white p-5"
-              aria-labelledby="good-to-know-heading"
-            >
-              <h2 id="good-to-know-heading" className="text-lg font-bold text-on-surface">
-                Good to know
-              </h2>
-              <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
-                <Info icon="location_on" label="Location" value={address} />
-                <Info icon="schedule" label="Hours" value={formattedOpeningHours} />
-                <Info icon="call" label="Phone" value={profileData.phone} />
-                {amenities.map((tag: string) => (
-                  <Info
-                    key={tag}
-                    icon={
-                      tag.includes("Wi-Fi")
-                        ? "wifi"
-                        : tag.includes("Parking")
-                        ? "local_parking"
-                        : tag.includes("Credit")
-                        ? "credit_card"
-                        : "family_restroom"
-                    }
-                    label={tag.replace(" available", "")}
-                    value={tag.includes("available") ? "Available" : "Yes"}
-                  />
-                ))}
-              </div>
-              <ReportBusinessModal
-                businessId={profileData.id}
-                businessName={profileData.name}
-              />
-            </section>
+            {(address || formattedOpeningHours || profileData.phone || amenities.length > 0) && (
+              <section
+                className="rounded-[14px] border border-outline-variant bg-white p-5"
+                aria-labelledby="good-to-know-heading"
+              >
+                <h2 id="good-to-know-heading" className="text-lg font-bold text-on-surface">
+                  Good to know
+                </h2>
+                <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
+                  {address && <Info icon="location_on" label="Location" value={address} />}
+                  {formattedOpeningHours && (
+                    <Info icon="schedule" label="Hours" value={formattedOpeningHours} />
+                  )}
+                  {profileData.phone && <Info icon="call" label="Phone" value={profileData.phone} />}
+                  {amenities.map((tag: string) => (
+                    <Info
+                      key={tag}
+                      icon={
+                        tag.includes("Wi-Fi")
+                          ? "wifi"
+                          : tag.includes("Parking")
+                          ? "local_parking"
+                          : tag.includes("Credit")
+                          ? "credit_card"
+                          : "family_restroom"
+                      }
+                      label={tag.replace(" available", "")}
+                      value={tag.includes("available") ? "Available" : "Yes"}
+                    />
+                  ))}
+                </div>
+                <ReportBusinessModal
+                  businessId={profileData.id}
+                  businessName={profileData.name}
+                />
+              </section>
+            )}
           </aside>
         </div>
       </div>

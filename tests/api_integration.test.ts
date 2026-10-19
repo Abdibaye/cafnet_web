@@ -146,7 +146,7 @@ test("businessToCardItem converts API business model to UI card item", () => {
   assert.equal(card.id, 101);
   assert.equal(card.name, "Tomoca Coffee");
   assert.equal(card.description, "Legendary buna roaster.");
-  assert.equal(card.location, "Piazza, 350m");
+  assert.equal(card.location, "Piazza");
   assert.equal(card.tags.includes("Authentic Buna"), true);
 });
 

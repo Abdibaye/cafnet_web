@@ -27,13 +27,14 @@ const technicalSignals = new Set([
 ]);
 
 function getDiscoverySignal(tags: string[]) {
-  return tags.find((tag) => !technicalSignals.has(tag.toLowerCase())) || "Worth exploring";
+  if (!tags || tags.length === 0) return "";
+  return tags.find((tag) => !technicalSignals.has(tag.toLowerCase())) || "";
 }
 
 export default function BusinessCard({ item }: BusinessCardProps) {
   const { isSaved, requestAction } = useCustomer();
   const saved = isSaved(item.id);
-  const [place, distance] = item.location.split(/,\s*(?=\d)/, 2);
+  const [place, distance] = (item.location || "").split(/,\s*(?=\d)/, 2);
   const discoverySignal = getDiscoverySignal(item.tags);
 
   return (
@@ -71,24 +72,36 @@ export default function BusinessCard({ item }: BusinessCardProps) {
           </h3>
         </Link>
 
-        <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[13px] leading-5">
-          <span className="material-symbols-outlined shrink-0 text-[17px] text-secondary">location_on</span>
-          <span className="truncate text-on-surface-variant">{place}</span>
-          {distance && <span className="shrink-0 text-on-surface-variant/70">· {distance}</span>}
-        </div>
+        {place ? (
+          <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[13px] leading-5">
+            <span className="material-symbols-outlined shrink-0 text-[17px] text-secondary">location_on</span>
+            <span className="truncate text-on-surface-variant">{place}</span>
+            {distance && <span className="shrink-0 text-on-surface-variant/70">· {distance}</span>}
+          </div>
+        ) : null}
 
-        <p className="mt-3 line-clamp-2 min-h-10 text-[13px] leading-5 text-on-surface-variant">
-          {item.description}
-        </p>
+        {item.description ? (
+          <p className="mt-3 line-clamp-2 text-[13px] leading-5 text-on-surface-variant">
+            {item.description}
+          </p>
+        ) : null}
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-5 text-[12px] leading-4">
           <div className="flex min-w-0 items-center gap-2">
-            {item.reviews > 0 ? <><span className="shrink-0 font-semibold text-secondary">
-              {item.rating.toFixed(1)} <span aria-hidden="true">★</span>
-            </span>
-            <span className="truncate text-on-surface-variant">· {item.reviews.toLocaleString()} reviews</span></> : <span className="font-semibold text-primary">New on Cafnet</span>}
+            {item.reviews > 0 ? (
+              <>
+                <span className="shrink-0 font-semibold text-secondary">
+                  {item.rating.toFixed(1)} <span aria-hidden="true">★</span>
+                </span>
+                <span className="truncate text-on-surface-variant">· {item.reviews.toLocaleString()} reviews</span>
+              </>
+            ) : (
+              <span className="font-semibold text-primary">New on Cafnet</span>
+            )}
           </div>
-          <span className="max-w-[42%] shrink-0 text-right font-semibold text-primary">{discoverySignal}</span>
+          {discoverySignal ? (
+            <span className="max-w-[42%] shrink-0 text-right font-semibold text-primary">{discoverySignal}</span>
+          ) : null}
         </div>
       </div>
     </article>
