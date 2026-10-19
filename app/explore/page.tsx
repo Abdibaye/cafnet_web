@@ -125,7 +125,7 @@ export default async function ExplorePage() {
       </section>
       <BusinessSection
         heading="Popular near you"
-        supportingText="Places people are discovering around Bole."
+        supportingText="Places people are discovering near you."
         items={popularPlaces}
       />
       <BusinessSection

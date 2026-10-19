@@ -12,21 +12,37 @@ export const revalidate = 0;
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; location?: string }>;
 }) {
   const params = await searchParams;
   const query = params.q?.trim() || "";
+  const location = params.location?.trim() || "";
+  const effectiveQuery = query || location;
   let results: BusinessCardItem[] = [];
   let foodResponse: FoodSearchResponse = { canonical_dish: null, items: [] };
 
-  if (query) {
+  if (effectiveQuery) {
+    // If query and location are both given, search combined; if empty query, search location
+    const searchQuery = query && location ? `${query} ${location}` : effectiveQuery;
     const [bizSettled, foodSettled] = await Promise.allSettled([
-      apiSearchBusinesses({ q: query }),
-      searchFood({ q: query }),
+      apiSearchBusinesses({ q: searchQuery }),
+      searchFood({ q: query || location }),
     ]);
 
     if (bizSettled.status === "fulfilled" && bizSettled.value.results) {
-      results = bizSettled.value.results.map((r) => businessToCardItem(r.business));
+      // If combined search had no matches, fallback to query alone
+      if (bizSettled.value.results.length === 0 && query && location) {
+        try {
+          const fallbackRes = await apiSearchBusinesses({ q: query });
+          if (fallbackRes.results) {
+            results = fallbackRes.results.map((r) => businessToCardItem(r.business));
+          }
+        } catch {
+          results = [];
+        }
+      } else {
+        results = bizSettled.value.results.map((r) => businessToCardItem(r.business));
+      }
     }
     if (foodSettled.status === "fulfilled" && foodSettled.value) {
       foodResponse = foodSettled.value;
@@ -42,7 +58,7 @@ export default async function SearchPage({
       <SearchBar initialQuery={query} />
       <section className="brand-section bg-background pt-2 md:pt-6">
         <div className="mx-auto max-w-7xl px-5 lg:px-12">
-          {query ? (
+          {effectiveQuery ? (
             <>
               {/* Search Header */}
               <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
@@ -51,7 +67,11 @@ export default async function SearchPage({
                     Food & Place Discovery
                   </p>
                   <h1 className="mt-2 text-2xl font-bold text-on-surface md:text-[28px]">
-                    Results for &quot;{query}&quot;
+                    {query && location
+                      ? `Results for "${query}" near ${location}`
+                      : query
+                      ? `Results for "${query}"`
+                      : `Places and restaurants in ${location}`}
                   </h1>
                   {canonicalDish && (
                     <div className="mt-2 flex items-center gap-2">
@@ -205,7 +225,9 @@ export default async function SearchPage({
               {!hasFoodResults && !hasPlaceResults && (
                 <div className="border border-dashed border-outline-variant bg-white px-6 py-12 text-center">
                   <h2 className="text-lg font-bold text-on-surface">
-                    No dishes or places found for &quot;{query}&quot;
+                    No dishes or places found for &quot;
+                    {query && location ? `${query} near ${location}` : effectiveQuery}
+                    &quot;
                   </h2>
                   <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-on-surface-variant">
                     Try searching for dishes like Tibs, Kitfo, Shiro, Pizza, or a restaurant name.
@@ -236,7 +258,7 @@ export default async function SearchPage({
                 Tell us what you&apos;re looking for.
               </h1>
               <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-                Search restaurants, cafés, cuisines, dishes (like Tibs, Kitfo, Shiro), or places around Bole.
+                Search restaurants, cafés, cuisines, dishes (like Tibs, Kitfo, Shiro), or places around you.
               </p>
               <div className="mt-6">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">

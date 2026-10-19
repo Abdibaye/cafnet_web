@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocation } from "@/components/LocationProvider";
 
 /* ── Static neighbourhood suggestions ─────────────────────── */
 const LOCATIONS = [
@@ -11,136 +12,6 @@ const LOCATIONS = [
   { label: "Merkato",   icon: "location_on" },
 ];
 
-/* ── Geo states ────────────────────────────────────────────── */
-type GeoStatus = "idle" | "loading" | "success" | "denied" | "error";
-
-/* ── Declare the google global that the Maps JS SDK injects ── */
-declare global {
-  interface Window {
-    google?: {
-      maps: {
-        Geocoder: new () => {
-          geocode: (
-            request: { location: { lat: number; lng: number } },
-            callback: (
-              results: Array<{
-                address_components: Array<{ long_name: string; types: string[] }>;
-                formatted_address: string;
-              }> | null,
-              status: string
-            ) => void
-          ) => void;
-        };
-      };
-    };
-  }
-}
-
-/* ── Preferred component types (most specific → least) ───── */
-const PREFERRED_TYPES = [
-  "neighborhood",
-  "sublocality_level_1",
-  "sublocality",
-  "administrative_area_level_2",
-  "locality",
-];
-
-/**
- * Reverse-geocode using google.maps.Geocoder (Maps JS SDK loaded via <script>
- * in layout.tsx — same pattern as the official Google Maps demo).
- * Falls back silently to OSM Nominatim when billing is not yet active.
- */
-async function reverseGeocode(lat: number, lon: number): Promise<string> {
-  // ── Try Google Maps JS SDK Geocoder ───────────────────────
-  if (typeof window !== "undefined" && window.google?.maps?.Geocoder) {
-    return new Promise<string>((resolve) => {
-      const geocoder = new window.google!.maps.Geocoder();
-      geocoder.geocode({ location: { lat, lng: lon } }, (results, status) => {
-        if (status === "OK" && results && results.length > 0) {
-          for (const result of results) {
-            for (const targetType of PREFERRED_TYPES) {
-              const match = result.address_components.find((c) =>
-                c.types.includes(targetType)
-              );
-              if (match?.long_name) {
-                resolve(match.long_name);
-                return;
-              }
-            }
-          }
-          // Fallback to first segment of formatted_address
-          resolve(results[0].formatted_address.split(",")[0]);
-        } else {
-          // Non-OK status (e.g. billing not yet enabled) → silent fallback
-          reverseGeocodeNominatim(lat, lon)
-            .then(resolve)
-            .catch(() => resolve("Current location"));
-        }
-      });
-    });
-  }
-
-  // ── Fallback: OSM Nominatim (free, no billing required) ───
-  return reverseGeocodeNominatim(lat, lon);
-}
-
-/* ── OSM Nominatim reverse geocoding ─────────────────────── */
-async function reverseGeocodeNominatim(lat: number, lon: number): Promise<string> {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=en`;
-  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-  if (!res.ok) throw new Error("Nominatim error");
-  const data = await res.json();
-  const a = data.address ?? {};
-  return (
-    a.neighbourhood ||
-    a.suburb        ||
-    a.quarter       ||
-    a.village       ||
-    a.town          ||
-    a.city_district ||
-    a.district      ||
-    a.city          ||
-    a.county        ||
-    "Current location"
-  );
-}
-
-
-
-/* ── Shared hook: geolocation + reverse-geocoding ──────────── */
-function useCurrentLocation(onSuccess: (label: string) => void) {
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
-
-  const detect = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoStatus("error");
-      return;
-    }
-    setGeoStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const label = await reverseGeocode(
-            pos.coords.latitude,
-            pos.coords.longitude
-          );
-          setGeoStatus("success");
-          onSuccess(label);
-        } catch {
-          setGeoStatus("error");
-          onSuccess("Current location");
-        }
-      },
-      (err) => {
-        setGeoStatus(err.code === 1 ? "denied" : "error");
-      },
-      { timeout: 8000 }
-    );
-  }, [onSuccess]);
-
-  return { geoStatus, detect };
-}
-
 /* ── Location dropdown (shared between desktop & mobile) ───── */
 function LocationDropdown({
   onSelect,
@@ -149,65 +20,69 @@ function LocationDropdown({
   onSelect: (label: string) => void;
   onClose: () => void;
 }) {
+  const { location, geoStatus, isDetecting, detectLocation } = useLocation();
+
   const handleSelect = (label: string) => {
     onSelect(label);
     onClose();
   };
 
-  const { geoStatus, detect } = useCurrentLocation((label) => {
-    handleSelect(label);
-  });
-
-  const geoLabel: Record<GeoStatus, string> = {
-    idle:    "Use current location",
-    loading: "Detecting location…",
-    success: "Location detected",
-    denied:  "Permission denied",
-    error:   "Could not detect location",
-  };
-
-  const geoIcon: Record<GeoStatus, string> = {
-    idle:    "my_location",
-    loading: "sync",
-    success: "my_location",
-    denied:  "location_disabled",
-    error:   "location_off",
+  const handleUseCurrentLocation = () => {
+    if (location) {
+      handleSelect(location);
+    } else {
+      detectLocation();
+    }
   };
 
   return (
     <>
-      {/* Auto-detect */}
+      {/* Current location button */}
       <button
         type="button"
-        disabled={geoStatus === "loading"}
-        className={`flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm font-semibold transition-colors focus-visible:outline-none ${
-          geoStatus === "denied" || geoStatus === "error"
-            ? "text-secondary cursor-not-allowed opacity-70"
+        disabled={isDetecting}
+        className={`flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-sm font-semibold transition-colors focus-visible:outline-none ${
+          geoStatus === "denied"
+            ? "text-secondary cursor-pointer hover:bg-surface-container-low"
             : "text-primary hover:bg-primary-container cursor-pointer"
         }`}
-        onClick={detect}
+        onClick={handleUseCurrentLocation}
       >
-        <span
-          className={`material-symbols-outlined text-[20px] shrink-0 ${
-            geoStatus === "loading" ? "animate-spin" : ""
-          } ${
-            geoStatus === "denied" || geoStatus === "error"
-              ? "text-secondary"
-              : "text-primary"
-          }`}
-          aria-hidden="true"
-        >
-          {geoIcon[geoStatus]}
-        </span>
-        {geoLabel[geoStatus]}
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className={`material-symbols-outlined text-[20px] shrink-0 ${
+              isDetecting ? "animate-spin text-primary" : "text-primary"
+            }`}
+            aria-hidden="true"
+          >
+            {isDetecting ? "sync" : "my_location"}
+          </span>
+          <span className="truncate">
+            {isDetecting
+              ? "Detecting location…"
+              : location
+              ? `Current location (${location})`
+              : "Use current location"}
+          </span>
+        </div>
+        {location && (
+          <span className="material-symbols-outlined text-[18px] text-primary shrink-0" aria-hidden="true">
+            check_circle
+          </span>
+        )}
       </button>
 
-      {/* Error hint */}
-      {(geoStatus === "denied" || geoStatus === "error") && (
+      {/* Permission denied hint */}
+      {geoStatus === "denied" && (
         <p className="px-4 pb-2 text-[11px] text-on-surface-variant leading-snug">
-          {geoStatus === "denied"
-            ? "Allow location access in your browser settings."
-            : "Something went wrong. Please try again."}
+          Location access denied. Enable location in your browser settings to auto-detect.
+        </p>
+      )}
+
+      {/* Error hint */}
+      {geoStatus === "error" && !location && (
+        <p className="px-4 pb-2 text-[11px] text-on-surface-variant leading-snug">
+          Could not detect location. Tap to retry or select a neighborhood below.
         </p>
       )}
 
@@ -241,9 +116,10 @@ function LocationDropdown({
 ══════════════════════════════════════════════════════════════ */
 export default function SplitSearchBar() {
   const router = useRouter();
+  const { location, placeholder, isDetecting } = useLocation();
 
   const [what, setWhat]               = useState("");
-  const [where, setWhere]             = useState("Bole");
+  const [where, setWhere]             = useState("");
   const [whatFocused, setWhatFocused] = useState(false);
   const [whereOpen, setWhereOpen]     = useState(false);
 
@@ -274,7 +150,7 @@ export default function SplitSearchBar() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q   = what.trim();
-    const loc = where.trim();
+    const loc = (where.trim() || location || "").trim();
     if (!q && !loc) return;
     const params = new URLSearchParams();
     if (q)   params.set("q", q);
@@ -325,28 +201,54 @@ export default function SplitSearchBar() {
           {/* Where */}
           <div className="relative shrink-0">
             <div
-              className={`flex items-center gap-2.5 px-5 py-3.5 cursor-pointer min-w-[160px] transition-colors select-none ${
+              className={`flex items-center gap-2.5 px-5 py-3.5 cursor-pointer min-w-[200px] transition-colors select-none ${
                 whereOpen ? "bg-surface-container-low" : ""
               }`}
-              onClick={() => setWhereOpen((o) => !o)}
+              onClick={() => {
+                setWhereOpen((o) => !o);
+                whereInputRef.current?.focus();
+              }}
             >
               <span
                 className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                  whereOpen ? "text-primary" : "text-outline"
+                  isDetecting
+                    ? "animate-spin text-primary"
+                    : whereOpen || location
+                    ? "text-primary"
+                    : "text-outline"
                 }`}
                 aria-hidden="true"
               >
-                location_on
+                {isDetecting ? "sync" : "location_on"}
               </span>
               <input
                 ref={whereInputRef}
-                className="w-full bg-transparent border-0 p-0 text-sm font-medium text-on-surface outline-none focus:ring-0 placeholder:text-outline placeholder:font-normal cursor-pointer pointer-events-none"
-                placeholder="Neighbourhood or city..."
+                className="w-full bg-transparent border-0 p-0 text-sm font-medium text-on-surface outline-none focus:ring-0 placeholder:text-outline placeholder:font-normal cursor-pointer"
+                placeholder={placeholder}
                 type="text"
                 value={where}
-                readOnly
-                tabIndex={-1}
+                onChange={(e) => setWhere(e.target.value)}
+                onFocus={() => setWhereOpen(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setWhereOpen(true);
+                }}
               />
+              {where && (
+                <button
+                  type="button"
+                  aria-label="Clear location"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setWhere("");
+                  }}
+                  className="shrink-0 flex size-5 items-center justify-center rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                    close
+                  </span>
+                </button>
+              )}
               <span
                 className={`material-symbols-outlined text-[18px] shrink-0 text-outline transition-transform duration-200 ${
                   whereOpen ? "rotate-180" : ""
@@ -359,7 +261,7 @@ export default function SplitSearchBar() {
 
             {/* Dropdown */}
             {whereOpen && (
-              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-xl">
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 min-w-[260px] overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-xl">
                 <LocationDropdown
                   onSelect={(label) => setWhere(label)}
                   onClose={() => setWhereOpen(false)}
@@ -384,6 +286,8 @@ export default function SplitSearchBar() {
           setWhat={setWhat}
           where={where}
           setWhere={setWhere}
+          placeholder={placeholder}
+          isDetecting={isDetecting}
           onSubmit={handleSubmit}
         />
       </div>
@@ -397,12 +301,16 @@ function MobileSearchBar({
   setWhat,
   where,
   setWhere,
+  placeholder,
+  isDetecting,
   onSubmit,
 }: {
   what: string;
   setWhat: (v: string) => void;
   where: string;
   setWhere: (v: string) => void;
+  placeholder: string;
+  isDetecting: boolean;
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const [whereOpen, setWhereOpen] = useState(false);
@@ -426,7 +334,7 @@ function MobileSearchBar({
             type="button"
             aria-label="Clear"
             onClick={() => setWhat("")}
-            className="shrink-0 flex size-6 items-center justify-center rounded-full bg-surface-container text-on-surface-variant"
+            className="shrink-0 flex size-6 items-center justify-center rounded-full bg-surface-container text-on-surface-variant cursor-pointer"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">close</span>
           </button>
@@ -437,17 +345,42 @@ function MobileSearchBar({
       <div className="relative">
         <button
           type="button"
-          className="flex w-full items-center gap-3 rounded-2xl bg-white border border-outline-variant px-4 py-3.5 shadow-sm text-left"
+          className="flex w-full items-center gap-3 rounded-2xl bg-white border border-outline-variant px-4 py-3.5 shadow-sm text-left cursor-pointer"
           onClick={() => setWhereOpen((o) => !o)}
         >
-          <span className="material-symbols-outlined text-[20px] text-outline shrink-0" aria-hidden="true">
-            location_on
-          </span>
-          <span className={`flex-1 text-sm font-medium ${where ? "text-on-surface" : "text-outline"}`}>
-            {where || "Neighbourhood or city..."}
+          <span
+            className={`material-symbols-outlined text-[20px] shrink-0 ${
+              isDetecting ? "animate-spin text-primary" : "text-outline"
+            }`}
+            aria-hidden="true"
+          >
+            {isDetecting ? "sync" : "location_on"}
           </span>
           <span
-            className={`material-symbols-outlined text-[18px] text-outline transition-transform duration-200 ${
+            className={`flex-1 text-sm font-medium truncate ${
+              where ? "text-on-surface" : "text-outline"
+            }`}
+          >
+            {where || placeholder}
+          </span>
+          {where && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear location"
+              onClick={(e) => {
+                e.stopPropagation();
+                setWhere("");
+              }}
+              className="shrink-0 flex size-6 items-center justify-center rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                close
+              </span>
+            </span>
+          )}
+          <span
+            className={`material-symbols-outlined text-[18px] text-outline transition-transform duration-200 shrink-0 ${
               whereOpen ? "rotate-180" : ""
             }`}
             aria-hidden="true"
