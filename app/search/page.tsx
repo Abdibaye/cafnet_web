@@ -6,6 +6,9 @@ import { searchBusinesses as apiSearchBusinesses, searchFood } from "@/lib/api/s
 import { businessToCardItem } from "@/lib/api/adapters";
 import type { FoodSearchResponse } from "@/lib/api/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function SearchPage({
   searchParams,
 }: {

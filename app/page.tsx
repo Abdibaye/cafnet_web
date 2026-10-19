@@ -4,6 +4,9 @@ import SplitSearchBar from "@/components/sections/SplitSearchBar";
 import { listBusinesses } from "@/lib/api/businesses";
 import { businessToCardItem } from "@/lib/api/adapters";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const cuisines = ["Ethiopian", "Italian", "Asian", "Indian", "Bakery", "Coffee"];
 
 function BusinessSection({ heading, items }: { heading: string; items: BusinessCardItem[] }) {
@@ -46,8 +49,15 @@ export default async function Home() {
     const res = await listBusinesses({ category: "restaurant", limit: 3 });
     if (res.businesses && res.businesses.length > 0) {
       popularPlaces = res.businesses.map((b) => businessToCardItem(b));
+    } else {
+      // Graceful fallback to any top venues if restaurant category is empty
+      const anyRes = await listBusinesses({ limit: 3 });
+      if (anyRes.businesses && anyRes.businesses.length > 0) {
+        popularPlaces = anyRes.businesses.map((b) => businessToCardItem(b));
+      }
     }
-  } catch {
+  } catch (err) {
+    console.error("Failed to fetch popular businesses for homepage:", err);
     popularPlaces = [];
   }
   return (

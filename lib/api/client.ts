@@ -17,7 +17,7 @@ export interface ClientResponse<T> {
 const DEFAULT_TIMEOUT_MS = 15000;
 
 export function getBaseApiUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const url = process.env.NEXT_PUBLIC_API_URL || "https://cafnet-api.onrender.com";
   return url.replace(/\/+$/, "");
 }
 
@@ -70,6 +70,7 @@ export async function apiClient<T>(
   let response: Response;
   try {
     response = await fetch(fullUrl, {
+      cache: fetchOptions.cache || "no-store",
       ...fetchOptions,
       headers,
       body: serializedBody,

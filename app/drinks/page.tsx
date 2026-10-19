@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: "Discover juice bars, lounges, and drinks spots in Addis Ababa.",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DrinksPage() {
   let items: BusinessCardItem[] = [];
 
