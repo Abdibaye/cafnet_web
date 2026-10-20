@@ -6,12 +6,14 @@ import type { MockBusiness } from "@/data/mockBusinesses";
 import type { BusinessClaim, BusinessSubmission } from "@/data/businessOwnerStorage";
 import type { BusinessProfileViewModel } from "@/lib/api/adapters";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
+import { useCustomer } from "@/components/CustomerProvider";
 
 type BusinessManagementCardProps = {
   business?: MockBusiness | BusinessProfileViewModel;
   claim?: BusinessClaim;
   submission?: BusinessSubmission;
   isManaged?: boolean;
+  onDelete?: (businessId: string | number, businessName: string) => void;
 };
 
 export default function BusinessManagementCard({
@@ -19,9 +21,12 @@ export default function BusinessManagementCard({
   claim,
   submission,
   isManaged: propIsManaged,
+  onDelete,
 }: BusinessManagementCardProps) {
   const [imgError, setImgError] = useState(false);
   const { isBusinessManaged } = useBusinessOwner();
+  const { currentUser } = useCustomer();
+  const isAdmin = currentUser?.role === "ADMIN";
   const contextManaged = business ? isBusinessManaged?.(business.id) : false;
   const isManaged = propIsManaged ?? Boolean(contextManaged || business?.claimStatus === "claimed");
   const title = business?.name || submission?.businessName || "Business";
@@ -73,18 +78,39 @@ export default function BusinessManagementCard({
         </div>
       </div>
 
-      {/* Mobile chevron to indicate full card clickability */}
-      <div className="flex shrink-0 items-center text-outline-variant transition-colors group-hover:text-primary sm:hidden">
-        <span className="material-symbols-outlined text-xl" aria-hidden="true">
-          chevron_right
-        </span>
-      </div>
+      {/* Action buttons */}
+      <div className="flex shrink-0 items-center gap-2">
+        {isAdmin && business?.id && onDelete && (
+          <button
+            type="button"
+            title="Delete business completely"
+            aria-label={`Delete ${title} completely`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(business.id, title);
+            }}
+            className="flex size-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-600 hover:text-white active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+              delete
+            </span>
+          </button>
+        )}
 
-      {/* Desktop "Manage business" button */}
-      <div className="hidden shrink-0 sm:block">
-        <span className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-colors group-hover:bg-[#0f46b8] active:scale-[0.98]">
-          Manage business
-        </span>
+        {/* Mobile chevron to indicate full card clickability */}
+        <div className="flex shrink-0 items-center text-outline-variant transition-colors group-hover:text-primary sm:hidden">
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">
+            chevron_right
+          </span>
+        </div>
+
+        {/* Desktop "Manage business" button */}
+        <div className="hidden shrink-0 sm:block">
+          <span className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-xs transition-colors group-hover:bg-[#0f46b8] active:scale-[0.98]">
+            Manage business
+          </span>
+        </div>
       </div>
     </Link>
   );

@@ -3,11 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { listBusinesses } from "@/lib/api/businesses";
+import { deleteBusiness } from "@/lib/api/admin";
+import { useCustomer } from "@/components/CustomerProvider";
 import type { Business } from "@/lib/api/types";
 
 export default function AdminBusinessesPage() {
+  const { showToast } = useCustomer();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
+  const [businessToDelete, setBusinessToDelete] = useState<{ id: string | number; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [claimFilter, setClaimFilter] = useState<string>("all");
@@ -251,13 +256,25 @@ export default function AdminBusinessesPage() {
 
                 {/* Card footer actions */}
                 <div className="mt-6 flex items-center justify-between border-t border-outline-variant/60 pt-4">
-                  <Link
-                    href={`/admin/businesses/${business.id}`}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-surface-container px-3 text-xs font-bold text-on-surface transition-colors hover:bg-primary hover:text-white"
-                  >
-                    Inspect
-                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/businesses/${business.id}`}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-surface-container px-3 text-xs font-bold text-on-surface transition-colors hover:bg-primary hover:text-white"
+                    >
+                      Inspect
+                      <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => setBusinessToDelete({ id: business.id, name: business.name })}
+                      title="Delete business completely"
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-600 hover:text-white"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      Delete
+                    </button>
+                  </div>
 
                   <Link
                     href={`/business/${business.id}`}
@@ -271,6 +288,62 @@ export default function AdminBusinessesPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {businessToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-delete-modal-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-outline-variant">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 mb-4">
+              <span className="material-symbols-outlined text-2xl">warning</span>
+            </div>
+            <h2 id="admin-delete-modal-title" className="text-lg font-bold text-on-surface">
+              Delete business completely?
+            </h2>
+            <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-on-surface">{businessToDelete.name}</strong> from the platform? This will completely remove the business, its menu, active updates, gallery photos, reviews, and reservations.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setBusinessToDelete(null)}
+                className="h-10 rounded-xl px-4 text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  try {
+                    setIsDeleting(true);
+                    await deleteBusiness(businessToDelete.id);
+                    showToast(`"${businessToDelete.name}" deleted from platform`);
+                    setBusinessToDelete(null);
+                    await loadData();
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : "Failed to delete business";
+                    showToast(msg);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getBusinessProfile } from "@/lib/api/businesses";
 import {
   setBusinessVerification,
   setBusinessPublication,
+  deleteBusiness,
   listAdminDishes,
   mapMenuItemCanonicalDish,
 } from "@/lib/api/admin";
@@ -13,12 +15,15 @@ import type { CanonicalDish, MenuItem, PublicBusinessProfile } from "@/lib/api/t
 import { useCustomer } from "@/components/CustomerProvider";
 
 export default function AdminBusinessDetailPage({ businessId }: { businessId: string }) {
+  const router = useRouter();
   const numId = Number(businessId);
   const { showToast } = useCustomer();
   const [profile, setProfile] = useState<PublicBusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConfirmingVerification, setIsConfirmingVerification] = useState(false);
   const [isConfirmingPublication, setIsConfirmingPublication] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Canonical Food Classification State
@@ -248,6 +253,14 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsConfirmingDelete(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 text-xs font-bold text-red-600 transition-colors hover:bg-red-600 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[17px]">delete</span>
+            Delete business
+          </button>
           <Link
             href={`/business/${business.id}`}
             target="_blank"
@@ -315,6 +328,29 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
           </div>
         </section>
       </div>
+
+      {/* Danger Zone: Permanent Deletion */}
+      <section className="rounded-2xl border border-red-200 bg-red-50/40 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-red-950 flex items-center gap-2">
+              <span className="material-symbols-outlined text-red-600 text-[20px]">warning</span>
+              Danger Zone: Delete Business Completely
+            </h2>
+            <p className="mt-1 text-xs text-red-800 leading-relaxed max-w-xl">
+              Permanently delete this business listing from Cafnet. All associated menus, images, updates, reservations, and customer reviews will be completely removed.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsConfirmingDelete(true)}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[17px]">delete_forever</span>
+            Delete business completely
+          </button>
+        </div>
+      </section>
 
       {/* Details Grid */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -597,6 +633,60 @@ export default function AdminBusinessDetailPage({ businessId }: { businessId: st
                 className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#0f46b8] disabled:opacity-50"
               >
                 {isMappingItem ? "Saving..." : "Save Classification"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isConfirmingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-detail-delete-modal-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-outline-variant">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 mb-4">
+              <span className="material-symbols-outlined text-2xl">warning</span>
+            </div>
+            <h2 id="admin-detail-delete-modal-title" className="text-lg font-bold text-on-surface">
+              Delete business completely?
+            </h2>
+            <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-on-surface">{business.name}</strong> from the platform? This will completely remove the business, its menu, active updates, gallery photos, reviews, and reservations.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsConfirmingDelete(false)}
+                className="h-10 rounded-xl px-4 text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  try {
+                    setIsDeleting(true);
+                    await deleteBusiness(business.id);
+                    showToast(`"${business.name}" deleted completely from platform`);
+                    router.push("/admin/businesses");
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : "Failed to delete business";
+                    showToast(msg);
+                    setIsDeleting(false);
+                  }
+                }}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
               </button>
             </div>
           </div>

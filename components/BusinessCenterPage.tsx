@@ -1,14 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useBusinessOwner } from "@/components/BusinessOwnerProvider";
 import BusinessManagementCard from "@/components/BusinessManagementCard";
 import { businessToViewModel } from "@/lib/api/adapters";
+import { deleteBusiness } from "@/lib/api/businesses";
 
 export default function BusinessCenterPage() {
-  const { authReady, isAuthenticated, startSignIn } = useCustomer();
-  const { ready, claims, submissions, rawManagedBusinesses } = useBusinessOwner();
+  const { authReady, isAuthenticated, startSignIn, showToast } = useCustomer();
+  const { ready, claims, submissions, rawManagedBusinesses, refreshManagedData } = useBusinessOwner();
+  const [businessToDelete, setBusinessToDelete] = useState<{ id: string | number; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!businessToDelete) return;
+    try {
+      setIsDeleting(true);
+      await deleteBusiness(businessToDelete.id);
+      showToast(`"${businessToDelete.name}" deleted completely from platform`);
+      setBusinessToDelete(null);
+      await refreshManagedData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete business";
+      showToast(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   // Server-authoritative managed businesses returned by GET /api/v1/businesses/managed
   const managedBusinesses = (rawManagedBusinesses || []).map((b) => businessToViewModel(b));
@@ -75,7 +96,12 @@ export default function BusinessCenterPage() {
 
           <section id="businesses" className="mt-5 space-y-4">
             {managedBusinesses.map((business) => (
-              <BusinessManagementCard key={`managed-${business.id}`} business={business} isManaged={true} />
+              <BusinessManagementCard
+                key={`managed-${business.id}`}
+                business={business}
+                isManaged={true}
+                onDelete={(id, name) => setBusinessToDelete({ id, name })}
+              />
             ))}
             {displayClaims.map((claim) => {
               const business = managedBusinesses.find((item) => item.id === claim.businessId);
@@ -110,6 +136,49 @@ export default function BusinessCenterPage() {
             </Link>
           </div>
         </section>
+      )}
+
+      {/* Delete Business Confirmation Modal */}
+      {businessToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-business-modal-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-outline-variant">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 mb-4">
+              <span className="material-symbols-outlined text-2xl">warning</span>
+            </div>
+            <h2 id="delete-business-modal-title" className="text-lg font-bold text-on-surface">
+              Delete business completely?
+            </h2>
+            <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-on-surface">{businessToDelete.name}</strong> from the platform? This will completely remove the business, its menu, active updates, gallery photos, reviews, and reservations.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setBusinessToDelete(null)}
+                className="h-10 rounded-xl px-4 text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

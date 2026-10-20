@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBusinessOwner } from "./BusinessOwnerProvider";
 import { useCustomer } from "@/components/CustomerProvider";
-import { getManagedBusiness, getBusinessHours, getBusinessImages, setBusinessImages, deleteBusinessImage } from "@/lib/api/businesses";
+import { getManagedBusiness, getBusinessHours, getBusinessImages, setBusinessImages, deleteBusinessImage, deleteBusiness } from "@/lib/api/businesses";
 import { getBusinessMedia, setBusinessCover, reorderBusinessGallery, deleteMedia } from "@/lib/api/media";
 import { businessToEditableData } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
@@ -58,10 +58,12 @@ function formatPhoneForStorage(phone: string): string {
 
 export default function EditBusinessPage({ businessId }: { businessId: string }) {
   const router = useRouter();
-  const { showToast } = useCustomer();
+  const { currentUser, showToast } = useCustomer();
+  const isAdmin = currentUser?.role === "ADMIN";
   const { 
     ready, 
     updateManagedBusiness,
+    refreshManagedData,
     availableTags,
     priceRangeOptions,
     categoryOptions,
@@ -74,6 +76,8 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isConfirmingDeleteBusiness, setIsConfirmingDeleteBusiness] = useState(false);
+  const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
 
   const initialDataRef = useRef<EditableBusinessData | null>(null);
 
@@ -1054,6 +1058,31 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
               </div>
             )}
           </form>
+
+          {/* Admin Platform Governance Danger Zone */}
+          {isAdmin && (
+            <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-6 shadow-xs">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-red-950 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-red-600 text-[20px]">admin_panel_settings</span>
+                    Platform Governance: Delete Business
+                  </h3>
+                  <p className="mt-1 text-xs text-red-800 leading-relaxed max-w-xl">
+                    Permanently delete this business listing from Cafnet. All menus, gallery images, updates, reservations, and customer reviews will be completely removed.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDeleteBusiness(true)}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-xs transition-colors hover:bg-red-700 active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[17px]">delete_forever</span>
+                  Delete business completely
+                </button>
+              </div>
+            </div>
+          )}
         </main>
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -1404,6 +1433,61 @@ export default function EditBusinessPage({ businessId }: { businessId: string })
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Business Confirmation Modal */}
+      {isConfirmingDeleteBusiness && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-delete-modal-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-outline-variant">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 mb-4">
+              <span className="material-symbols-outlined text-2xl">warning</span>
+            </div>
+            <h2 id="edit-delete-modal-title" className="text-lg font-bold text-on-surface">
+              Delete business completely?
+            </h2>
+            <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
+              Are you sure you want to permanently delete <strong className="text-on-surface">{loadedBusiness?.name || "this business"}</strong> from the platform? This will completely remove the business, its menu, active updates, gallery photos, reviews, and reservations.
+            </p>
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeletingBusiness}
+                onClick={() => setIsConfirmingDeleteBusiness(false)}
+                className="h-10 rounded-xl px-4 text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingBusiness}
+                onClick={async () => {
+                  try {
+                    setIsDeletingBusiness(true);
+                    await deleteBusiness(businessId);
+                    showToast(`"${loadedBusiness?.name || "Business"}" deleted completely from platform`);
+                    await refreshManagedData();
+                    router.push("/business/dashboard");
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : "Failed to delete business";
+                    showToast(msg);
+                    setIsDeletingBusiness(false);
+                  }
+                }}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingBusiness ? "Deleting..." : "Delete Permanently"}
+              </button>
             </div>
           </div>
         </div>
