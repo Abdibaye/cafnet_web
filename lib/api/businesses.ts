@@ -191,3 +191,16 @@ export async function getBusinessCenterManaged(): Promise<Business[]> {
   return res.data || [];
 }
 
+/**
+ * Permanently deletes a business from the platform. Requires admin role.
+ */
+export async function deleteBusiness(
+  businessId: number | string,
+): Promise<{ success: boolean; message: string }> {
+  const res = await api.delete<{ success: boolean; message: string }>(
+    `/api/v1/admin/businesses/${encodeURIComponent(String(businessId))}`,
+  );
+  return res.data;
+}
+
+

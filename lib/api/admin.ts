@@ -310,9 +310,22 @@ export async function mapMenuItemCanonicalDish(
   return res.data;
 }
 
+/**
+ * Permanently delete a business and all its related data from the platform.
+ */
+export async function deleteBusiness(
+  id: string | number,
+): Promise<{ success: boolean; message: string }> {
+  const res = await api.delete<{ success: boolean; message: string }>(
+    `/api/v1/admin/businesses/${encodeURIComponent(String(id))}`,
+  );
+  return res.data;
+}
+
 export const adminApi = {
   getAdminStats,
   createBusiness,
+  deleteBusiness,
   listSubmissions,
   getSubmission,
   approveSubmission,
@@ -341,3 +354,4 @@ export const adminApi = {
   deleteAdminDishAlias,
   mapMenuItemCanonicalDish,
 };
+

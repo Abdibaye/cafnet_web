@@ -2096,6 +2096,15 @@ test("Admin Center API integration (Backend 17)", async () => {
       );
     }
 
+    if (strUrl.includes("/api/v1/admin/businesses/101") && method === "DELETE") {
+      return new Response(
+        JSON.stringify({
+          data: { success: true, message: "Business deleted completely" },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
   }) as typeof fetch;
 
@@ -2126,6 +2135,10 @@ test("Admin Center API integration (Backend 17)", async () => {
     // 6. Toggle publication
     const pubRes = await adminApi.setBusinessPublication(101, "PUBLISHED");
     assert.equal(pubRes.updated, true);
+
+    // 7. Delete business completely
+    const delRes = await adminApi.deleteBusiness(101);
+    assert.equal(delRes.success, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
