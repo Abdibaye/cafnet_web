@@ -35,15 +35,28 @@ export async function searchBusinesses(
 export async function searchFood(
   params: SearchParams,
 ): Promise<FoodSearchResponse> {
-  const queryParams: Record<string, string | number | undefined> = {
-    q: params.q,
-  };
+  const queryParams: Record<string, string | number | undefined> = {};
+  if (params.q !== undefined) queryParams.q = params.q;
   if (params.limit !== undefined) queryParams.limit = params.limit;
   if (params.offset !== undefined) queryParams.offset = params.offset;
+  if (params.max_price !== undefined) queryParams.max_price = params.max_price;
+  if (params.min_price !== undefined) queryParams.min_price = params.min_price;
+  if (params.min_rating !== undefined) queryParams.min_rating = params.min_rating;
+  if (params.neighborhood !== undefined) queryParams.neighborhood = params.neighborhood;
+  if (params.area !== undefined) queryParams.area = params.area;
 
   const res = await api.get<FoodSearchResponse>("/api/v1/dishes/search", {
     params: queryParams,
   });
 
-  return res.data || { canonical_dish: null, items: [] };
+  const data = res.data;
+  if (!data) {
+    return { canonical_dish: null, items: [], results: [] };
+  }
+  const items = data.items || data.results || [];
+  return {
+    canonical_dish: data.canonical_dish || null,
+    items,
+    results: items,
+  };
 }

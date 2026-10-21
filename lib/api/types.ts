@@ -210,6 +210,7 @@ export interface FoodSearchResult {
 export interface FoodSearchResponse {
   canonical_dish?: CanonicalDish | null;
   items: FoodSearchResult[];
+  results?: FoodSearchResult[];
 }
 
 export interface MenuItem {
@@ -457,9 +458,14 @@ export interface BusinessFilterParams {
 }
 
 export interface SearchParams {
-  q: string;
+  q?: string;
   limit?: number;
   offset?: number;
+  max_price?: number;
+  min_price?: number;
+  min_rating?: number;
+  neighborhood?: string;
+  area?: string;
 }
 
 // Reservation DTOs
