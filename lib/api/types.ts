@@ -204,7 +204,10 @@ export interface FoodSearchResult {
   menu_item: MenuItem;
   business: Business;
   canonical_dish?: CanonicalDish | null;
-  matched_by: string;
+  rating?: number;
+  review_count?: number;
+  rank?: number;
+  matched_by?: string;
 }
 
 export interface FoodSearchResponse {
@@ -742,6 +745,59 @@ export interface CreateUploadInput {
 export interface ReorderMediaInput {
   media_ids: string[];
 }
+
+// AI Food Assistant DTOs
+
+export interface FoodSearchFilter {
+  query?: string;
+  max_price_etb_minor?: number;
+  min_price_etb_minor?: number;
+  min_rating?: number;
+  neighborhood?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AssistantMessage {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  intent: string;
+  search_filter?: FoodSearchFilter;
+  matched_dish_id?: string | null;
+  results_count: number;
+  follow_up_suggestions?: string[];
+  created_at: string;
+}
+
+export interface AssistantSession {
+  id: string;
+  user_id?: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages?: AssistantMessage[];
+}
+
+export interface AssistantChatRequest {
+  session_id?: string;
+  message: string;
+  location?: string;
+}
+
+export interface AssistantChatResponse {
+  session_id: string;
+  message: string;
+  intent: string;
+  search_filter?: FoodSearchFilter;
+  canonical_dish?: CanonicalDish | null;
+  results: FoodSearchResult[];
+  items: FoodSearchResult[];
+  follow_up_suggestions: string[];
+  fallback_used: boolean;
+}
+
 
 
 

@@ -15,4 +15,6 @@ export * as adminApi from "./admin";
 export * from "./admin";
 export * as mediaApi from "./media";
 export * from "./media";
+export * as assistantApi from "./assistant";
+export * from "./assistant";
 
