@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { label: "Explore", href: "/explore", icon: "explore" },
   { label: "Restaurants", href: "/restaurants", icon: "restaurant" },
+  { label: "Assistant", href: "/assistant", icon: "auto_awesome" },
   { label: "Cafés", href: "/cafes", icon: "local_cafe" },
-  { label: "Drinks & More", href: "/drinks", icon: "local_bar" },
+  { label: "Drinks", href: "/drinks", icon: "local_bar" },
 ];
 
 export default function MobileBottomNav() {
@@ -18,7 +19,7 @@ export default function MobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-outline-variant/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur shadow-[0_-2px_10px_rgba(20,33,61,0.06)] md:hidden"
       aria-label="Primary mobile navigation"
     >
-      <div className="mx-auto grid h-[68px] max-w-lg grid-cols-4">
+      <div className="mx-auto grid h-[68px] max-w-lg grid-cols-5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 

@@ -230,8 +230,17 @@ export default async function SearchPage({
                     &quot;
                   </h2>
                   <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-on-surface-variant">
-                    Try searching for dishes like Tibs, Kitfo, Shiro, Pizza, or a restaurant name.
+                    Try searching for dishes like Tibs, Kitfo, Shiro, Pizza, or ask our conversational assistant.
                   </p>
+                  <div className="mt-4">
+                    <Link
+                      href="/assistant"
+                      className="inline-flex items-center gap-2 rounded-xl bg-primary-container/80 px-4 py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                      Ask Cafnet Food Assistant
+                    </Link>
+                  </div>
                   <div className="mt-6 flex flex-wrap justify-center gap-2">
                     {popularSearches.map((item) => (
                       <Link

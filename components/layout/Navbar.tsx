@@ -10,6 +10,7 @@ const navItems = [
   { label: "Restaurants", href: "/restaurants" },
   { label: "Cafés", href: "/cafes" },
   { label: "Drinks & More", href: "/drinks" },
+  { label: "Food Assistant", href: "/assistant" },
 ];
 
 export default function Navbar() {
@@ -90,6 +91,11 @@ export default function Navbar() {
               }`}
               href={item.href}
             >
+              {item.href === "/assistant" && (
+                <span className="material-symbols-outlined mr-1 text-[16px] text-primary" aria-hidden="true">
+                  auto_awesome
+                </span>
+              )}
               {item.label}
             </Link>
           ))}
@@ -361,6 +367,34 @@ export default function Navbar() {
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="border-b border-outline-variant py-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Discovery</p>
+              <Link
+                href="/assistant"
+                onClick={closeMobileMenu}
+                className="group flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary-container/20 p-3.5 transition-all duration-200 hover:border-primary/50 hover:bg-primary-container/40 active:scale-[0.98]"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                      auto_awesome
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-sm font-bold text-on-surface transition-colors group-hover:text-primary">
+                      AI Food Assistant
+                    </span>
+                    <p className="mt-0.5 truncate text-xs text-on-surface-variant">
+                      Find dishes by budget & area
+                    </p>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined shrink-0 text-[20px] text-on-surface-variant/70 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true">
+                  chevron_right
+                </span>
+              </Link>
             </div>
 
             <div className="border-b border-outline-variant py-5">
