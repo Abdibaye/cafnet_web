@@ -1,22 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { chatWithAssistant } from "@/lib/api/assistant";
-import { formatPriceEtb, businessToCardItem } from "@/lib/api/adapters";
-import type { FoodSearchResult, FoodSearchFilter, CanonicalDish } from "@/lib/api/types";
 import { useLocation } from "@/components/LocationProvider";
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  items?: FoodSearchResult[];
-  search_filter?: FoodSearchFilter | null;
-  canonical_dish?: CanonicalDish | null;
   follow_up_suggestions?: string[];
-  fallback_used?: boolean;
-  intent?: string;
   created_at: string;
   isError?: boolean;
 }
@@ -31,34 +23,92 @@ const STARTER_PROMPTS = [
   {
     icon: "local_fire_department",
     label: "Best Kitfo near Atlas",
-    query: "Best kitfo near Atlas with good rating",
+    query: "Where is the best kitfo near Atlas and what are typical prices?",
     category: "Traditional",
   },
   {
     icon: "savings",
     label: "Budget Shiro",
-    query: "Budget shiro in Kazanchis under 200 ETB",
+    query: "Where can I find budget shiro in Kazanchis under 200 ETB?",
     category: "Vegetarian",
   },
   {
     icon: "translate",
     label: "ምርጥ ክትፎ ቦሌ",
-    query: "ምርጥ ክትፎ ቦሌ በ 350 ብር በታች",
+    query: "ምርጥ ክትፎ ቦሌ በ 350 ብር በታች የት መብላት እችላለሁ?",
     category: "Amharic Search",
   },
   {
     icon: "lunch_dining",
     label: "Burgers under 400 ETB",
-    query: "Top rated burgers in Bole under 400 ETB",
+    query: "Which places in Bole serve burgers under 400 ETB?",
     category: "Fast Food",
   },
   {
-    icon: "local_cafe",
-    label: "Coffee in Piazza",
-    query: "Traditional coffee or macchiato in Piazza",
-    category: "Café & Coffee",
+    icon: "event_seat",
+    label: "Table Reservations",
+    query: "Which restaurants in Bole accept table reservations on Cafnet?",
+    category: "Reservations",
   },
 ];
+
+function renderFormattedLine(text: string) {
+  // Support **bold** markdown formatting
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-bold text-on-surface">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
+
+function FormattedMessage({ text }: { text: string }) {
+  const paragraphs = text.split(/\n\n+/);
+  return (
+    <div className="space-y-3 text-sm leading-relaxed text-on-surface">
+      {paragraphs.map((para, idx) => {
+        const lines = para.split("\n");
+        const isBulletList =
+          lines.length > 0 &&
+          lines.every(
+            (line) =>
+              line.trim().startsWith("•") ||
+              line.trim().startsWith("-") ||
+              line.trim().startsWith("*") ||
+              line.trim() === ""
+          );
+
+        if (isBulletList) {
+          return (
+            <ul key={idx} className="list-disc pl-5 space-y-1.5 text-on-surface">
+              {lines
+                .filter((l) => l.trim() !== "")
+                .map((line, lIdx) => (
+                  <li key={lIdx}>{renderFormattedLine(line.replace(/^[•\-\*]\s*/, ""))}</li>
+                ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={idx} className="whitespace-pre-wrap">
+            {lines.map((line, lIdx) => (
+              <span key={lIdx}>
+                {renderFormattedLine(line)}
+                {lIdx < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function FoodAssistantChat() {
   const { location: detectedLocation } = useLocation();
@@ -123,12 +173,7 @@ export default function FoodAssistantChat() {
         id: botMessageId,
         role: "assistant",
         content: response.message,
-        items: response.items || response.results || [],
-        search_filter: response.search_filter,
-        canonical_dish: response.canonical_dish,
         follow_up_suggestions: response.follow_up_suggestions || [],
-        fallback_used: response.fallback_used,
-        intent: response.intent,
         created_at: new Date().toISOString(),
       };
 
@@ -163,7 +208,7 @@ export default function FoodAssistantChat() {
     <div className="flex h-full min-h-[calc(100vh-5rem)] flex-col bg-background">
       {/* Top Header / Bar */}
       <div className="sticky top-16 z-20 border-b border-outline-variant/70 bg-white/95 backdrop-blur-md md:top-20">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-[#387bf7] text-white shadow-sm">
               <span className="material-symbols-outlined text-[22px]">auto_awesome</span>
@@ -175,11 +220,11 @@ export default function FoodAssistantChat() {
                 </h1>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200/60">
                   <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Verified Menus
+                  Gemini RAG
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant line-clamp-1">
-                Grounded search by dish, budget, and neighborhood across Addis Ababa
+                Grounded dining answers from verified Addis Ababa menus and documents
               </p>
             </div>
           </div>
@@ -202,7 +247,7 @@ export default function FoodAssistantChat() {
 
       {/* Conversation Thread */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-4xl space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6">
           {/* Empty State / Welcome Hero */}
           {messages.length === 0 && (
             <div className="py-6 sm:py-10">
@@ -214,8 +259,8 @@ export default function FoodAssistantChat() {
                   Where would you like to eat today?
                 </h2>
                 <p className="mx-auto mt-2 max-w-lg text-sm text-on-surface-variant sm:text-base leading-relaxed">
-                  Tell me what you are craving, your budget in ETB, or preferred neighborhood.
-                  I answer with real restaurant menus and verified prices.
+                  Ask anything about dishes, prices, hours, or neighborhoods across Addis Ababa.
+                  Answers are grounded in Cafnet's verified restaurant directory.
                 </p>
               </div>
 
@@ -272,11 +317,6 @@ export default function FoodAssistantChat() {
             }
 
             // Assistant Message
-            const hasItems = msg.items && msg.items.length > 0;
-            const filter = msg.search_filter;
-            const dishName = msg.canonical_dish?.name || filter?.query;
-            const hasCriteria = Boolean(dishName || filter?.neighborhood || filter?.max_price_etb_minor || filter?.min_rating);
-
             return (
               <div key={msg.id} className="flex items-start gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-container text-primary shadow-xs mt-1">
@@ -284,52 +324,12 @@ export default function FoodAssistantChat() {
                 </div>
 
                 <div className="flex-1 space-y-3 max-w-full">
-                  {/* Speech Bubble */}
-                  <div className="rounded-2xl rounded-tl-xs border border-outline-variant/70 bg-white p-4 text-on-surface shadow-xs">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {msg.content}
-                    </p>
-
-                    {/* Grounding Filter Badges */}
-                    {hasCriteria && (
-                      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-outline-variant/40 pt-2.5">
-                        <span className="text-[11px] font-semibold text-on-surface-variant">
-                          Understood:
-                        </span>
-                        {dishName && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-primary-container/70 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                            <span className="material-symbols-outlined text-[13px]">restaurant</span>
-                            Dish: {dishName}
-                          </span>
-                        )}
-                        {filter?.neighborhood && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-secondary-container/70 px-2 py-0.5 text-[11px] font-semibold text-secondary">
-                            <span className="material-symbols-outlined text-[13px]">location_on</span>
-                            Area: {filter.neighborhood}
-                          </span>
-                        )}
-                        {Boolean(filter?.max_price_etb_minor) && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200/50">
-                            <span className="material-symbols-outlined text-[13px]">payments</span>
-                            Budget: Under {(filter!.max_price_etb_minor! / 100).toLocaleString()} ETB
-                          </span>
-                        )}
-                        {Boolean(filter?.min_rating) && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200/50">
-                            <span className="material-symbols-outlined text-[13px]">star</span>
-                            ★ {filter!.min_rating}+
-                          </span>
-                        )}
-                        {msg.fallback_used && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-surface-container px-2 py-0.5 text-[10px] text-on-surface-variant">
-                            Exact match fallback
-                          </span>
-                        )}
-                      </div>
-                    )}
+                  {/* Natural Language RAG Speech Bubble */}
+                  <div className="rounded-2xl rounded-tl-xs border border-outline-variant/70 bg-white p-5 text-on-surface shadow-xs">
+                    <FormattedMessage text={msg.content} />
 
                     {msg.isError && (
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/50 pt-3">
                         <button
                           type="button"
                           onClick={() => {
@@ -344,112 +344,6 @@ export default function FoodAssistantChat() {
                       </div>
                     )}
                   </div>
-
-                  {/* Grounded Restaurant Cards Grid */}
-                  {hasItems && (
-                    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 pt-1">
-                      {msg.items!.map((item) => {
-                        const biz = item.business;
-                        const menuItem = item.menu_item;
-                        const area = biz.neighborhood || biz.location_name || "Addis Ababa";
-                        const priceFormatted = formatPriceEtb(menuItem.price_etb_minor);
-                        const cardItem = businessToCardItem(biz);
-                        const rating = item.rating || cardItem.rating || 0;
-                        const reviews = item.review_count || cardItem.reviews || 0;
-
-                        return (
-                          <div
-                            key={`${biz.id}-${menuItem.id}`}
-                            className="group flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-4 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-md"
-                          >
-                            <div>
-                              {/* Header: Restaurant name & Rating */}
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <Link
-                                    href={`/business/${biz.id}`}
-                                    className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors hover:underline"
-                                  >
-                                    {biz.name}
-                                  </Link>
-                                  <div className="mt-0.5 flex items-center gap-1 text-xs text-on-surface-variant">
-                                    <span className="material-symbols-outlined text-[13px] text-secondary">
-                                      location_on
-                                    </span>
-                                    <span>{area}</span>
-                                    {biz.cuisine && (
-                                      <>
-                                        <span>•</span>
-                                        <span>{biz.cuisine}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {rating > 0 && (
-                                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 border border-amber-200/60">
-                                    ★ {rating.toFixed(1)}
-                                    {reviews > 0 && (
-                                      <span className="text-[10px] text-amber-700/80 font-normal">
-                                        ({reviews})
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Authentic Menu Item Info */}
-                              <div className="mt-3.5 rounded-xl bg-surface-container-low/70 p-3 border border-outline-variant/40">
-                                <div className="flex items-baseline justify-between gap-2">
-                                  <h3 className="text-sm font-bold text-on-surface">
-                                    {menuItem.name}
-                                  </h3>
-                                  <span className="text-sm font-extrabold text-primary whitespace-nowrap">
-                                    {priceFormatted}
-                                  </span>
-                                </div>
-                                {menuItem.description && (
-                                  <p className="mt-1 line-clamp-2 text-xs text-on-surface-variant">
-                                    {menuItem.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Action Buttons & Taxonomy Tag */}
-                            <div className="mt-3.5 flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/40">
-                              {item.canonical_dish ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-primary-container/40 px-2 py-0.5 text-[10px] font-medium text-primary">
-                                  {item.canonical_dish.name}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-on-surface-variant">
-                                  Menu match
-                                </span>
-                              )}
-
-                              <div className="flex items-center gap-1.5">
-                                <Link
-                                  href={`/business/${biz.id}`}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-outline-variant/80 px-2.5 py-1 text-xs font-semibold text-on-surface hover:border-primary/50 hover:text-primary transition-colors"
-                                >
-                                  View Menu
-                                </Link>
-                                {biz.reservation_available !== false && (
-                                  <Link
-                                    href={`/reserve?business_id=${biz.id}`}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
-                                  >
-                                    Reserve
-                                  </Link>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
 
                   {/* Follow-up Suggestion Chips */}
                   {msg.follow_up_suggestions && msg.follow_up_suggestions.length > 0 && (
@@ -479,13 +373,13 @@ export default function FoodAssistantChat() {
             );
           })}
 
-          {/* Loading Indicator */}
+          {/* Loading State */}
           {isLoading && (
             <div className="flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-container text-primary shadow-xs animate-pulse">
                 <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
               </div>
-              <div className="rounded-2xl rounded-tl-xs border border-outline-variant/70 bg-white px-4 py-3 shadow-xs">
+              <div className="rounded-2xl rounded-tl-xs border border-outline-variant/70 bg-white px-5 py-4 shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <span className="size-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
@@ -493,7 +387,7 @@ export default function FoodAssistantChat() {
                     <span className="size-2 rounded-full bg-primary animate-bounce" />
                   </div>
                   <span className="text-xs text-on-surface-variant font-medium">
-                    Searching real restaurant menus & prices...
+                    Searching verified restaurant documents & generating answer...
                   </span>
                 </div>
               </div>
@@ -506,7 +400,7 @@ export default function FoodAssistantChat() {
 
       {/* Bottom Sticky Input Bar */}
       <div className="sticky bottom-0 z-20 border-t border-outline-variant/80 bg-white/95 px-4 py-3 backdrop-blur-md pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-6">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-3xl">
           {/* Location Context indicator */}
           <div className="mb-2 flex items-center justify-between text-xs text-on-surface-variant">
             <div className="flex items-center gap-1.5">
@@ -570,7 +464,7 @@ export default function FoodAssistantChat() {
           </form>
 
           <p className="mt-2 text-center text-[11px] text-on-surface-variant/70">
-            Powered by Cafnet AI & real restaurant database · Prices in Ethiopian Birr (ETB)
+            Powered by Cafnet Gemini RAG · Grounded in verified restaurant menus · Prices in ETB
           </p>
         </div>
       </div>
