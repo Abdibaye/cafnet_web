@@ -36,95 +36,68 @@ const CATEGORIES: CategoryFilter[] = [
 
 interface StarterPrompt {
   category: string;
-  badge: string;
   budget: string;
   label: string;
   query: string;
-  amharic: string;
   icon: string;
-  highlight?: string;
 }
 
 const STARTER_PROMPTS: StarterPrompt[] = [
   {
     category: "traditional",
     icon: "local_fire_department",
-    badge: "Traditional",
     budget: "< 450 ETB",
     label: "Best Kitfo near Atlas",
     query: "Where is the best kitfo near Atlas and what are typical prices?",
-    amharic: "አትላስ አካባቢ ምርጥ ክትፎ",
-    highlight: "Prime beef, spiced mitmita & ayib",
   },
   {
     category: "traditional",
     icon: "translate",
-    badge: "Amharic Search",
     budget: "< 350 ETB",
     label: "ምርጥ ክትፎ ቦሌ",
     query: "ምርጥ ክትፎ ቦሌ በ 350 ብር በታች የት መብላት እችላለሁ?",
-    amharic: "በቦሌ ተመጣጣኝ የባህል ምግብ",
-    highlight: "ትኩስ እና ተመጣጣኝ ባህላዊ ምርጫ",
   },
   {
     category: "meat",
     icon: "restaurant",
-    badge: "Sizzling Meat",
     budget: "< 300 ETB",
     label: "Sizzling Tibs in Bole",
     query: "Where can I eat sizzling tibs in Bole under 300 ETB?",
-    amharic: "ቦሌ ውስጥ ምርጥ ጥብስ በቅናሽ",
-    highlight: "Clay shekla sizzling beef or lamb",
   },
   {
     category: "fasting",
     icon: "spa",
-    badge: "Fasting & Vegan",
     budget: "< 200 ETB",
     label: "Budget Shiro in Kazanchis",
     query: "Where can I find flavorful budget shiro in Kazanchis under 200 ETB?",
-    amharic: "ካዛንቺስ ተጋቢኖ ሽሮ",
-    highlight: "Clay pot tegabino with fresh chili",
   },
   {
     category: "cafe",
     icon: "coffee",
-    badge: "Specialty Café",
     budget: "Wi-Fi & Work",
     label: "Quiet Cafés with Great Coffee",
     query: "Which specialty cafés in Bole or Sarbet have good seating and top-tier Ethiopian coffee?",
-    amharic: "ለስራ ምቹ ጸጥ ያሉ ካፌዎች",
-    highlight: "Single-origin roast, pour-over, quiet corners",
   },
   {
     category: "fastfood",
     icon: "lunch_dining",
-    badge: "Quick Bites",
     budget: "< 400 ETB",
     label: "Top Burgers under 400 ETB",
     query: "Which places in Bole serve high-rated burgers under 400 ETB?",
-    amharic: "ቦሌ ውስጥ ጥራት ያለው ፈጣን በርገር",
-    highlight: "Smash patties, brioche buns, fresh fries",
   },
   {
     category: "reservations",
     icon: "event_seat",
-    badge: "Instant Table",
     budget: "Reservations",
     label: "Book a Dinner Table in Bole",
     query: "Which top restaurants in Bole accept online table reservations on Cafnet?",
-    amharic: "ጠረጴዛ ማስያዝ የሚቻልባቸው",
-    highlight: "Confirmed seating without the wait",
   },
   {
     category: "fasting",
     icon: "eco",
-    badge: "Fasting Feast",
     budget: "< 350 ETB",
     label: "Generous Beyaynetu Platter",
     query: "Where can I find the most generous vegetarian Beyaynetu platter in Addis Ababa?",
-    amharic: "ምርጥ የጾም በያይነቱ ቅንብር",
-    highlight: "10+ hearty lentil, gomen, and vegetable stews",
   },
 ];
 
