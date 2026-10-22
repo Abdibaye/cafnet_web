@@ -477,25 +477,15 @@ export default function FoodAssistantChat() {
           )}
 
           {/* =========================================================================
-              IMPECCABLE HERO CONCIERGE STATE (when no messages yet)
+              CLEAN HERO CONCIERGE STATE (when no messages yet)
               ========================================================================= */}
           {messages.length === 0 && (
             <div className="pt-2 pb-8 sm:pt-6">
-              {/* Refined Concierge Heading */}
-              <div className="text-center max-w-2xl mx-auto mb-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-secondary/30 bg-secondary-container/60 px-3.5 py-1 text-xs font-bold text-secondary mb-4 shadow-2xs">
-                  <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
-                  <span>Cafnet Culinary Concierge · Grounded AI</span>
-                </div>
+              {/* Clean Minimal Heading */}
+              <div className="text-center max-w-2xl mx-auto mb-6">
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-on-surface">
                   Where would you like to eat?
                 </h1>
-                <p className="mt-1.5 text-sm sm:text-base font-medium text-secondary">
-                  ምርጥ ምግብ የት መብላት ይፈልጋሉ?
-                </p>
-                <p className="mt-3 text-xs sm:text-sm text-on-surface-variant leading-relaxed max-w-xl mx-auto">
-                  Instant culinary recommendations grounded in verified Addis Ababa restaurant menus, live ETB prices, and neighborhood gems.
-                </p>
               </div>
 
               {/* Elevated Command Input Capsule */}
@@ -623,84 +613,56 @@ export default function FoodAssistantChat() {
                 </div>
               </div>
 
-              {/* Curated Taste Vibes Section */}
-              <div className="mt-8 border-t border-outline-variant/60 pt-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                  <div>
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface">
-                      Curated Culinary Inspirations
-                    </h2>
-                    <p className="text-xs text-on-surface-variant">
-                      Tap any scenario to explore verified restaurants and verified prices
-                    </p>
-                  </div>
-
-                  {/* Category Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {CATEGORIES.map((cat) => {
-                      const isSelected = selectedCategory === cat.id;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setSelectedCategory(cat.id)}
-                          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-foreground text-white shadow-xs"
-                              : "border border-outline-variant/70 bg-white text-on-surface-variant hover:border-outline hover:text-on-surface"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
-                          <span>{cat.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Prompt Cards: Clean, High-Craft Editorial Layout */}
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredPrompts.map((starter) => (
+              {/* Category Filter Pills */}
+              <div className="mt-8 mb-4 flex items-center justify-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {CATEGORIES.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  return (
                     <button
-                      key={starter.query}
+                      key={cat.id}
                       type="button"
-                      onClick={() => handleSendMessage(starter.query)}
-                      className="group relative flex flex-col justify-between rounded-2xl border border-outline-variant/80 bg-white p-4.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-secondary/40 hover:shadow-md cursor-pointer"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-foreground text-white shadow-xs"
+                          : "border border-outline-variant/70 bg-white text-on-surface-variant hover:border-outline hover:text-on-surface"
+                      }`}
                     >
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-950 border border-amber-300/70">
-                            {starter.budget}
-                          </span>
-                          <span className="rounded-md bg-surface-container px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">
-                            {starter.badge}
-                          </span>
-                        </div>
-
-                        <h3 className="mt-3 text-sm font-bold text-on-surface group-hover:text-primary transition-colors flex items-center justify-between">
-                          <span>{starter.label}</span>
-                          <span className="material-symbols-outlined text-[16px] text-outline group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                            north_east
-                          </span>
-                        </h3>
-
-                        {starter.highlight && (
-                          <p className="mt-1 text-[11px] font-medium text-secondary">
-                            {starter.highlight}
-                          </p>
-                        )}
-
-                        <p className="mt-1.5 text-xs text-on-surface-variant/80 leading-relaxed line-clamp-2">
-                          "{starter.query}"
-                        </p>
-                      </div>
-
-                      <div className="mt-3.5 pt-2.5 border-t border-outline-variant/50 text-[11.5px] font-bold text-on-surface-variant group-hover:text-secondary transition-colors">
-                        {starter.amharic}
-                      </div>
+                      <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
+                      <span>{cat.label}</span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
+
+              {/* Clean, Streamlined Prompt Cards */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredPrompts.map((starter) => (
+                  <button
+                    key={starter.query}
+                    type="button"
+                    onClick={() => handleSendMessage(starter.query)}
+                    className="group flex flex-col justify-between rounded-xl border border-outline-variant/80 bg-white p-4 text-left shadow-2xs transition-all duration-150 hover:border-primary/50 hover:shadow-xs hover:-translate-y-0.5 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-[18px] text-secondary shrink-0">
+                          {starter.icon}
+                        </span>
+                        <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors truncate">
+                          {starter.label}
+                        </h3>
+                      </div>
+                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-950 border border-amber-300/60 shrink-0">
+                        {starter.budget}
+                      </span>
+                    </div>
+
+                    <p className="mt-2.5 text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
+                      {starter.query}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
