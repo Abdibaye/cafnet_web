@@ -74,35 +74,62 @@ export default async function Home() {
       <SplitSearchBar />
 
       {/* AI Food Assistant Discovery Banner */}
-      <section className="mx-auto max-w-7xl px-5 pt-3 pb-2 lg:px-12">
+      <section className="mx-auto max-w-7xl px-5 pt-3 pb-3 lg:px-12">
         <Link
           href="/assistant"
-          className="group relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary-container/40 via-white to-secondary-container/30 p-5 md:p-6 shadow-xs transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+          className="group relative flex flex-col md:flex-row items-start md:items-center justify-between gap-5 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-r from-primary-container/60 via-white to-secondary-container/40 p-6 md:p-7 shadow-sm transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5"
         >
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-              <span className="material-symbols-outlined text-[26px]">auto_awesome</span>
+          {/* Subtle decorative glow */}
+          <div className="pointer-events-none absolute -top-12 -right-12 size-40 rounded-full bg-primary/10 blur-2xl" />
+
+          <div className="flex items-start md:items-center gap-4">
+            <div className="relative flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary via-[#2563eb] to-[#f97316] text-white shadow-md shadow-primary/25 transition-transform duration-300 group-hover:scale-105">
+              <span className="material-symbols-outlined text-[28px]">auto_awesome</span>
+              <span className="absolute -top-1 -right-1 size-3 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400" />
             </div>
+
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-secondary">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-secondary">
                   AI Food Discovery
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Gemini RAG
                 </span>
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                   New
                 </span>
               </div>
-              <h2 className="mt-0.5 text-base font-bold text-on-surface md:text-lg group-hover:text-primary transition-colors">
+
+              <h2 className="mt-1 text-base font-extrabold text-on-surface md:text-xl group-hover:text-primary transition-colors">
                 Know what you want, but not where to find it?
               </h2>
-              <p className="mt-0.5 text-xs text-on-surface-variant md:text-sm">
-                Ask our Food Assistant: <span className="italic font-medium">"Best kitfo in Bole under 350 ETB"</span> or <span className="italic font-medium">"ምርጥ ክትፎ ቦሌ"</span>
+
+              <p className="mt-1 text-xs text-on-surface-variant md:text-sm leading-relaxed">
+                Ask our Food Assistant in English or Amharic for dishes, live ETB prices, and neighborhood spots.
               </p>
+
+              {/* Sample prompt pills */}
+              <div className="mt-2.5 hidden sm:flex items-center gap-2 flex-wrap">
+                <span className="rounded-lg bg-surface-container-low px-2 py-0.5 text-[11px] font-semibold text-on-surface border border-outline-variant/60">
+                  💡 "Best kitfo in Bole under 350 ETB"
+                </span>
+                <span className="rounded-lg bg-surface-container-low px-2 py-0.5 text-[11px] font-semibold text-on-surface border border-outline-variant/60">
+                  🇪🇹 "ምርጥ ክትፎ ቦሌ"
+                </span>
+                <span className="rounded-lg bg-surface-container-low px-2 py-0.5 text-[11px] font-semibold text-on-surface border border-outline-variant/60">
+                  ☕ "Quiet cafés in Kazanchis"
+                </span>
+              </div>
             </div>
           </div>
-          <div className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-xs group-hover:bg-[#0f46b8] transition-colors">
-            Ask Assistant
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+
+          <div className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-tr from-primary to-[#2563eb] px-5 py-3 text-xs font-bold text-white shadow-md shadow-primary/20 group-hover:scale-105 group-hover:shadow-lg transition-all">
+            <span>Ask Food Assistant</span>
+            <span className="material-symbols-outlined text-[18px] transition-transform duration-200 group-hover:translate-x-1">
+              arrow_forward
+            </span>
           </div>
         </Link>
       </section>
