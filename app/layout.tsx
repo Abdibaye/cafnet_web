@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -42,7 +43,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geocoder`}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-on-surface"><CustomerProvider><ReservationProvider><CustomerReviewProvider><BusinessOwnerProvider><LocationProvider><Navbar /><main className="flex-1 w-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] pt-16 md:pb-0 md:pt-20">{children}</main><Footer /><MobileBottomNav /></LocationProvider></BusinessOwnerProvider></CustomerReviewProvider></ReservationProvider></CustomerProvider></body>
+      <body className="min-h-full flex flex-col bg-background text-on-surface">
+        <CustomerProvider>
+          <ReservationProvider>
+            <CustomerReviewProvider>
+              <BusinessOwnerProvider>
+                <LocationProvider>
+                  <Navbar />
+                  <main className="flex-1 w-full bg-background pb-[calc(5rem+env(safe-area-inset-bottom))] pt-16 md:pb-0 md:pt-20">{children}</main>
+                  <Footer />
+                  <MobileBottomNav />
+                </LocationProvider>
+              </BusinessOwnerProvider>
+            </CustomerReviewProvider>
+          </ReservationProvider>
+        </CustomerProvider>
+        <Analytics />
+      </body>
     </html>
   );
 }
