@@ -21,17 +21,16 @@ interface CategoryFilter {
   id: string;
   label: string;
   icon: string;
-  color: string;
 }
 
 const CATEGORIES: CategoryFilter[] = [
-  { id: "all", label: "All Cravings", icon: "explore", color: "from-blue-600 to-indigo-600" },
-  { id: "traditional", label: "Traditional (ባህላዊ)", icon: "local_fire_department", color: "from-amber-600 to-orange-600" },
-  { id: "meat", label: "Tibs & Grills", icon: "restaurant", color: "from-rose-600 to-red-600" },
-  { id: "fasting", label: "Fasting & Shiro (የጾም)", icon: "spa", color: "from-emerald-600 to-teal-600" },
-  { id: "cafe", label: "Cafés & Coffee", icon: "coffee", color: "from-yellow-700 to-amber-700" },
-  { id: "fastfood", label: "Burgers & Casual", icon: "lunch_dining", color: "from-blue-500 to-cyan-600" },
-  { id: "reservations", label: "Table Bookings", icon: "event_seat", color: "from-purple-600 to-indigo-600" },
+  { id: "all", label: "All", icon: "explore" },
+  { id: "traditional", label: "Traditional (ባህላዊ)", icon: "local_fire_department" },
+  { id: "meat", label: "Tibs & Grills", icon: "restaurant" },
+  { id: "fasting", label: "Fasting & Shiro (የጾም)", icon: "spa" },
+  { id: "cafe", label: "Cafés & Coffee", icon: "coffee" },
+  { id: "fastfood", label: "Burgers & Casual", icon: "lunch_dining" },
+  { id: "reservations", label: "Table Bookings", icon: "event_seat" },
 ];
 
 const STARTER_PROMPTS = [
@@ -43,7 +42,6 @@ const STARTER_PROMPTS = [
     label: "Best Kitfo near Atlas",
     query: "Where is the best kitfo near Atlas and what are typical prices?",
     amharic: "አትላስ አካባቢ ምርጥ ክትፎ",
-    accent: "border-amber-200/80 bg-amber-50/40 text-amber-900",
     iconBg: "bg-amber-500/10 text-amber-600",
   },
   {
@@ -54,7 +52,6 @@ const STARTER_PROMPTS = [
     label: "ምርጥ ክትፎ ቦሌ",
     query: "ምርጥ ክትፎ ቦሌ በ 350 ብር በታች የት መብላት እችላለሁ?",
     amharic: "በቦሌ ተመጣጣኝ የባህል ምግብ",
-    accent: "border-orange-200/80 bg-orange-50/40 text-orange-900",
     iconBg: "bg-orange-500/10 text-orange-600",
   },
   {
@@ -65,7 +62,6 @@ const STARTER_PROMPTS = [
     label: "Tibs in Bole",
     query: "Where can I eat sizzling tibs in Bole under 300 ETB?",
     amharic: "ቦሌ ውስጥ ምርጥ ጥብስ በቅናሽ",
-    accent: "border-rose-200/80 bg-rose-50/40 text-rose-900",
     iconBg: "bg-rose-500/10 text-rose-600",
   },
   {
@@ -76,7 +72,6 @@ const STARTER_PROMPTS = [
     label: "Budget Shiro in Kazanchis",
     query: "Where can I find flavorful budget shiro in Kazanchis under 200 ETB?",
     amharic: "ካዛንቺስ ተጋቢኖ ሽሮ",
-    accent: "border-emerald-200/80 bg-emerald-50/40 text-emerald-900",
     iconBg: "bg-emerald-500/10 text-emerald-600",
   },
   {
@@ -87,7 +82,6 @@ const STARTER_PROMPTS = [
     label: "Quiet Cafés with Great Coffee",
     query: "Which specialty cafés in Bole or Sarbet have good seating and top-tier Ethiopian coffee?",
     amharic: "ለስራ ምቹ ካፌዎች",
-    accent: "border-amber-200/80 bg-amber-50/30 text-amber-900",
     iconBg: "bg-amber-700/10 text-amber-800",
   },
   {
@@ -98,18 +92,16 @@ const STARTER_PROMPTS = [
     label: "Burgers under 400 ETB",
     query: "Which places in Bole serve high-rated burgers under 400 ETB?",
     amharic: "ቦሌ ውስጥ ፈጣን በርገር",
-    accent: "border-cyan-200/80 bg-cyan-50/40 text-cyan-900",
     iconBg: "bg-cyan-600/10 text-cyan-700",
   },
   {
     category: "reservations",
     icon: "event_seat",
     badge: "Reservations",
-    budget: "Instant Confirmation",
+    budget: "Instant Booking",
     label: "Book a Table in Bole",
     query: "Which top restaurants in Bole accept online table reservations on Cafnet?",
     amharic: "ጠረጴዛ ማስያዝ የሚቻልባቸው",
-    accent: "border-purple-200/80 bg-purple-50/40 text-purple-900",
     iconBg: "bg-purple-600/10 text-purple-700",
   },
   {
@@ -120,7 +112,6 @@ const STARTER_PROMPTS = [
     label: "Beyaynetu Platter",
     query: "Where can I find the most generous vegetarian Beyaynetu platter in Addis Ababa?",
     amharic: "ምርጥ የጾም በያይነቱ",
-    accent: "border-teal-200/80 bg-teal-50/40 text-teal-900",
     iconBg: "bg-teal-600/10 text-teal-700",
   },
 ];
@@ -154,7 +145,6 @@ const LOADING_STEPS = [
 ];
 
 function renderFormattedLine(text: string) {
-  // Regex: match bold text (**text**), prices (e.g. 350 ETB or 350 ብር), and location tags
   const parts = text.split(/(\*\*[^*]+\*\*|\b\d+(?:[.,]\d+)?\s*(?:ETB|Birr|ብር)\b)/gi);
 
   return parts.map((part, i) => {
@@ -165,7 +155,6 @@ function renderFormattedLine(text: string) {
         </strong>
       );
     }
-    // Highlighted currency price pill
     if (/\b\d+(?:[.,]\d+)?\s*(?:ETB|Birr|ብር)\b/i.test(part)) {
       return (
         <span
@@ -469,144 +458,35 @@ export default function FoodAssistantChat() {
     <div className="relative flex min-h-[calc(100vh-5rem)] flex-col bg-background">
       {/* Background Ambient Glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[360px] bg-gradient-to-b from-primary/8 via-amber-500/5 to-transparent blur-3xl opacity-80" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-b from-primary/5 via-amber-500/5 to-transparent blur-3xl opacity-60" />
       </div>
 
-      {/* Top Header / Status Bar */}
-      <header className="sticky top-16 z-20 border-b border-outline-variant/60 bg-white/85 backdrop-blur-xl md:top-20">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-          {/* Left: Branding & Model Pill */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex size-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary via-[#2563eb] to-[#f97316] text-white shadow-md shadow-primary/20">
-              <span className="material-symbols-outlined text-[22px]">auto_awesome</span>
-              <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400" />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-sm font-bold tracking-tight text-on-surface sm:text-base">
-                  Cafnet Food Assistant
-                </h1>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
-                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Gemini RAG
-                </span>
-                <span className="hidden sm:inline-flex items-center rounded-full bg-surface-container-low px-2 py-0.5 text-[10px] font-semibold text-on-surface-variant border border-outline-variant/60">
-                  Verified Menus
-                </span>
-              </div>
-              <p className="text-[11px] text-on-surface-variant line-clamp-1">
-                Grounded Addis Ababa restaurant menus with live ETB prices
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Neighborhood Selector & Reset Controls */}
-          <div className="flex items-center gap-2">
-            {/* Neighborhood Pill Dropdown */}
-            <div className="relative" ref={locationMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsLocationMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-xl border border-outline-variant/80 bg-white px-2.5 py-1.5 text-xs font-semibold text-on-surface hover:border-primary/50 transition-colors shadow-2xs cursor-pointer"
-                title="Change searching area"
-              >
-                <span className="material-symbols-outlined text-[15px] text-secondary">
-                  location_on
-                </span>
-                <span className="max-w-[100px] truncate sm:max-w-[130px]">
-                  {activeLocation || "All Addis Ababa"}
-                </span>
-                <span className="material-symbols-outlined text-[14px] text-outline">
-                  arrow_drop_down
-                </span>
-              </button>
-
-              {isLocationMenuOpen && (
-                <div className="absolute right-0 mt-1.5 w-52 rounded-2xl border border-outline-variant bg-white p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-outline">
-                    Select Neighborhood
-                  </div>
-                  <div className="max-h-60 overflow-y-auto space-y-0.5">
-                    {POPULAR_NEIGHBORHOODS.map((neighborhood) => {
-                      const isSelected =
-                        (neighborhood === "All Addis Ababa" && !activeLocation) ||
-                        activeLocation === neighborhood;
-                      return (
-                        <button
-                          key={neighborhood}
-                          type="button"
-                          onClick={() => {
-                            setActiveLocation(
-                              neighborhood === "All Addis Ababa" ? "" : neighborhood
-                            );
-                            setIsLocationMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-left transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-primary text-white font-semibold"
-                              : "text-on-surface hover:bg-surface-container-low"
-                          }`}
-                        >
-                          <span>{neighborhood}</span>
-                          {isSelected && (
-                            <span className="material-symbols-outlined text-[14px]">check</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Clear / New Chat */}
-            {messages.length > 0 && (
+      {/* Main Conversation Canvas */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="mx-auto max-w-4xl space-y-5">
+          {/* Active Chat Header Bar (only shown when conversation has started) */}
+          {messages.length > 0 && (
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/50 text-xs">
+              <span className="font-semibold text-on-surface-variant flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                Food Assistant Active
+              </span>
               <button
                 type="button"
                 onClick={handleResetSession}
-                className="inline-flex items-center gap-1 rounded-xl border border-outline-variant/80 bg-white px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant hover:border-outline hover:text-on-surface transition-colors cursor-pointer shadow-2xs"
-                title="Start a new chat session"
+                className="inline-flex items-center gap-1 rounded-lg border border-outline-variant bg-white px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:border-outline transition cursor-pointer shadow-2xs"
               >
-                <span className="material-symbols-outlined text-[16px]">refresh</span>
-                <span className="hidden sm:inline">New Chat</span>
+                <span className="material-symbols-outlined text-[15px]">refresh</span>
+                <span>New Chat</span>
               </button>
-            )}
-          </div>
-        </div>
-      </header>
+            </div>
+          )}
 
-      {/* Main Conversation Canvas */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-4xl space-y-6">
-          {/* Empty State / Discovery Hub */}
+          {/* Clean & Focused Empty State (Category Pills + Prompt Grid) */}
           {messages.length === 0 && (
-            <div className="py-4 sm:py-8">
-              {/* Hero Banner */}
-              <div className="text-center">
-                <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/20 bg-gradient-to-r from-primary-container/60 via-white to-secondary-container/40 px-3.5 py-1 shadow-2xs mb-4">
-                  <span className="material-symbols-outlined text-[16px] text-primary">
-                    magic_button
-                  </span>
-                  <span className="text-xs font-extrabold tracking-wide uppercase text-primary">
-                    Ethiopian Culinary AI
-                  </span>
-                </div>
-
-                <h2 className="text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl md:text-5xl">
-                  What are you{" "}
-                  <span className="bg-gradient-to-r from-primary via-[#1e40af] to-[#ea580c] bg-clip-text text-transparent">
-                    craving today?
-                  </span>
-                </h2>
-                <p className="mx-auto mt-3 max-w-xl text-sm text-on-surface-variant sm:text-base leading-relaxed">
-                  Ask in English or Amharic (አማርኛ). Grounded in verified restaurant menus, accurate
-                  ETB prices, and neighborhoods across Addis Ababa.
-                </p>
-              </div>
-
-              {/* Mood / Category Pills */}
-              <div className="mt-8 flex items-center justify-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+            <div className="pt-2 pb-4">
+              {/* Category Pills */}
+              <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
                 {CATEGORIES.map((cat) => {
                   const isSelected = selectedCategory === cat.id;
                   return (
@@ -620,7 +500,7 @@ export default function FoodAssistantChat() {
                           : "border border-outline-variant/80 bg-white text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
                       }`}
                     >
-                      <span className="material-symbols-outlined text-[16px]">{cat.icon}</span>
+                      <span className="material-symbols-outlined text-[15px]">{cat.icon}</span>
                       <span>{cat.label}</span>
                     </button>
                   );
@@ -628,34 +508,34 @@ export default function FoodAssistantChat() {
               </div>
 
               {/* Starter Prompts Grid */}
-              <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredPrompts.map((starter) => (
                   <button
                     key={starter.query}
                     type="button"
                     onClick={() => handleSendMessage(starter.query)}
-                    className="group relative flex flex-col justify-between rounded-2xl border border-outline-variant/70 bg-white p-4.5 text-left shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg cursor-pointer"
+                    className="group relative flex flex-col justify-between rounded-2xl border border-outline-variant/70 bg-white p-4 text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md cursor-pointer"
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <span
-                          className={`flex size-8 shrink-0 items-center justify-center rounded-xl ${starter.iconBg}`}
+                          className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${starter.iconBg}`}
                         >
-                          <span className="material-symbols-outlined text-[18px]">
+                          <span className="material-symbols-outlined text-[16px]">
                             {starter.icon}
                           </span>
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <span className="rounded-md bg-surface-container-low px-2 py-0.5 text-[10px] font-bold text-on-surface-variant border border-outline-variant/50">
+                          <span className="rounded-md bg-surface-container-low px-1.5 py-0.5 text-[10px] font-bold text-on-surface-variant border border-outline-variant/50">
                             {starter.budget}
                           </span>
-                          <span className="rounded-md bg-primary-container/40 px-2 py-0.5 text-[10px] font-bold text-primary">
+                          <span className="rounded-md bg-primary-container/40 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                             {starter.badge}
                           </span>
                         </div>
                       </div>
 
-                      <h3 className="mt-3 text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                      <h3 className="mt-2.5 text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
                         {starter.label}
                       </h3>
                       <p className="mt-1 text-xs text-on-surface-variant leading-relaxed line-clamp-2">
@@ -663,7 +543,7 @@ export default function FoodAssistantChat() {
                       </p>
                     </div>
 
-                    <div className="mt-3.5 flex items-center justify-between border-t border-outline-variant/40 pt-2.5 text-[11px] text-secondary font-semibold">
+                    <div className="mt-3 flex items-center justify-between border-t border-outline-variant/40 pt-2 text-[11px] text-secondary font-semibold">
                       <span className="truncate">{starter.amharic}</span>
                       <span className="material-symbols-outlined text-[16px] text-primary transition-transform duration-200 group-hover:translate-x-1">
                         arrow_forward
@@ -671,39 +551,6 @@ export default function FoodAssistantChat() {
                     </div>
                   </button>
                 ))}
-              </div>
-
-              {/* Quick Area Filter Suggestion */}
-              <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-xs text-on-surface-variant">
-                <span className="font-semibold text-on-surface flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[15px] text-secondary">
-                    near_me
-                  </span>
-                  Popular Areas:
-                </span>
-                {["Bole", "Kazanchis", "Atlas", "Sarbet", "Piassa"].map((area) => (
-                  <button
-                    key={area}
-                    type="button"
-                    onClick={() => setActiveLocation(area)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                      activeLocation === area
-                        ? "bg-secondary text-white"
-                        : "bg-surface-container-low text-on-surface hover:bg-surface-container"
-                    }`}
-                  >
-                    📍 {area}
-                  </button>
-                ))}
-                {activeLocation && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveLocation("")}
-                    className="text-[11px] text-secondary underline hover:opacity-80 cursor-pointer ml-1"
-                  >
-                    Reset to All Addis
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -860,11 +707,11 @@ export default function FoodAssistantChat() {
       </div>
 
       {/* Floating Bottom Input Dock */}
-      <div className="sticky bottom-0 z-20 border-t border-outline-variant/60 bg-white/85 px-4 py-3.5 backdrop-blur-xl pb-[calc(1rem+env(safe-area-inset-bottom))] md:px-6">
+      <div className="sticky bottom-0 z-20 border-t border-outline-variant/60 bg-white/85 px-4 py-3 backdrop-blur-xl pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-6">
         <div className="mx-auto max-w-4xl">
           {/* Quick Shortcuts Bar during chat */}
           {messages.length > 0 && (
-            <div className="mb-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               <span className="text-[11px] font-bold text-on-surface-variant shrink-0 mr-1">
                 Quick:
               </span>
@@ -881,27 +728,68 @@ export default function FoodAssistantChat() {
             </div>
           )}
 
-          {/* Location Area Context & Switcher */}
-          <div className="mb-2 flex items-center justify-between text-xs text-on-surface-variant">
+          {/* Location Area Context & Switcher Dropdown */}
+          <div className="mb-2 flex items-center justify-between text-xs text-on-surface-variant relative" ref={locationMenuRef}>
             <div className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[15px] text-secondary">
                 near_me
               </span>
-              <span>
-                Search scope:{" "}
-                <span className="font-bold text-on-surface">
-                  {activeLocation || "All Addis Ababa"}
-                </span>
-              </span>
+              <span>Scope:</span>
+              <button
+                type="button"
+                onClick={() => setIsLocationMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-0.5 font-bold text-on-surface hover:text-primary transition cursor-pointer"
+              >
+                <span>{activeLocation || "All Addis Ababa"}</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+              </button>
             </div>
+
             {activeLocation && (
               <button
                 type="button"
                 onClick={() => setActiveLocation("")}
                 className="hover:underline text-[11px] text-secondary font-semibold cursor-pointer"
               >
-                Clear location filter
+                Clear filter
               </button>
+            )}
+
+            {isLocationMenuOpen && (
+              <div className="absolute left-0 bottom-full mb-1.5 w-52 rounded-2xl border border-outline-variant bg-white p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-outline">
+                  Select Neighborhood
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-0.5">
+                  {POPULAR_NEIGHBORHOODS.map((neighborhood) => {
+                    const isSelected =
+                      (neighborhood === "All Addis Ababa" && !activeLocation) ||
+                      activeLocation === neighborhood;
+                    return (
+                      <button
+                        key={neighborhood}
+                        type="button"
+                        onClick={() => {
+                          setActiveLocation(
+                            neighborhood === "All Addis Ababa" ? "" : neighborhood
+                          );
+                          setIsLocationMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-left transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-primary text-white font-semibold"
+                            : "text-on-surface hover:bg-surface-container-low"
+                        }`}
+                      >
+                        <span>{neighborhood}</span>
+                        {isSelected && (
+                          <span className="material-symbols-outlined text-[14px]">check</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
 
