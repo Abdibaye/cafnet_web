@@ -17,89 +17,6 @@ export interface ChatMessage {
   isError?: boolean;
 }
 
-interface CategoryFilter {
-  id: string;
-  label: string;
-  amharicLabel?: string;
-  icon: string;
-}
-
-const CATEGORIES: CategoryFilter[] = [
-  { id: "all", label: "All Curations", amharicLabel: "ሁሉንም", icon: "restaurant" },
-  { id: "traditional", label: "Traditional", amharicLabel: "ባህላዊ", icon: "local_fire_department" },
-  { id: "meat", label: "Tibs & Grills", amharicLabel: "ጥብስ", icon: "skillet" },
-  { id: "fasting", label: "Fasting & Shiro", amharicLabel: "የጾም / ሽሮ", icon: "spa" },
-  { id: "cafe", label: "Cafés & Coffee", amharicLabel: "ቡና እና ካፌ", icon: "coffee" },
-  { id: "fastfood", label: "Burgers & Casual", amharicLabel: "በርገር", icon: "lunch_dining" },
-  { id: "reservations", label: "Table Bookings", amharicLabel: "ጠረጴዛ", icon: "event_seat" },
-];
-
-interface StarterPrompt {
-  category: string;
-  budget: string;
-  label: string;
-  query: string;
-  icon: string;
-}
-
-const STARTER_PROMPTS: StarterPrompt[] = [
-  {
-    category: "traditional",
-    icon: "local_fire_department",
-    budget: "< 450 ETB",
-    label: "Best Kitfo near Atlas",
-    query: "Where is the best kitfo near Atlas and what are typical prices?",
-  },
-  {
-    category: "traditional",
-    icon: "translate",
-    budget: "< 350 ETB",
-    label: "ምርጥ ክትፎ ቦሌ",
-    query: "ምርጥ ክትፎ ቦሌ በ 350 ብር በታች የት መብላት እችላለሁ?",
-  },
-  {
-    category: "meat",
-    icon: "restaurant",
-    budget: "< 300 ETB",
-    label: "Sizzling Tibs in Bole",
-    query: "Where can I eat sizzling tibs in Bole under 300 ETB?",
-  },
-  {
-    category: "fasting",
-    icon: "spa",
-    budget: "< 200 ETB",
-    label: "Budget Shiro in Kazanchis",
-    query: "Where can I find flavorful budget shiro in Kazanchis under 200 ETB?",
-  },
-  {
-    category: "cafe",
-    icon: "coffee",
-    budget: "Wi-Fi & Work",
-    label: "Quiet Cafés with Great Coffee",
-    query: "Which specialty cafés in Bole or Sarbet have good seating and top-tier Ethiopian coffee?",
-  },
-  {
-    category: "fastfood",
-    icon: "lunch_dining",
-    budget: "< 400 ETB",
-    label: "Top Burgers under 400 ETB",
-    query: "Which places in Bole serve high-rated burgers under 400 ETB?",
-  },
-  {
-    category: "reservations",
-    icon: "event_seat",
-    budget: "Reservations",
-    label: "Book a Dinner Table in Bole",
-    query: "Which top restaurants in Bole accept online table reservations on Cafnet?",
-  },
-  {
-    category: "fasting",
-    icon: "eco",
-    budget: "< 350 ETB",
-    label: "Generous Beyaynetu Platter",
-    query: "Where can I find the most generous vegetarian Beyaynetu platter in Addis Ababa?",
-  },
-];
 
 const POPULAR_NEIGHBORHOODS = [
   "All Addis Ababa",
@@ -304,7 +221,6 @@ export default function FoodAssistantChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStepIdx, setLoadingStepIdx] = useState(0);
   const [activeLocation, setActiveLocation] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
 
@@ -435,11 +351,6 @@ export default function FoodAssistantChat() {
       // ignore
     }
   };
-
-  const filteredPrompts =
-    selectedCategory === "all"
-      ? STARTER_PROMPTS
-      : STARTER_PROMPTS.filter((p) => p.category === selectedCategory);
 
   return (
     <div className="relative flex min-h-[calc(100vh-4rem)] flex-col bg-background">
@@ -613,57 +524,6 @@ export default function FoodAssistantChat() {
                 </div>
               </div>
 
-              {/* Category Filter Pills */}
-              <div className="mt-8 mb-4 flex items-center justify-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {CATEGORIES.map((cat) => {
-                  const isSelected = selectedCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-foreground text-white shadow-xs"
-                          : "border border-outline-variant/70 bg-white text-on-surface-variant hover:border-outline hover:text-on-surface"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
-                      <span>{cat.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Clean, Streamlined Prompt Cards */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredPrompts.map((starter) => (
-                  <button
-                    key={starter.query}
-                    type="button"
-                    onClick={() => handleSendMessage(starter.query)}
-                    className="group flex flex-col justify-between rounded-xl border border-outline-variant/80 bg-white p-4 text-left shadow-2xs transition-all duration-150 hover:border-primary/50 hover:shadow-xs hover:-translate-y-0.5 cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="material-symbols-outlined text-[18px] text-secondary shrink-0">
-                          {starter.icon}
-                        </span>
-                        <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors truncate">
-                          {starter.label}
-                        </h3>
-                      </div>
-                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-950 border border-amber-300/60 shrink-0">
-                        {starter.budget}
-                      </span>
-                    </div>
-
-                    <p className="mt-2.5 text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
-                      {starter.query}
-                    </p>
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 
