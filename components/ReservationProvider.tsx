@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import * as reservationsApi from "@/lib/api/reservations";
 import { ApiError } from "@/lib/api/errors";
@@ -70,157 +70,196 @@ export function ReservationProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("cafnet:reservations-updated", handleUpdate);
   }, [refreshReservations]);
 
-  const createReservation = async (
-    draft: Omit<MockReservation, "id" | "customerId" | "status" | "createdAt">,
-  ): Promise<MockReservation | null> => {
-    if (!currentUser) return null;
+  const createReservation = useCallback(
+    async (
+      draft: Omit<MockReservation, "id" | "customerId" | "status" | "createdAt">,
+    ): Promise<MockReservation | null> => {
+      if (!currentUser) return null;
 
-    try {
-      const apiTime = formatReservationTimeForApi(draft.time);
+      try {
+        const apiTime = formatReservationTimeForApi(draft.time);
 
-      const created = await reservationsApi.createReservation({
-        business_id: draft.businessId,
-        party_size: draft.partySize,
-        reservation_date: draft.date,
-        reservation_time: apiTime,
-        special_request: draft.specialRequest?.trim() || "",
-        customer_name: currentUser.name,
-        customer_phone: draft.customerPhone || currentUser.phone || "",
-      });
+        const created = await reservationsApi.createReservation({
+          business_id: draft.businessId,
+          party_size: draft.partySize,
+          reservation_date: draft.date,
+          reservation_time: apiTime,
+          special_request: draft.specialRequest?.trim() || "",
+          customer_name: currentUser.name,
+          customer_phone: draft.customerPhone || currentUser.phone || "",
+        });
 
-      const viewModel = reservationToViewModel(created);
-      setReservations((prev) => [viewModel, ...prev.filter((r) => r.id !== viewModel.id)]);
-      showToast("Reservation request submitted — awaiting restaurant confirmation");
-      return viewModel;
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        showToast(err.message);
-        return null;
+        const viewModel = reservationToViewModel(created);
+        setReservations((prev) => [viewModel, ...prev.filter((r) => r.id !== viewModel.id)]);
+        showToast("Reservation request submitted — awaiting restaurant confirmation");
+        return viewModel;
+      } catch (err: unknown) {
+        if (err instanceof ApiError) {
+          showToast(err.message);
+          return null;
+        }
+
+        // Offline / fallback mock storage
+        const fallback: MockReservation = {
+          ...draft,
+          id: `CAF-${String(Date.now()).slice(-4)}`,
+          customerId: currentUser.id,
+          customerName: currentUser.name,
+          customerPhone: draft.customerPhone || currentUser.phone || "",
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        };
+        const next = [fallback, ...reservations];
+        setReservations(next);
+        saveReservations(next);
+        showToast("Reservation request submitted — awaiting restaurant confirmation");
+        return fallback;
+      }
+    },
+    [currentUser, reservations, showToast],
+  );
+
+  const cancelReservation = useCallback(
+    async (id: string): Promise<ReservationResult> => {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+      if (currentUser && isUuid) {
+        try {
+          await reservationsApi.cancelReservation(id);
+          setReservations((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? { ...r, status: "cancelled", cancelledAt: new Date().toISOString() }
+                : r,
+            ),
+          );
+          showToast("Reservation cancelled");
+          return { success: true };
+        } catch (err: unknown) {
+          const msg = err instanceof ApiError ? err.message : "Failed to cancel reservation";
+          showToast(msg);
+          return { success: false, error: msg };
+        }
       }
 
-      // Offline / fallback mock storage
-      const fallback: MockReservation = {
-        ...draft,
-        id: `CAF-${String(Date.now()).slice(-4)}`,
-        customerId: currentUser.id,
-        customerName: currentUser.name,
-        customerPhone: draft.customerPhone || currentUser.phone || "",
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      };
-      const next = [fallback, ...reservations];
-      setReservations(next);
-      saveReservations(next);
-      showToast("Reservation request submitted — awaiting restaurant confirmation");
-      return fallback;
-    }
-  };
+      const res = storageCancelReservation(id);
+      if (res.success) {
+        refreshReservations();
+        showToast("Reservation cancelled");
+      } else if (res.error) {
+        showToast(res.error);
+      }
+      return res;
+    },
+    [currentUser, refreshReservations, showToast],
+  );
 
-  const cancelReservation = async (id: string): Promise<ReservationResult> => {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-    if (currentUser && isUuid) {
-      try {
-        await reservationsApi.cancelReservation(id);
+  const confirmBooking = useCallback(
+    (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+      const res = confirmReservation(id, reviewerName);
+      if (res.success) {
         setReservations((prev) =>
           prev.map((r) =>
             r.id === id
-              ? { ...r, status: "cancelled", cancelledAt: new Date().toISOString() }
+              ? { ...r, status: "confirmed", confirmedAt: new Date().toISOString(), reviewedBy: reviewerName }
               : r,
           ),
         );
-        showToast("Reservation cancelled");
-        return { success: true };
-      } catch (err: unknown) {
-        const msg = err instanceof ApiError ? err.message : "Failed to cancel reservation";
-        showToast(msg);
-        return { success: false, error: msg };
+        showToast("Reservation confirmed");
+      } else if (res.error) {
+        showToast(res.error);
       }
-    }
+      return res;
+    },
+    [showToast],
+  );
 
-    const res = storageCancelReservation(id);
-    if (res.success) {
-      refreshReservations();
-      showToast("Reservation cancelled");
-    } else if (res.error) {
-      showToast(res.error);
-    }
-    return res;
-  };
+  const declineBooking = useCallback(
+    (id: string, reason: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+      const res = declineReservation(id, reason, reviewerName);
+      if (res.success) {
+        setReservations((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, status: "declined", declineReason: reason, declinedAt: new Date().toISOString(), reviewedBy: reviewerName }
+              : r,
+          ),
+        );
+        showToast("Reservation declined");
+      } else if (res.error) {
+        showToast(res.error);
+      }
+      return res;
+    },
+    [showToast],
+  );
 
-  const confirmBooking = (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
-    const res = confirmReservation(id, reviewerName);
-    if (res.success) {
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status: "confirmed", confirmedAt: new Date().toISOString(), reviewedBy: reviewerName }
-            : r,
-        ),
-      );
-      showToast("Reservation confirmed");
-    } else if (res.error) {
-      showToast(res.error);
-    }
-    return res;
-  };
+  const completeBooking = useCallback(
+    (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
+      const res = completeReservation(id, reviewerName);
+      if (res.success) {
+        setReservations((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, status: "completed", completedAt: new Date().toISOString(), reviewedBy: reviewerName }
+              : r,
+          ),
+        );
+        showToast("Reservation marked as completed");
+      } else if (res.error) {
+        showToast(res.error);
+      }
+      return res;
+    },
+    [showToast],
+  );
 
-  const declineBooking = (id: string, reason: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
-    const res = declineReservation(id, reason, reviewerName);
-    if (res.success) {
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status: "declined", declineReason: reason, declinedAt: new Date().toISOString(), reviewedBy: reviewerName }
-            : r,
-        ),
-      );
-      showToast("Reservation declined");
-    } else if (res.error) {
-      showToast(res.error);
-    }
-    return res;
-  };
+  const customerReservations = useMemo(
+    () => (currentUser ? reservations.filter((reservation) => reservation.customerId === currentUser.id) : []),
+    [currentUser, reservations],
+  );
 
-  const completeBooking = (id: string, reviewerName: string = "Restaurant Manager"): ReservationResult => {
-    const res = completeReservation(id, reviewerName);
-    if (res.success) {
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status: "completed", completedAt: new Date().toISOString(), reviewedBy: reviewerName }
-            : r,
-        ),
-      );
-      showToast("Reservation marked as completed");
-    } else if (res.error) {
-      showToast(res.error);
-    }
-    return res;
-  };
+  const getReservation = useCallback(
+    (id: string) =>
+      customerReservations.find((reservation) => reservation.id === id) ||
+      reservations.find((r) => r.id === id),
+    [customerReservations, reservations],
+  );
 
-  const customerReservations = currentUser
-    ? reservations.filter((reservation) => reservation.customerId === currentUser.id)
-    : [];
+  const getReservationsForBusiness = useCallback(
+    (businessId: number) => reservations.filter((r) => r.businessId === businessId),
+    [reservations],
+  );
+
+  const contextValue = useMemo<ReservationContextValue>(
+    () => ({
+      ready,
+      reservations: customerReservations,
+      allReservations: reservations,
+      getReservation,
+      getReservationsForBusiness,
+      createReservation,
+      cancelReservation,
+      confirmBooking,
+      declineBooking,
+      completeBooking,
+    }),
+    [
+      ready,
+      customerReservations,
+      reservations,
+      getReservation,
+      getReservationsForBusiness,
+      createReservation,
+      cancelReservation,
+      confirmBooking,
+      declineBooking,
+      completeBooking,
+    ],
+  );
 
   return (
-    <ReservationContext.Provider
-      value={{
-        ready,
-        reservations: customerReservations,
-        allReservations: reservations,
-        getReservation: (id) =>
-          customerReservations.find((reservation) => reservation.id === id) ||
-          reservations.find((r) => r.id === id),
-        getReservationsForBusiness: (businessId) =>
-          reservations.filter((r) => r.businessId === businessId),
-        createReservation,
-        cancelReservation,
-        confirmBooking,
-        declineBooking,
-        completeBooking,
-      }}
-    >
+    <ReservationContext.Provider value={contextValue}>
       {children}
     </ReservationContext.Provider>
   );

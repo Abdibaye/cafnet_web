@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import type { BusinessClaim, BusinessSubmission } from "@/data/businessOwnerStorage";
 import {
@@ -341,37 +341,63 @@ export function BusinessOwnerProvider({ children }: { children: React.ReactNode 
     return getUpdateTypeIconAdapter(type);
   }, []);
 
+  const contextValue = useMemo<BusinessOwnerContextValue>(
+    () => ({
+      ready,
+      claims,
+      submissions,
+      managedBusinesses,
+      rawManagedBusinesses,
+      isBusinessManaged,
+      getClaim,
+      getManagedBusiness,
+      getEditableData,
+      hasUnsavedChanges,
+      submitClaim,
+      submitBusiness,
+      createManagedBusiness,
+      updateManagedBusiness,
+      refreshManagedData,
+      availableTags,
+      priceRangeOptions,
+      categoryOptions,
+      updateTypeOptions,
+      getUpdatesByBusiness,
+      getUpdateById,
+      createUpdate,
+      updateExistingUpdate,
+      deleteExistingUpdate,
+      getUpdateTypeLabel,
+      getUpdateTypeIcon,
+    }),
+    [
+      ready,
+      claims,
+      submissions,
+      managedBusinesses,
+      rawManagedBusinesses,
+      isBusinessManaged,
+      getClaim,
+      getManagedBusiness,
+      getEditableData,
+      hasUnsavedChanges,
+      submitClaim,
+      submitBusiness,
+      createManagedBusiness,
+      updateManagedBusiness,
+      refreshManagedData,
+      getUpdatesByBusiness,
+      getUpdateById,
+      createUpdate,
+      updateExistingUpdate,
+      deleteExistingUpdate,
+      getUpdateTypeLabel,
+      getUpdateTypeIcon,
+    ],
+  );
+
   return (
-    <BusinessOwnerContext.Provider
-      value={{
-        ready,
-        claims,
-        submissions,
-        managedBusinesses,
-        rawManagedBusinesses,
-        isBusinessManaged,
-        getClaim,
-        getManagedBusiness,
-        getEditableData,
-        hasUnsavedChanges,
-        submitClaim,
-        submitBusiness,
-        createManagedBusiness,
-        updateManagedBusiness,
-        refreshManagedData,
-        availableTags,
-        priceRangeOptions,
-        categoryOptions,
-        updateTypeOptions,
-        getUpdatesByBusiness,
-        getUpdateById,
-        createUpdate,
-        updateExistingUpdate,
-        deleteExistingUpdate,
-        getUpdateTypeLabel,
-        getUpdateTypeIcon,
-      }}
-    >
+    <BusinessOwnerContext.Provider value={contextValue}>
       {children}
     </BusinessOwnerContext.Provider>
   );

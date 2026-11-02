@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useCustomer } from "@/components/CustomerProvider";
 import { useReservations } from "@/components/ReservationProvider";
 import * as reviewsApi from "@/lib/api/reviews";
@@ -85,163 +85,209 @@ export function CustomerReviewProvider({ children }: { children: React.ReactNode
     };
   }, [refreshReviews]);
 
-  const createReview = async (
-    reservationId: string,
-    businessId: number,
-    rating: number,
-    text: string,
-  ): Promise<CustomerReview | null> => {
-    if (!currentUser || rating < 1 || rating > 5 || text.length > 1000) return null;
-    if (reviews.some((review) => review.reservationId === reservationId)) {
-      showToast("A review has already been submitted for this visit.");
-      return null;
-    }
+  const createReview = useCallback(
+    async (
+      reservationId: string,
+      businessId: number,
+      rating: number,
+      text: string,
+    ): Promise<CustomerReview | null> => {
+      if (!currentUser || rating < 1 || rating > 5 || text.length > 1000) return null;
+      if (reviews.some((review) => review.reservationId === reservationId)) {
+        showToast("A review has already been submitted for this visit.");
+        return null;
+      }
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reservationId);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reservationId);
 
-    if (isUuid) {
-      try {
-        const created = await reviewsApi.createReview({
-          reservation_id: reservationId,
-          business_id: businessId,
-          rating,
-          review_text: text.trim(),
-        });
-        const viewModel = reviewToViewModel(created, currentUser.name, currentUser.avatar);
-        setReviews((prev) => [viewModel, ...prev]);
-        showToast("Review posted");
-        return viewModel;
-      } catch (err: unknown) {
-        if (err instanceof ApiError) {
-          showToast(err.message);
-          return null;
+      if (isUuid) {
+        try {
+          const created = await reviewsApi.createReview({
+            reservation_id: reservationId,
+            business_id: businessId,
+            rating,
+            review_text: text.trim(),
+          });
+          const viewModel = reviewToViewModel(created, currentUser.name, currentUser.avatar);
+          setReviews((prev) => [viewModel, ...prev]);
+          showToast("Review posted");
+          return viewModel;
+        } catch (err: unknown) {
+          if (err instanceof ApiError) {
+            showToast(err.message);
+            return null;
+          }
         }
       }
-    }
 
-    // Local / fallback review creation
-    const review: CustomerReview = {
-      id: `customer-review-${Date.now()}`,
-      businessId,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
-      customerId: currentUser.id,
-      reservationId,
-      rating,
-      text: text.trim(),
-      date: "Just now",
-      createdAt: new Date().toISOString(),
-      helpfulCount: 0,
-      helpfulByCustomer: [],
-      verifiedVisit: true,
-    };
+      // Local / fallback review creation
+      const review: CustomerReview = {
+        id: `customer-review-${Date.now()}`,
+        businessId,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar,
+        customerId: currentUser.id,
+        reservationId,
+        rating,
+        text: text.trim(),
+        date: "Just now",
+        createdAt: new Date().toISOString(),
+        helpfulCount: 0,
+        helpfulByCustomer: [],
+        verifiedVisit: true,
+      };
 
-    const next = [review, ...reviews];
-    setReviews(next);
-    saveCustomerReviews(next);
-    showToast("Review posted");
-    return review;
-  };
+      const next = [review, ...reviews];
+      setReviews(next);
+      saveCustomerReviews(next);
+      showToast("Review posted");
+      return review;
+    },
+    [currentUser, reviews, showToast],
+  );
 
-  const updateReview = async (
-    reviewId: string,
-    rating: number,
-    text: string,
-  ): Promise<boolean> => {
-    if (rating < 1 || rating > 5 || text.length > 1000) return false;
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
+  const updateReview = useCallback(
+    async (
+      reviewId: string,
+      rating: number,
+      text: string,
+    ): Promise<boolean> => {
+      if (rating < 1 || rating > 5 || text.length > 1000) return false;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
 
-    if (currentUser && isUuid) {
-      try {
-        const updated = await reviewsApi.updateReview(reviewId, {
-          rating,
-          review_text: text.trim(),
-        });
-        setReviews((prev) =>
-          prev.map((r) =>
-            r.id === reviewId
-              ? { ...r, rating: updated.rating, text: updated.review_text, date: "Just now" }
-              : r,
-          ),
-        );
-        showToast("Review updated");
-        return true;
-      } catch (err: unknown) {
-        const msg = err instanceof ApiError ? err.message : "Failed to update review";
-        showToast(msg);
-        return false;
+      if (currentUser && isUuid) {
+        try {
+          const updated = await reviewsApi.updateReview(reviewId, {
+            rating,
+            review_text: text.trim(),
+          });
+          setReviews((prev) =>
+            prev.map((r) =>
+              r.id === reviewId
+                ? { ...r, rating: updated.rating, text: updated.review_text, date: "Just now" }
+                : r,
+            ),
+          );
+          showToast("Review updated");
+          return true;
+        } catch (err: unknown) {
+          const msg = err instanceof ApiError ? err.message : "Failed to update review";
+          showToast(msg);
+          return false;
+        }
       }
-    }
 
-    const exists = reviews.some((r) => r.id === reviewId);
-    if (!exists) return false;
+      const exists = reviews.some((r) => r.id === reviewId);
+      if (!exists) return false;
 
-    const next = reviews.map((review) =>
-      review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review,
-    );
-    setReviews(next);
-    saveCustomerReviews(next);
-    showToast("Review updated");
-    return true;
-  };
+      const next = reviews.map((review) =>
+        review.id === reviewId ? { ...review, rating, text: text.trim(), date: "Just now" } : review,
+      );
+      setReviews(next);
+      saveCustomerReviews(next);
+      showToast("Review updated");
+      return true;
+    },
+    [currentUser, reviews, showToast],
+  );
 
-  const deleteReview = async (reviewId: string): Promise<boolean> => {
-    if (!currentUser) return false;
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
+  const deleteReview = useCallback(
+    async (reviewId: string): Promise<boolean> => {
+      if (!currentUser) return false;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
 
-    if (isUuid) {
-      try {
-        await reviewsApi.deleteReview(reviewId);
+      if (isUuid) {
+        try {
+          await reviewsApi.deleteReview(reviewId);
+          setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+          showToast("Review deleted");
+          return true;
+        } catch (err: unknown) {
+          const msg = err instanceof ApiError ? err.message : "Failed to delete review";
+          showToast(msg);
+          return false;
+        }
+      }
+
+      const target = reviews.find((r) => r.id === reviewId);
+      if (!target || target.customerId !== currentUser.id) return false;
+
+      const success = deleteCustomerReview(reviewId, currentUser.id);
+      if (success) {
         setReviews((prev) => prev.filter((r) => r.id !== reviewId));
         showToast("Review deleted");
-        return true;
-      } catch (err: unknown) {
-        const msg = err instanceof ApiError ? err.message : "Failed to delete review";
-        showToast(msg);
-        return false;
       }
-    }
+      return success;
+    },
+    [currentUser, reviews, showToast],
+  );
 
-    const target = reviews.find((r) => r.id === reviewId);
-    if (!target || target.customerId !== currentUser.id) return false;
+  const customerReservations = useMemo(() => (currentUser ? reservations : []), [currentUser, reservations]);
+  const userReviews = useMemo(() => (currentUser ? reviews.filter((r) => r.customerId === currentUser.id) : []), [currentUser, reviews]);
 
-    const success = deleteCustomerReview(reviewId, currentUser.id);
-    if (success) {
-      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-      showToast("Review deleted");
-    }
-    return success;
-  };
+  const getReviewsForBusiness = useCallback(
+    (businessId: number) => reviews.filter((review) => review.businessId === businessId),
+    [reviews],
+  );
 
-  const customerReservations = currentUser ? reservations : [];
-  const userReviews = currentUser ? reviews.filter((r) => r.customerId === currentUser.id) : [];
+  const getCustomerReviewForBusiness = useCallback(
+    (businessId: number) => reviews.find((review) => review.businessId === businessId),
+    [reviews],
+  );
+
+  const getReviewForReservation = useCallback(
+    (reservationId: string) => reviews.find((review) => review.reservationId === reservationId),
+    [reviews],
+  );
+
+  const getReviewById = useCallback(
+    (reviewId: string) => reviews.find((review) => review.id === reviewId),
+    [reviews],
+  );
+
+  const eligibleReservations = useCallback(
+    (businessId: number) =>
+      customerReservations.filter(
+        (reservation) =>
+          reservation.businessId === businessId &&
+          isReservationEligible(reservation.date, reservation.status) &&
+          !reviews.some((review) => review.reservationId === reservation.id),
+      ),
+    [customerReservations, reviews],
+  );
+
+  const contextValue = useMemo<CustomerReviewContextValue>(
+    () => ({
+      ready,
+      reviews,
+      userReviews,
+      getReviewsForBusiness,
+      getCustomerReviewForBusiness,
+      getReviewForReservation,
+      getReviewById,
+      eligibleReservations,
+      createReview,
+      updateReview,
+      deleteReview,
+    }),
+    [
+      ready,
+      reviews,
+      userReviews,
+      getReviewsForBusiness,
+      getCustomerReviewForBusiness,
+      getReviewForReservation,
+      getReviewById,
+      eligibleReservations,
+      createReview,
+      updateReview,
+      deleteReview,
+    ],
+  );
 
   return (
-    <CustomerReviewContext.Provider
-      value={{
-        ready,
-        reviews,
-        userReviews,
-        getReviewsForBusiness: (businessId) =>
-          reviews.filter((review) => review.businessId === businessId),
-        getCustomerReviewForBusiness: (businessId) =>
-          reviews.find((review) => review.businessId === businessId),
-        getReviewForReservation: (reservationId) =>
-          reviews.find((review) => review.reservationId === reservationId),
-        getReviewById: (reviewId) => reviews.find((review) => review.id === reviewId),
-        eligibleReservations: (businessId) =>
-          customerReservations.filter(
-            (reservation) =>
-              reservation.businessId === businessId &&
-              isReservationEligible(reservation.date, reservation.status) &&
-              !reviews.some((review) => review.reservationId === reservation.id),
-          ),
-        createReview,
-        updateReview,
-        deleteReview,
-      }}
-    >
+    <CustomerReviewContext.Provider value={contextValue}>
       {children}
     </CustomerReviewContext.Provider>
   );

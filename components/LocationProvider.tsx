@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   reverseGeocode,
   getCachedLocation,
@@ -152,18 +152,21 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const contextValue = useMemo<LocationContextValue>(
+    () => ({
+      location,
+      placeholder,
+      coordinates,
+      geoStatus,
+      isDetecting,
+      detectLocation,
+      setLocation,
+    }),
+    [location, placeholder, coordinates, geoStatus, isDetecting, detectLocation, setLocation],
+  );
+
   return (
-    <LocationContext.Provider
-      value={{
-        location,
-        placeholder,
-        coordinates,
-        geoStatus,
-        isDetecting,
-        detectLocation,
-        setLocation,
-      }}
-    >
+    <LocationContext.Provider value={contextValue}>
       {children}
     </LocationContext.Provider>
   );
