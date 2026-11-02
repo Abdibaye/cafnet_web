@@ -78,7 +78,13 @@ function getBoundingBoxFallback(lat: number, lon: number): string {
  * with graceful offline / boundary fallback.
  */
 export async function reverseGeocode(lat: number, lon: number): Promise<string> {
-  // 1. Try Google Maps JS SDK Geocoder if loaded and available
+  // 1. Instant local bounding box resolution for core Addis Ababa neighborhoods (0ms)
+  const localMatch = getBoundingBoxFallback(lat, lon);
+  if (localMatch && localMatch !== "Addis Ababa" && localMatch !== "Current location") {
+    return localMatch;
+  }
+
+  // 2. Try Google Maps JS SDK Geocoder if loaded and available
   if (typeof window !== "undefined" && window.google?.maps?.Geocoder) {
     try {
       const googleResult = await new Promise<string | null>((resolve) => {
@@ -109,10 +115,10 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
     }
   }
 
-  // 2. Fallback to OSM Nominatim
+  // 3. Fallback to OSM Nominatim with a fast 2000ms timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=en`;
     const res = await fetch(url, {
@@ -143,8 +149,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
     // Continue to fallback
   }
 
-  // 3. Fallback based on coordinate location
-  return getBoundingBoxFallback(lat, lon);
+  // 4. Default bounding box fallback
+  return localMatch || getBoundingBoxFallback(lat, lon);
 }
 
 /**

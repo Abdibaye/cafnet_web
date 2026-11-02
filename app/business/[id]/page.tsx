@@ -10,6 +10,8 @@ import { getBusinessProfile } from "@/lib/api/businesses";
 import { publicProfileToViewModel } from "@/lib/api/adapters";
 import { ApiError } from "@/lib/api/errors";
 
+export const revalidate = 60; // ISR: cache profile page for 60 seconds
+
 export async function generateMetadata({
   params,
 }: {
