@@ -8,6 +8,10 @@ import {
   type GeoStatus,
 } from "@/lib/location";
 
+export interface DetectLocationOptions {
+  highAccuracy?: boolean;
+}
+
 export interface LocationContextValue {
   /** The loaded user location name (e.g. "Bole", "Kazanchis", "Addis Ababa") */
   location: string;
@@ -20,7 +24,7 @@ export interface LocationContextValue {
   /** True while actively querying browser GPS or reverse geocoding */
   isDetecting: boolean;
   /** Function to trigger or re-trigger location detection */
-  detectLocation: () => void;
+  detectLocation: (options?: DetectLocationOptions) => void;
   /** Function to set/override the location manually */
   setLocation: (loc: string) => void;
 }
@@ -55,7 +59,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const hasTriggeredInitial = useRef(false);
 
-  const detectLocation = useCallback(() => {
+  const detectLocation = useCallback((options?: DetectLocationOptions) => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       setGeoStatus("error");
       setIsDetecting(false);
@@ -70,6 +74,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     if (!cached?.label) {
       setPlaceholder("Detecting location...");
     }
+
+    const useHighAccuracy = options?.highAccuracy ?? false;
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -125,20 +131,22 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         }
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
+        enableHighAccuracy: useHighAccuracy,
+        timeout: useHighAccuracy ? 10000 : 5000,
         maximumAge: 300000, // 5 minutes
       }
     );
   }, []);
 
-  // When user opens platform, automatically load location
+  // When user opens platform, only auto-detect if no cached location is present
   useEffect(() => {
     if (hasTriggeredInitial.current) return;
     hasTriggeredInitial.current = true;
 
-    // Trigger automatic location detection on mount
-    detectLocation();
+    const cached = getCachedLocation();
+    if (!cached?.label) {
+      detectLocation({ highAccuracy: false });
+    }
   }, [detectLocation]);
 
   const setLocation = useCallback((newLoc: string) => {
