@@ -6,6 +6,10 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   params?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
   timeoutMs?: number;
+  next?: {
+    revalidate?: number | false;
+    tags?: string[];
+  };
 }
 
 export interface ClientResponse<T> {
@@ -68,9 +72,12 @@ export async function apiClient<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;
+  const isMutation = fetchOptions.method && fetchOptions.method !== "GET";
+  const resolvedCache = fetchOptions.cache ?? (fetchOptions.next ? undefined : (isMutation ? "no-store" : undefined));
+
   try {
     response = await fetch(fullUrl, {
-      cache: fetchOptions.cache || "no-store",
+      ...(resolvedCache !== undefined ? { cache: resolvedCache } : {}),
       ...fetchOptions,
       headers,
       body: serializedBody,

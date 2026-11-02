@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 
 type BusinessImageGalleryProps = {
   images: string[];
@@ -43,9 +44,68 @@ export default function BusinessImageGallery({ images, businessName }: BusinessI
   return (
     <div id="photos" className="mb-8 scroll-mt-36">
       <div className="relative grid h-[min(27rem,62vw)] grid-cols-1 gap-2 overflow-hidden rounded-2xl bg-surface-container md:grid-cols-[minmax(0,2fr)_minmax(13rem,1fr)]">
-        <button type="button" className="block h-full w-full cursor-zoom-in" onClick={() => setIsLightboxOpen(true)} aria-label={`Open photo ${activeIndex + 1} full screen`}><img alt={`${businessName} — photo ${activeIndex + 1} of ${count}`} className="h-full w-full object-cover" src={images[activeIndex]} onError={(e) => { (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg"; }} /></button>
-        {count > 1 && <div className="absolute inset-x-0 bottom-0 flex justify-between p-3 md:inset-y-0 md:bottom-auto md:items-center"><button type="button" onClick={goPrev} className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55" aria-label="Previous photo"><span className="material-symbols-outlined text-[20px]">chevron_left</span></button><button type="button" onClick={goNext} className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55" aria-label="Next photo"><span className="material-symbols-outlined text-[20px]">chevron_right</span></button></div>}
-        {count > 1 && <div className="hidden grid-cols-2 grid-rows-2 gap-2 md:grid">{images.slice(1, 5).map((src, index) => <button key={`${src}-side-${index}`} type="button" onClick={() => setActiveIndex(index + 1)} className="overflow-hidden bg-surface-container" aria-label={`Show photo ${index + 2}`}><img alt="" className="h-full w-full object-cover transition-transform hover:scale-[1.03]" src={src} onError={(e) => { (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg"; }} /></button>)}</div>}
+        <button
+          type="button"
+          className="relative block h-full w-full cursor-zoom-in"
+          onClick={() => setIsLightboxOpen(true)}
+          aria-label={`Open photo ${activeIndex + 1} full screen`}
+        >
+          <Image
+            alt={`${businessName} — photo ${activeIndex + 1} of ${count}`}
+            className="object-cover"
+            src={images[activeIndex] || "/images/cafnet-placeholder.svg"}
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 66vw"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+            }}
+          />
+        </button>
+        {count > 1 && (
+          <div className="absolute inset-x-0 bottom-0 flex justify-between p-3 md:inset-y-0 md:bottom-auto md:items-center">
+            <button
+              type="button"
+              onClick={goPrev}
+              className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55"
+              aria-label="Previous photo"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              className="flex size-9 items-center justify-center rounded-full bg-black/35 text-white transition-colors hover:bg-black/55"
+              aria-label="Next photo"
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+          </div>
+        )}
+        {count > 1 && (
+          <div className="hidden grid-cols-2 grid-rows-2 gap-2 md:grid">
+            {images.slice(1, 5).map((src, index) => (
+              <button
+                key={`${src}-side-${index}`}
+                type="button"
+                onClick={() => setActiveIndex(index + 1)}
+                className="relative overflow-hidden bg-surface-container"
+                aria-label={`Show photo ${index + 2}`}
+              >
+                <Image
+                  alt=""
+                  className="object-cover transition-transform hover:scale-[1.03]"
+                  src={src || "/images/cafnet-placeholder.svg"}
+                  fill
+                  sizes="16vw"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {count > 1 && (

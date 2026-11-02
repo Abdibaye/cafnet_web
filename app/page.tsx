@@ -4,8 +4,7 @@ import SplitSearchBar from "@/components/sections/SplitSearchBar";
 import { listBusinesses } from "@/lib/api/businesses";
 import { businessToCardItem } from "@/lib/api/adapters";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 120; // ISR: revalidate homepage cache every 2 minutes
 
 const cuisines = ["Ethiopian", "Italian", "Asian", "Indian", "Bakery", "Coffee"];
 

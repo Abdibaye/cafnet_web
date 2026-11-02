@@ -11,8 +11,7 @@ export const metadata: Metadata = {
   description: "Discover juice bars, lounges, and drinks spots in Addis Ababa.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 120; // ISR: revalidate drinks directory cache every 2 minutes
 
 export default async function DrinksPage() {
   let items: BusinessCardItem[] = [];

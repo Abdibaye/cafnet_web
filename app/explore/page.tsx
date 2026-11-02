@@ -12,8 +12,7 @@ export const metadata: Metadata = {
   description: "Discover the best restaurants, cafés, and drinks spots in Addis Ababa.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 120; // ISR: revalidate explore feed cache every 2 minutes
 
 function BusinessSection({
   heading,

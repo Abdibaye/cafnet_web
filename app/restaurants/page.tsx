@@ -11,8 +11,7 @@ export const metadata: Metadata = {
   description: "Find the best restaurants in Addis Ababa.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 120; // ISR: revalidate restaurants directory cache every 2 minutes
 
 export default async function RestaurantsPage() {
   let items: BusinessCardItem[] = [];

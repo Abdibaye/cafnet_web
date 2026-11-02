@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCustomer } from "@/components/CustomerProvider";
 import { deleteBusiness } from "@/lib/api/businesses";
 
@@ -40,6 +41,7 @@ export default function BusinessCard({ item, onDelete }: BusinessCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
+  const [imgSrc, setImgSrc] = useState(item.image || "/images/cafnet-placeholder.svg");
 
   const saved = isSaved(item.id);
   const [place, distance] = (item.location || "").split(/,\s*(?=\d)/, 2);
@@ -52,13 +54,15 @@ export default function BusinessCard({ item, onDelete }: BusinessCardProps) {
   return (
     <article className="group flex min-h-97 flex-col overflow-hidden rounded-2xl border border-outline-variant/60 bg-white transition-[border-color,box-shadow] duration-200 hover:border-primary/30 hover:shadow-[0_8px_24px_rgba(20,33,61,0.07)]">
       <div className="relative h-52 w-full shrink-0 overflow-hidden bg-surface-container-low">
-        <Link href={`/business/${item.id}`} aria-label={`View ${item.name}`} className="block h-full">
-          <img
+        <Link href={`/business/${item.id}`} aria-label={`View ${item.name}`} className="relative block h-full w-full">
+          <Image
             alt={`${item.name} dining`}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-            src={item.image || "/images/cafnet-placeholder.svg"}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/images/cafnet-placeholder.svg";
+            className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            src={imgSrc}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            onError={() => {
+              setImgSrc("/images/cafnet-placeholder.svg");
             }}
           />
         </Link>

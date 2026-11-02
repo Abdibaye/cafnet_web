@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { api } from "./client";
 import type {
   Business,
@@ -38,25 +39,29 @@ export async function listBusinesses(
 /**
  * Retrieves the aggregated public profile for a single venue.
  * Supports both numeric ID and alphanumeric slug.
+ * Wrapped in React cache to deduplicate simultaneous calls in metadata & page rendering.
  */
-export async function getBusinessProfile(
-  idOrSlug: string | number,
-): Promise<PublicBusinessProfile> {
-  const res = await api.get<PublicBusinessProfile>(
-    `/api/v1/businesses/${encodeURIComponent(String(idOrSlug))}`,
-  );
-  return res.data;
-}
+export const getBusinessProfile = cache(
+  async (idOrSlug: string | number): Promise<PublicBusinessProfile> => {
+    const res = await api.get<PublicBusinessProfile>(
+      `/api/v1/businesses/${encodeURIComponent(String(idOrSlug))}`,
+    );
+    return res.data;
+  },
+);
 
 /**
  * Retrieves business basic information by URL slug.
+ * Wrapped in React cache to deduplicate calls within the same server request.
  */
-export async function getBusinessBySlug(slug: string): Promise<Business> {
-  const res = await api.get<Business>(
-    `/api/v1/slugs/${encodeURIComponent(slug)}`,
-  );
-  return res.data;
-}
+export const getBusinessBySlug = cache(
+  async (slug: string): Promise<Business> => {
+    const res = await api.get<Business>(
+      `/api/v1/slugs/${encodeURIComponent(slug)}`,
+    );
+    return res.data;
+  },
+);
 
 // ==========================================
 // Business Management Endpoints (ReBAC Protected)

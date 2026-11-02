@@ -11,8 +11,7 @@ export const metadata: Metadata = {
   description: "Explore top cafés and coffee shops in Addis Ababa.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 120; // ISR: revalidate cafes directory cache every 2 minutes
 
 export default async function CafesPage() {
   let items: BusinessCardItem[] = [];
